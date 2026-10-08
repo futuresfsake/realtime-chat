@@ -1,14 +1,15 @@
 ## What & why
-<!-- What does this PR change, and why? Link the story: US-XX / F-XX -->
+<!-- What does this PR change, and why? Link stories/features: US-XX / F-XX -->
 
 ## How to test
 1.
 2.
 
 ## Checklist
-- [ ] `npm run typecheck` passes
-- [ ] `npm test` passes (tests added/updated)
-- [ ] Manually tested in two tabs
-- [ ] New input validated with a zod schema (if any)
-- [ ] Docs updated (features / specs / LLD / threat model / README roadmap)
-- [ ] No secrets, no `innerHTML` with user data
+- [ ] `npm run typecheck` and `npm test` pass (tests added/updated)
+- [ ] Manually tested with 2–3 tabs (and a phone if UI changed)
+- [ ] New client input has a zod schema; new risk has a threat-model row
+- [ ] New data collected? → privacy data inventory updated
+- [ ] **No plaintext message content, keys or raw IPs reach the server or logs**
+- [ ] No `innerHTML` with user data
+- [ ] Docs updated (features / specs / LLD / milestones)

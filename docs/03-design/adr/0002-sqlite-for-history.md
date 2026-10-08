@@ -1,6 +1,6 @@
 # ADR-0002: Use SQLite (better-sqlite3) for message history
 
-- **Status:** Accepted, with open follow-up · **Date:** 2026-10-08
+- **Status:** ❌ **Superseded by [ADR-0005](0005-no-server-side-message-storage.md)** · **Date:** 2026-10-08
 
 ## Context
 We need to store recent messages per room. Single server instance, small data, $0 budget.

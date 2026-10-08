@@ -1,81 +1,201 @@
 # High-Level Design (HLD)
 
-The **big picture**: components, how they talk, where they run, and the main trade-offs.
+The **big picture**: what the parts are, where they run, and how a request travels through the system.
 
-## System context
+## 1. System context
 
 ```mermaid
 flowchart LR
-    U1["👤 User (laptop browser)"] -- HTTPS + WSS --> R
-    U2["👤 User (phone browser)"] -- HTTPS + WSS --> R
-    subgraph Render["Render (free web service, Singapore)"]
-        R["TLS + load balancer<br/>(managed by Render)"] --> N["Node.js process<br/>realtime-chat"]
-        N --- D[("SQLite file<br/>(ephemeral disk)")]
+    A["👤 Stranger A<br/>(browser, anywhere)"] -- "HTTPS + WSS<br/>(TLS)" --> EDGE
+    B["👤 Stranger B<br/>(browser, anywhere)"] -- "HTTPS + WSS<br/>(TLS)" --> EDGE
+    subgraph Render["Render (free web service · Singapore)"]
+        EDGE["Render edge<br/>TLS termination + proxy"] --> APP["Node.js process<br/>realtime-chat"]
+        APP --- GEO[("DB-IP Lite<br/>country DB file")]
     end
-    GH["GitHub repo"] -- "push to main → auto deploy" --> Render
-    CI["GitHub Actions CI"] -. "checks every PR" .-> GH
+    GH["GitHub<br/>repo + Actions CI"] -- "CI green → auto-deploy" --> Render
+    MON["Uptime monitor"] -. "GET /health every 5 min" .-> EDGE
 ```
 
-## Components
+**Key idea: the server is a blind relay.** Messages are encrypted in A's browser and decrypted in B's browser. The server matches people and forwards scrambled bytes, and it stores nothing.
+
+## 2. Components
+
+```mermaid
+flowchart TB
+    subgraph Client["Browser (public/)"]
+        UI["UI + themes<br/>index.html · styles.css"]
+        CL["client.js<br/>state machine · commands"]
+        CR["crypto.js<br/>WebCrypto E2EE"]
+        MEM[("Session history<br/>memory only")]
+    end
+    subgraph Server["Node.js (src/)"]
+        HTTP["Express<br/>static · /health · headers"]
+        GW["Socket gateway<br/>origin check · IP cap · rate limit · zod"]
+        SM["Session manager<br/>pairs of two · state machine"]
+        MM["Matchmaker<br/>interests · country · fallback"]
+        TS["Trust & safety<br/>reports · bans (hashed IP)"]
+        GEO["Geo lookup<br/>IP → country"]
+    end
+    CL --> CR --> MEM
+    CL <-->|"Socket.IO events"| GW
+    GW --> SM
+    GW --> MM
+    GW --> TS
+    MM --> GEO
+    UI -.-> HTTP
+```
 
 | Component | Responsibility | Tech |
 |---|---|---|
-| **Static frontend** | Layout, themes, rendering, slash commands | HTML, CSS variables, vanilla JS |
-| **HTTP layer** | Serve `public/`, `/health`, security headers | Express |
-| **Realtime layer** | Connections, rooms, broadcasting, reconnection | Socket.IO |
-| **Validation** | Reject malformed or oversized input | zod |
-| **Rate limiter** | Slow down spam per socket / IP | In-memory token bucket |
-| **Presence** | Who is in which room, who is typing | In-memory maps |
-| **Persistence** | Store and load message history | better-sqlite3 |
-| **Hosting** | TLS, build, run, health checks, auto-deploy | Render |
+| UI / client.js | Rendering, commands, client state, session history in memory | Vanilla JS |
+| crypto.js | Key generation, key exchange, encrypt/decrypt, safety code | WebCrypto |
+| Express | Static files, `/health`, security headers | Express + helmet |
+| Socket gateway | First line of defense: Origin, per-IP caps, rate limits, schema validation | Socket.IO + zod |
+| Session manager | Creates and ends 2-person sessions; relays envelopes to the partner only | In-memory maps |
+| Matchmaker | Waiting pool; interest/country matching; 10 s fallback | In-memory indexes |
+| Trust & safety | Reports, no-rematch, temporary bans by daily-salted IP hash | In-memory, TTL |
+| Geo lookup | IP → country code, then the IP is discarded | DB-IP Lite (MMDB) |
 
-## Main request flows
-
-**1. Page load:** browser → `GET /` over HTTPS → Express serves `index.html`, `styles.css`, `client.js`.
-
-**2. Connect:** `client.js` calls `io()` → HTTP handshake → upgrade to WebSocket (`wss://`) → server checks Origin and the IP connection count.
-
-**3. Send message:**
+## 3. User lifecycle
 
 ```mermaid
+stateDiagram-v2
+    [*] --> LANDING: open site
+    LANDING --> READY: confirm 18+ and accept rules
+    READY --> SEARCHING: /start
+    SEARCHING --> CHATTING: matched + keys exchanged
+    SEARCHING --> READY: /leave
+    CHATTING --> SEARCHING: /next or /report
+    CHATTING --> ENDED: partner left / timeout
+    CHATTING --> READY: /leave
+    ENDED --> SEARCHING: /next
+    ENDED --> READY: /leave
+```
+
+## 4. Request flows, step by step
+
+### Flow 1: Page load and connection
+```mermaid
 sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant E as Render edge (TLS)
+    participant X as Express
+    participant G as Socket gateway
+    B->>E: GET / (HTTPS)
+    E->>X: forward request
+    X-->>B: index.html + CSP and security headers
+    B->>X: GET styles.css, client.js, crypto.js, socket.io.js
+    B->>B: user confirms 18+ and rules
+    B->>G: Socket.IO handshake → upgrade to WebSocket (WSS)
+    G->>G: Origin in ALLOWED_ORIGINS?
+    G->>G: sockets from this IP < 5?
+    G->>G: IP hash banned?
+    G-->>B: connected (or refused with a reason)
+```
+1–3. The page and its security headers arrive over HTTPS; the CSP tells the browser to run only our scripts.
+4. Static files, served by our own server with no third-party CDNs.
+5. The consent gate is on the client and is enforced again on the server in step 1 of Flow 2.
+6–10. The gateway checks *who may connect* before any chat logic runs. It's cheap and it rejects abuse early.
+
+### Flow 2: Matchmaking
+```mermaid
+sequenceDiagram
+    autonumber
     participant A as Client A
-    participant S as Server
-    participant DB as SQLite
-    participant B as Client B (same room)
-    A->>S: chat:send { text }
-    S->>S: rate limit? → validate (zod) → build message (id, sentAt)
-    S->>DB: INSERT message (prepared statement)
-    S-->>A: ack { ok: true }
-    S->>A: chat:message
-    S->>B: chat:message
+    participant G as Gateway
+    participant M as Matchmaker
+    participant S as Session manager
+    participant C as Client B (waiting)
+    A->>G: session:start {consent, interests, scope}
+    G->>G: zod validate · rate limit (10/min)
+    G->>M: enqueue(A, interests, country=lookup(ip), scope)
+    M->>M: find compatible waiting user (shared interests → longest wait)
+    alt match found
+        M->>S: createSession(A, B)
+        S-->>A: session:matched {sessionId, partnerName, sharedInterests, role:"initiator"}
+        S-->>C: session:matched {sessionId, partnerName, sharedInterests, role:"responder"}
+    else none yet
+        M-->>A: ack {ok:true, status:"searching"}
+        Note over M: after 10 s → retry ignoring interests (fallback)
+    end
 ```
+- The country is looked up from the IP **on the server**; the IP isn't stored.
+- Names are generated by the server when the session is created (FR-01).
 
-## Key design decisions (see [`adr/`](adr/))
+### Flow 3: Key exchange and encrypted messaging
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Client A
+    participant S as Server (blind relay)
+    participant B as Client B
+    A->>A: generate ephemeral ECDH key pair
+    B->>B: generate ephemeral ECDH key pair
+    A->>S: e2e:key {publicKey_A}
+    S->>B: e2e:key {publicKey_A}
+    B->>S: e2e:key {publicKey_B}
+    S->>A: e2e:key {publicKey_B}
+    A->>A: ECDH → HKDF → keyA→B, keyB→A
+    B->>B: ECDH → HKDF → keyA→B, keyB→A
+    Note over A,B: 🔒 both show "end-to-end encrypted"
+    A->>A: encrypt("hi") with keyA→B, seq=1
+    A->>S: e2e:envelope {seq:1, ct:"q8Zf…"}
+    S->>S: validate shape and size · rate limit · is A in this session?
+    S->>B: e2e:envelope {seq:1, ct:"q8Zf…"}
+    B->>B: check seq > last · decrypt + authenticate → "hi"
+```
+- The server sees **public keys** (safe to share) and **ciphertext**. It never sees the shared secret or plaintext.
+- Details and limits: [04-security/e2ee.md](../04-security/e2ee.md).
 
-| Decision | Choice | Main reason |
+### Flow 4: Skip, report or disconnect
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Client A
+    participant S as Session manager
+    participant B as Client B
+    A->>S: session:next (or session:report {reason})
+    S->>S: end session · (report → no-rematch + count report)
+    S-->>B: session:ended {reason:"partner_left"}
+    S-->>A: ack {ok:true}
+    A->>A: wipe keys + history from memory
+    B->>B: wipe keys + history from memory
+    A->>S: (next) → back to Flow 2
+```
+A sudden disconnect follows the same path after the **30 s** recovery window.
+
+## 5. Deployment pipeline
+```mermaid
+flowchart LR
+    DEV["Codespace<br/>feature branch"] --> PR["Pull request"]
+    PR --> CI["GitHub Actions CI<br/>typecheck · test · build · audit"]
+    CI -->|green| MERGE["merge to main"]
+    MERGE --> R["Render auto-deploy<br/>(After CI checks pass)"]
+    R --> HC{"/health OK?"}
+    HC -->|yes| LIVE["New version live"]
+    HC -->|no| OLD["Old version keeps serving"]
+    LIVE --> SMOKE["Smoke test"]
+```
+Details: [07-process/ci-cd.md](../07-process/ci-cd.md), [06-operations/deployment.md](../06-operations/deployment.md).
+
+## 6. Key decisions ([ADRs](adr/README.md))
+| Decision | Choice | ADR |
 |---|---|---|
-| Realtime transport | Socket.IO | Rooms, reconnection, acks built in → ADR-0001 |
-| Storage | SQLite (better-sqlite3) | Zero setup, fast, enough for one instance → ADR-0002 |
-| Hosting | Render free tier | Free, supports WebSockets, auto-deploy from GitHub → ADR-0003 |
-| Frontend | Plain HTML/CSS/JS | No build step, small, teaches fundamentals → ADR-0004 |
+| Real-time transport | Socket.IO (server relay, **not** peer-to-peer WebRTC) | 0001, 0008 |
+| Storage | **No message storage**; in-memory only | 0005 (supersedes 0002) |
+| Identity | No accounts, no JWT; random names per session | 0006 |
+| Encryption | E2EE with WebCrypto ECDH P-256 + AES-GCM | 0007 |
+| Hosting | Render free tier; deploy early and continuously | 0003, 0010 |
+| Country detection | Server-side IP lookup with DB-IP Lite | 0009 |
+| Frontend | Plain HTML/CSS/JS | 0004 |
 
-## Quality attributes and trade-offs
-
-| Attribute | Current approach | Trade-off we accept |
+## 7. Quality attributes and trade-offs
+| Attribute | Approach | Trade-off we accept |
 |---|---|---|
-| **Scalability** | Single instance, in-memory state | Can't run 2+ instances without a Redis adapter. Fine for v1 traffic |
-| **Reliability** | Client auto-reconnect, health checks, graceful shutdown | 15-min idle sleep → ~1 min cold start |
-| **Durability** | SQLite on local disk | Free-tier disk is wiped on restart → history is best-effort |
-| **Security** | Validate + rate limit + safe rendering + headers | No accounts → names can be impersonated (accepted, documented) |
-| **Cost** | $0 | Free-tier limits (750 h/month, 5 GB bandwidth) |
-
-## How this would look at large scale (for learning)
-
-```
-Clients → CDN (static files) → Load balancer (sticky sessions)
-        → N × Node/Socket.IO instances ←→ Redis (pub/sub adapter + rate limits + presence)
-        → Postgres (messages, partitioned by room/time) + object storage (files)
-        → Metrics (Prometheus/Grafana), logs (ELK/Datadog), tracing (OpenTelemetry)
-```
-We deliberately **don't** build this now. Our traffic doesn't need it, and every box adds cost and failure modes.
+| **Privacy** | E2EE, no storage, no raw IPs | Can't moderate content → rely on reports |
+| **Security** | Validate + rate limit + CSP + Origin | Some friction for legit power users |
+| **Scalability** | Single instance; interfaces ready for Redis | Free tier = one instance (see [scaling.md](../06-operations/scaling.md)) |
+| **Reliability** | Health checks, graceful shutdown, 30 s recovery | 15-min idle sleep → ~1 min cold start |
+| **Latency (global)** | One region (Singapore) | Users in the Americas/Europe see ~150–300 ms extra round-trip time |
+| **Cost** | $0 | Free-tier quotas (750 h, 5 GB bandwidth/month) |

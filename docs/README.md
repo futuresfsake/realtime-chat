@@ -1,34 +1,42 @@
 # Documentation
 
-Everything about **realtime-chat** beyond the code: what we're building, why, how, and how we keep it safe.
+**realtime-chat** is an anonymous, end-to-end encrypted, one-to-one chat that connects strangers around the world by shared interests.
 
-> **End goal:** a real-time chat app that is live on the public internet, **free** to run, **safe** to use, and **secure** against common attacks.
+> **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
 
-## How this folder is organized
+## Folder map: what each folder is for
 
-| Folder | Answers the question | Files |
+| Folder | Purpose (the question it answers) | Start with |
 |---|---|---|
-| [`00-overview/`](00-overview/) | *Why does this exist and what does "done" look like?* | [vision.md](00-overview/vision.md) |
-| [`01-product/`](01-product/) | *What are we building, for whom, and in what order?* | [features.md](01-product/features.md), [user-stories.md](01-product/user-stories.md), [milestones.md](01-product/milestones.md) |
-| [`02-requirements/`](02-requirements/) | *Exactly what must the system do, and how well?* | [specs.md](02-requirements/specs.md) |
-| [`03-design/`](03-design/) | *How is it built?* | [high-level-design.md](03-design/high-level-design.md), [low-level-design.md](03-design/low-level-design.md), [adr/](03-design/adr/) |
-| [`04-security/`](04-security/) | *What can go wrong, and how do we stop it?* | [threat-model.md](04-security/threat-model.md), [security-checklist.md](04-security/security-checklist.md) |
-| [`05-quality/`](05-quality/) | *How do we know it works?* | [testing-strategy.md](05-quality/testing-strategy.md) |
-| [`06-operations/`](06-operations/) | *How do we deploy and run it?* | [deployment.md](06-operations/deployment.md), [runbook.md](06-operations/runbook.md) |
-| [`07-process/`](07-process/) | *How do we work?* | [workflows.md](07-process/workflows.md), [templates/](07-process/templates/) |
+| [`00-overview/`](00-overview/README.md) | **Why** we build this, what success means, which decisions are still open | `vision.md` |
+| [`01-product/`](01-product/README.md) | **What** we build: features, user stories, slash commands, milestones | `milestones.md` |
+| [`02-requirements/`](02-requirements/README.md) | **Exact rules** the system must follow, plus quality targets (FR/NFR) | `specs.md` |
+| [`03-design/`](03-design/README.md) | **How** it's built: HLD, LLD, matchmaking, validation (zod), decisions (ADRs) | `high-level-design.md` |
+| [`04-security/`](04-security/README.md) | **How we protect users**: E2EE, privacy and sessions, trust & safety, threat model | `README.md` |
+| [`05-quality/`](05-quality/README.md) | **How we know it works**: testing strategy | `testing-strategy.md` |
+| [`06-operations/`](06-operations/README.md) | **How it runs in production**: Render, deployment, health checks, scaling, runbook | `render.md` |
+| [`07-process/`](07-process/README.md) | **How we work**: workflows, Definition of Done, CI/CD, automation, templates | `workflows.md` |
+| [`08-guides/`](08-guides/README.md) | **Hands-on how-tos**: local development (Codespaces + your own machine) | `local-development.md` |
+| [`GLOSSARY.md`](GLOSSARY.md) | Every acronym and technical term used in these docs | — |
 
-GitHub-native templates (PR + issues) live in [`/.github`](../.github/).
+Every folder has its own `README.md` summary.
 
 ## Reading order for a new contributor
+1. [`00-overview/vision.md`](00-overview/vision.md): the product in 5 minutes
+2. [`01-product/milestones.md`](01-product/milestones.md): where we are, what's next
+3. [`03-design/high-level-design.md`](03-design/high-level-design.md): the big picture
+4. [`04-security/e2ee.md`](04-security/e2ee.md) and [`04-security/privacy-and-sessions.md`](04-security/privacy-and-sessions.md): our core promises
+5. [`08-guides/local-development.md`](08-guides/local-development.md): run it
+6. [`07-process/workflows.md`](07-process/workflows.md): make your first change
 
-1. `00-overview/vision.md` (5 min)
-2. `01-product/milestones.md`: where we are now
-3. `03-design/high-level-design.md`: the big picture
-4. `07-process/workflows.md`: how to make a change
-5. Everything else as needed
+## Traceability: how the docs connect
+```
+Vision ─▶ Milestone (M#) ─▶ User Story (US-##) ─▶ Feature (F-##) ─▶ Requirement (FR/NFR-##) ─▶ Design (LLD/ADR) ─▶ Test
+                                                                                └─▶ Threat (T-##) ─▶ Mitigation ─▶ Test
+```
+Every ID is unique and referenced across docs, PRs and tests.
 
 ## Rules for these docs
-
-- **Docs live with code.** If a PR changes behavior, it updates the matching doc in the same PR.
-- **Status markers:** ✅ done · 🚧 in progress · 🔜 planned · ❌ won't do
-- **Decisions are recorded, not rewritten.** If we change our mind, add a new ADR that supersedes the old one.
+- **Docs live with code:** a PR that changes behavior updates the matching docs in the same PR.
+- **Status markers:** ✅ done · 🚧 in progress · 🔜 planned · ⏸ needs decision · ❌ won't do
+- **Decisions are appended, not rewritten:** a changed decision gets a new ADR that supersedes the old one.
