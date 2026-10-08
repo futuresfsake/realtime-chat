@@ -10,5 +10,6 @@ As a **<role>**, I want **<goal>**, so that **<benefit>**.
 ### Acceptance criteria
 - Given ..., when ..., then ...
 
-### Security considerations
-New input? New abuse vector?
+### Privacy & safety
+- Does it collect or reveal any data about users?
+- Could a stranger abuse it?

@@ -1,26 +1,38 @@
 # Runbook
 
-What to do when something goes wrong. Each entry: **symptom → check → fix**.
+**Symptom → Check → Fix.** Keep entries short; add new ones after every incident.
 
 ### Site takes ~1 minute to load
-- **Check:** was it idle for > 15 min? This is free-tier spin-down.
-- **Fix:** expected. (Optional: an uptime monitor pinging `/health` keeps it warm but uses instance hours.)
+- **Check:** idle > 15 min? That's a free-tier cold start.
+- **Fix:** expected. (An uptime ping every 5 min keeps it warm but uses instance hours; decide consciously.)
 
-### Site is down / 502 / "Service suspended"
-- **Check:** Render dashboard → Logs and Events. Look for crash loops, a failed health check, or suspension (hours or bandwidth exhausted).
-- **Fix:** crash → roll back to the last good deploy; quota → wait for the monthly reset or reduce traffic.
+### Site down / 502 / "service suspended"
+- **Check:** Render → Events + Logs. Crash loop? Failed health check? Quota exhausted (hours/bandwidth)?
+- **Fix:** crash → roll back; quota → wait for the monthly reset, reduce traffic, or move to paid (scaling.md triggers).
+
+### Deploy didn't happen after merge
+- **Check:** Auto-Deploy = "After CI Checks Pass": did CI fail on `main`?
+- **Fix:** fix CI on a branch → PR → merge.
 
 ### Deploy failed
-- **Check:** build log. Common causes: TypeScript error, lockfile out of sync (`npm ci` fails), missing `.js` in imports.
-- **Fix:** reproduce locally with `npm ci && npm run build && npm start`, fix on a branch, PR.
+- **Check:** build log. Common causes: TypeScript error; lockfile out of sync (`npm ci`); missing `.js` in imports; config validation error at startup.
+- **Fix:** reproduce locally: `npm ci && npm run build && NODE_ENV=production npm start`.
 
-### Spam / abuse in progress
-- **Check:** logs for `RATE_LIMITED` spikes from one hashed IP.
-- **Fix (short term):** suspend the service in Render, or tighten the rate limit and redeploy. **Long term:** add a block list.
+### Users stuck on "searching…"
+- **Check:** online count. Only one user? Country `local` with few users from that country?
+- **Fix:** expected with low traffic; the fallback after 10 s helps; suggest `/country world`.
 
-### Messages history disappeared
-- **Check:** was there a restart or deploy? The free-tier disk is ephemeral.
-- **Fix:** expected in v1 (ADR-0002). Follow-up decision in M4.
+### "secure channel error" reports
+- **Check:** recent client deploy? Mixed old/new clients during a deploy can use incompatible protocol versions.
+- **Fix:** protocol strings are versioned (`rc/v1`); bump the version on any crypto change and refuse mismatches cleanly.
+
+### Abuse wave (spam / harassment)
+- **Check:** logs for `RATE_LIMITED`, `BANNED`, report spikes by ipHash prefix.
+- **Fix (short term):** tighten limits via env vars and redeploy, or suspend the service. **Long term:** add a challenge (e.g. a free CAPTCHA) on `/start`.
 
 ### `EADDRINUSE` locally
-- Another server is still running: Ctrl+C it, or `kill $(lsof -t -i :3000)`, or `PORT=3001 npm run dev`.
+- Another server is running: Ctrl+C it, or `kill $(lsof -t -i :3000)`, or `PORT=3001 npm run dev`.
+
+### Crypto not working locally on a phone
+- **Check:** are you on `http://192.168…`? WebCrypto needs HTTPS or localhost.
+- **Fix:** use the Codespaces HTTPS forwarded URL or the Render URL.

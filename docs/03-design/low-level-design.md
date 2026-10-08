@@ -1,152 +1,166 @@
 # Low-Level Design (LLD)
 
-The **detail**: modules, types, event contracts, schemas, algorithms and DB schema.
-Items marked 🔜 are the design we will implement; the code is the source of truth once merged.
+The **detail**: modules, contracts, state, algorithms. 🔜 = designed, not yet built. Once merged, **the code is the source of truth**; update this doc in the same PR.
 
-## 1. Module layout (target)
+## 1. Module layout (target, reviewed for the 1:1 E2EE design)
 
 ```
 src/
-├── index.ts                 ✅ entry: load config, listen, shutdown
-├── app.ts                   ✅ buildServer(config): wires Express + Socket.IO (no listen)
-├── types.ts                 ✅ shared event + payload types
-├── config.ts                🔜 reads env → validated Config object (zod)
+├── index.ts                    ✅ bootstrap: load config, build server, listen, graceful shutdown
+├── app.ts                      ✅ buildServer(deps): wires Express + Socket.IO (never listens → testable)
+├── config.ts                   🔜 env → validated Config (zod); all limits live here
+├── types/
+│   └── events.ts               🔜 (replaces types.ts) event names, payloads, Ack, ErrorCode
+├── http/
+│   ├── health.ts               🔜 GET /health (200 / 503 while shutting down)
+│   └── securityHeaders.ts      🔜 helmet + CSP (hash for the inline theme script)
+├── gateway/                    ← the ONLY layer that knows about Socket.IO
+│   ├── connectionGuards.ts     🔜 Origin allowlist · per-IP socket cap · ban check
+│   ├── handler.ts              🔜 withHandler(schema, limiter, fn): validate → rate limit → try/catch → ack
+│   └── registerHandlers.ts     🔜 maps events → services
 ├── validation/
-│   └── schemas.ts           🔜 zod schemas for every client→server event
+│   └── schemas.ts              🔜 every zod schema (see validation-zod.md)
 ├── security/
-│   ├── rateLimiter.ts       🔜 TokenBucket class (pure, injectable clock)
-│   └── originCheck.ts       🔜 allowRequest(origin) for Socket.IO
-├── presence/
-│   └── presenceStore.ts     🔜 rooms ↔ users, typing state
-├── db/
-│   ├── database.ts          🔜 opens SQLite, runs migrations
-│   └── messageRepository.ts 🔜 insert(), recent(room, limit)
-├── handlers/
-│   └── chatHandlers.ts      🔜 registers socket events, glues everything together
-└── logger.ts                🔜 JSON logger
+│   ├── tokenBucket.ts          🔜 rate limiter (injectable clock)
+│   ├── clientIp.ts             🔜 real client IP from X-Forwarded-For (Render proxy)
+│   └── ipHash.ts               🔜 HMAC-SHA-256(dailySalt, ip), salt rotation
+├── sessions/
+│   ├── sessionManager.ts       🔜 client states, 2-person sessions, relay-to-partner
+│   └── nameGenerator.ts        🔜 adjective-animal-NN from curated lists
+├── matchmaking/
+│   ├── matchmaker.ts           🔜 waiting pool + algorithm (see matchmaking.md)
+│   ├── interests.ts            🔜 allowed interest list
+│   └── compatibility.ts        🔜 country/scope rule (pure function)
+├── safety/
+│   ├── reports.ts              🔜 count distinct reporters per target
+│   ├── banList.ts              🔜 24 h bans by IP hash
+│   └── noRematch.ts            🔜 24 h pair exclusions
+├── geo/
+│   └── countryLookup.ts        🔜 interface + DB-IP MMDB implementation + fake for tests
+├── observability/
+│   ├── logger.ts               🔜 JSON logs (no content, no raw IPs)
+│   └── metrics.ts              🔜 in-memory counters, logged every 60 s
+└── lib/
+    ├── clock.ts                🔜 Clock interface (real / fake) for timers in tests
+    └── ttlMap.ts               🔜 Map with expiry (used by bans, no-rematch, reports)
+
+public/
+├── index.html · styles.css     ✅
+└── js/                         🔜 split client.js into ES modules (<script type="module">, no build step)
+    ├── main.js                 boot + wiring
+    ├── state.js                client state machine
+    ├── socket.js               Socket.IO wrapper, acks → errors
+    ├── crypto.js               WebCrypto E2EE (keys, encrypt/decrypt, safety code)
+    ├── commands.js             slash commands
+    ├── render.js               DOM rendering (textContent only)
+    └── themes.js               theme picker
 ```
 
-**Dependency rule:** `handlers` → (`validation`, `security`, `presence`, `db`). The lower modules never import `handlers` or `socket.io`, so they are pure and easy to unit test.
+### Review: what changed from the first design, and why
+| Change | Reason |
+|---|---|
+| `db/` removed | No message storage (ADR-0005) |
+| `presence/` → `sessions/` | Rooms are now strictly 1:1 sessions |
+| Added `gateway/` | One place for transport concerns, so business logic stays pure and unit-testable |
+| Added `matchmaking/`, `safety/`, `geo/` | New features M5–M6 |
+| Added `lib/clock.ts` | Rate limits, timeouts and bans depend on time; tests need a fake clock |
+| Client split into modules | `client.js` would exceed ~800 lines; crypto must be isolated and reviewable |
+
+**Dependency rule:** `gateway → (sessions, matchmaking, safety, geo) → lib`. Lower layers never import `socket.io` or `express`.
+**Scaling seam:** `SessionStore`, `WaitingPool` and `TtlStore` are interfaces with in-memory implementations; a Redis implementation can replace them later ([scaling.md](../06-operations/scaling.md)).
 
 ## 2. Event contracts
 
 ### Client → Server
-| Event | Payload | Ack |
-|---|---|---|
-| `user:join` 🔜 | `{ username: string, room: string }` | `Ack<{ history: ChatMessage[], users: string[] }>` |
-| `chat:send` ✅→🔜 | `{ text: string }` (currently a bare string) | `Ack` |
-| `typing:start` 🔜 | none | — |
-| `typing:stop` 🔜 | none | — |
+| Event | Payload | Ack data | Allowed state |
+|---|---|---|---|
+| `session:start` | `{ consent:{adult:true, rulesVersion:string}, interests:string[], scope:"local"\|"world" }` | `{ status:"searching" }` | READY |
+| `session:next` | `{}` | — | SEARCHING, CHATTING, ENDED |
+| `session:leave` | `{}` | — | SEARCHING, CHATTING, ENDED |
+| `session:report` | `{ reason: ReportReason }` | — | CHATTING |
+| `e2e:key` | `{ publicKey: base64url(65 bytes) }` | — | CHATTING (once) |
+| `e2e:envelope` | `{ seq:number, ct:string }` | — | CHATTING (after keys) |
+| `typing` | `{ isTyping:boolean }` | — | CHATTING |
 
 ### Server → Client
 | Event | Payload |
 |---|---|
-| `chat:message` ✅ | `ChatMessage` |
-| `presence:update` 🔜 | `{ room: string, users: string[] }` |
-| `typing:update` 🔜 | `{ username: string, isTyping: boolean }` |
+| `session:matched` | `{ sessionId, myName, partnerName, sharedInterests:string[], role:"initiator"\|"responder" }` |
+| `session:ended` | `{ reason:"partner_left"\|"partner_timeout"\|"reported"\|"protocol_error" }` |
+| `partner:status` | `{ state:"connected"\|"reconnecting"\|"typing"\|"idle" }` |
+| `e2e:key` / `e2e:envelope` | relayed unchanged from the partner |
+| `stats:online` | `{ count:number }` |
 
-### Shared types
+### Inside the encrypted envelope (only clients can read this)
 ```ts
-interface ChatMessage {
-  id: string;        // crypto.randomUUID()
-  room: string;      // 🔜
-  from: string;      // username (currently socket id prefix)
-  text: string;
-  sentAt: number;    // Date.now(), server clock, UTC epoch ms
+type Plain =
+  | { t: "msg"; text: string }                        // 1–500 chars
+  | { t: "react"; ref: number; emoji: Reaction };     // ref = seq of the reacted message
+```
+
+### Acks and errors
+```ts
+type Ack<T = void> = { ok: true; data?: T } | { ok: false; error: { code: ErrorCode; retryAfterMs?: number } };
+type ErrorCode = "VALIDATION" | "RATE_LIMITED" | "INVALID_STATE" | "NOT_IN_SESSION"
+               | "CONSENT_REQUIRED" | "BANNED" | "INTERNAL";
+```
+Clients never receive stack traces or internal messages, only codes.
+
+## 3. Server state (all in memory)
+
+```ts
+interface ClientState {
+  socketId: string;
+  state: "READY" | "SEARCHING" | "CHATTING" | "ENDED";
+  ipHash: string;              // daily-salted HMAC, never the raw IP
+  country: string;             // "PH", "JP" … or "XX"
+  sessionId?: string;
+  name?: string;               // assigned per session
 }
+interface Session { id: string; a: string; b: string; createdAt: number; keysSeen: Set<string>; }
 
-type Ack<T = undefined> =
-  | ({ ok: true } & (T extends undefined ? {} : { data: T }))
-  | { ok: false; error: { code: ErrorCode; message: string } };
-
-type ErrorCode = "VALIDATION" | "RATE_LIMITED" | "NAME_TAKEN" | "NOT_JOINED" | "INTERNAL";
+clients:  Map<socketId, ClientState>     // O(1) lookup
+sessions: Map<sessionId, Session>        // O(1) lookup
 ```
-**Why acks:** the client learns *why* something failed (e.g. "name taken") instead of guessing.
+**Relay check (every envelope, O(1)):** `clients.get(sender).sessionId === payload's session` → partner = `session.a === sender ? session.b : session.a` → `io.to(partner).emit(...)`. A forged session id fails this check.
 
-## 3. Validation schemas (zod) 🔜
+**Concurrency:** Node runs JavaScript on one thread, so `createSession` / `endSession` are synchronous functions that can't interleave. That's why two people pressing `/next` at the same moment can't corrupt state. With multiple instances this guarantee disappears; see scaling.md.
 
-```ts
-export const usernameSchema = z.string().trim().min(2).max(20).regex(/^[A-Za-z0-9_-]+$/);
-export const roomSchema     = z.string().trim().toLowerCase().min(1).max(30).regex(/^[a-z0-9-]+$/);
-export const joinSchema     = z.object({ username: usernameSchema, room: roomSchema }).strict();
-export const sendSchema     = z.object({ text: z.string().trim().min(1).max(500) }).strict();
+## 4. Gateway handler pipeline
 ```
-`.strict()` rejects unknown extra fields, so clients can't sneak in data.
-
-## 4. Rate limiter: token bucket 🔜
-
+event → zod safeParse → state check → token bucket → service call (try/catch) → ack
+          │ fail → VALIDATION     │ fail → INVALID_STATE  │ fail → RATE_LIMITED   │ throw → INTERNAL + log
 ```
-capacity = 5 tokens, refill = 0.5 tokens/second
-on each message:
-  tokens = min(capacity, tokens + elapsedSeconds * refillRate)
-  if tokens >= 1 → tokens -= 1, ALLOW
-  else           → REJECT ("RATE_LIMITED"); strikes++ ; if strikes >= 10 → disconnect
+Implemented once in `withHandler()` so every event gets the same protection.
+
+## 5. Rate limiting: token bucket
 ```
-- **Why a token bucket:** it allows short natural bursts ("hi" "how are you" "?") but caps the sustained rate. A fixed window ("5 per 10 s") allows 10 messages in 1 s across the window boundary.
-- **Complexity:** O(1) time, O(1) memory per socket. The bucket is deleted on disconnect, so there's no memory leak.
-- **Testability:** the constructor takes `now: () => number`, so tests control time.
-- **Per-IP connections:** `Map<ip, count>`, max 5. On Render, the client IP comes from `X-Forwarded-For` (first hop, set by Render's proxy).
-
-## 5. Presence store 🔜
-
-```ts
-class PresenceStore {
-  private rooms = new Map<string, Map<string /*socketId*/, string /*username*/>>();
-  join(room, socketId, username): void   // O(1)
-  leave(socketId): string | undefined    // returns room left; O(1) with reverse index
-  users(room): string[]                  // O(n) users in room
-  isNameTaken(room, username): boolean   // case-insensitive
-}
+tokens = min(capacity, tokens + elapsedSec × refillPerSec)
+if tokens ≥ 1: tokens -= 1 → ALLOW  else → REJECT (retryAfterMs = (1 − tokens) / refill × 1000)
 ```
-A reverse index `Map<socketId, room>` makes `leave` O(1) instead of scanning every room.
+| Bucket | Capacity | Refill | Scope |
+|---|---|---|---|
+| envelopes | 5 | 0.5/s | per socket |
+| typing | 10 | 2/s | per socket |
+| start/next | 10 | 10/min | per IP hash |
+| reports | 3 | 3/h | per IP hash |
+O(1) time and memory per key; buckets are deleted on disconnect (or by TTL for IP-hash buckets).
 
-## 6. Database 🔜
+## 6. Client state machine (public/js/state.js)
+Same states as the server (HLD §3). The UI enables commands per state; the server enforces them anyway (never trust the client).
 
-```sql
-CREATE TABLE IF NOT EXISTS messages (
-  id        TEXT    PRIMARY KEY,
-  room      TEXT    NOT NULL,
-  username  TEXT    NOT NULL,
-  text      TEXT    NOT NULL,
-  sent_at   INTEGER NOT NULL          -- epoch ms, UTC
-);
-CREATE INDEX IF NOT EXISTS idx_messages_room_sent_at ON messages (room, sent_at DESC);
+## 7. Client crypto module API (public/js/crypto.js)
+```js
+generateKeyPair()                                   → { privateKey (non-extractable), publicKeyRaw }
+deriveSessionKeys(privateKey, peerPublicRaw, { sessionId, role, myPublicRaw })
+                                                    → { sendKey, recvKey, safetyCode }
+encrypt(sendKey, seq, plainObject, aadContext)      → ct (base64url)
+decrypt(recvKey, seq, ct, aadContext)               → plainObject   // throws on tamper
 ```
-- **Recent history:** `SELECT ... WHERE room = ? ORDER BY sent_at DESC LIMIT 50`, then reverse in code. The index makes this O(log n + 50) instead of a full table scan.
-- **Prepared statements only** (`db.prepare(...)`), so SQL injection is impossible through parameters.
-- `PRAGMA journal_mode = WAL` for better concurrent reads.
-- **Retention:** keep the last 500 messages per room (cleanup on insert every N messages) so the file can't grow without limit.
-
-## 7. Sequence: join a room 🔜
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant H as chatHandlers
-    participant V as schemas
-    participant P as PresenceStore
-    participant R as messageRepository
-    C->>H: user:join {username, room}
-    H->>V: joinSchema.safeParse
-    alt invalid
-        H-->>C: ack {ok:false, VALIDATION}
-    else name taken
-        H->>P: isNameTaken?
-        H-->>C: ack {ok:false, NAME_TAKEN}
-    else ok
-        H->>P: join(room, socket.id, username)
-        H->>R: recent(room, 50)
-        H-->>C: ack {ok:true, data:{history, users}}
-        H->>C: (socket.join(room))
-        H-)C: presence:update to room
-    end
-```
+Algorithm details: [04-security/e2ee.md](../04-security/e2ee.md).
 
 ## 8. Error handling rules
-- Every handler is wrapped: `try { ... } catch { log; ack INTERNAL }`. One bad event must never crash the process.
-- Never send stack traces or internal messages to clients.
-- `process.on("unhandledRejection")` → log + exit(1). Render restarts the process (fail fast instead of staying half-broken).
-
-## 9. Frontend structure ✅
-`client.js` is organized as Config → DOM refs → State → Rendering → Themes → Socket events → Commands → Input → Boot.
-Rendering always uses `document.createElement` + `textContent`.
+- One bad event must never crash the process: every handler is wrapped.
+- `unhandledRejection` / `uncaughtException` → log + exit(1). Render restarts the process (fail fast).
+- Shutdown: `/health` returns 503 → stop accepting sockets → notify sessions → close within 10 s.
+- Client: any decryption failure → show `!!! secure channel error` → end session. No retries with weaker settings.

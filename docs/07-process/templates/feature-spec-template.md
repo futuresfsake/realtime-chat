@@ -17,9 +17,11 @@ What we are explicitly **not** doing.
 - Data changes (schema/migration):
 - UI changes:
 
-## Security
+## Security & privacy
 - New input? → zod schema:
 - New abuse vector? → threat-model row:
+- New data collected? → privacy data inventory row (why, where, retention):
+- Does any plaintext reach the server? (must be **no**)
 
 ## Testing
 - Unit:
