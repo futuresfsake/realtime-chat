@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>realtime-chat // tty1</title>
+  <!-- Runs BEFORE first paint so the saved theme shows immediately (no flash). -->
+  <script>
+    try {
+      document.documentElement.dataset.theme = localStorage.getItem("rtc.theme") || "phosphor";
+    } catch (e) { /* storage blocked: CSS falls back to the default theme */ }
+  </script>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="crt">
+    <header class="bar">
+      <span class="brand">REALTIME-CHAT <span class="dim">v0.2</span></span>
+      <span class="bar-mid dim">tty1 · room #<span id="room-name">general</span></span>
+      <span class="conn" id="conn" data-state="connecting">
+        <span class="led"></span><span id="conn-text">CONNECTING</span>
+      </span>
+    </header>
+
+    <div class="body">
+      <aside class="side">
+        <section>
+          <h2>// ROOMS</h2>
+          <ul id="rooms"><li class="active">#general</li></ul>
+        </section>
+        <section>
+          <h2>// ONLINE <span id="online-count" class="dim">(0)</span></h2>
+          <ul id="online"><li class="dim">coming in phase 3...</li></ul>
+        </section>
+        <section>
+          <h2 id="theme-heading">// THEME</h2>
+          <ul id="themes" class="themes" aria-labelledby="theme-heading"></ul>
+        </section>
+        <p class="hint dim">type /help</p>
+      </aside>
+
+      <main class="screen">
+        <ol id="log" class="log" role="log" aria-live="polite" aria-label="Chat messages"></ol>
+        <p id="typing" class="typing dim" aria-live="polite"></p>
+        <form id="prompt" class="prompt" autocomplete="off">
+          <label for="input" class="ps1"><span id="ps1-user">guest</span>@<span id="ps1-room">general</span>:~$</label>
+          <input id="input" maxlength="500" spellcheck="false" autofocus />
+        </form>
+      </main>
+    </div>
+  </div>
+
+  <!-- Socket.IO serves its own client library at this path automatically -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/client.js"></script>
+</body>
+</html>
