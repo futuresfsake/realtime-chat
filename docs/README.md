@@ -28,6 +28,7 @@ Every folder has its own `README.md` summary.
 4. [`04-security/e2ee.md`](04-security/e2ee.md) and [`04-security/privacy-and-sessions.md`](04-security/privacy-and-sessions.md): our core promises
 5. [`08-guides/local-development.md`](08-guides/local-development.md): run it
 6. [`07-process/workflows.md`](07-process/workflows.md): make your first change
+| [`09-deliberations/`](09-deliberations/README.md) | **My thinking and research log**: working notes, not decisions | `README.md` |
 
 ## Traceability: how the docs connect
 ```
