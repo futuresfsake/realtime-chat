@@ -26,6 +26,8 @@ Open it in two browser tabs, type in one, and the message appears in both instan
 
 ## Architecture
 
+*Current state (M1). The target design with rooms, validation, rate limiting and SQLite is in [docs/03-design/high-level-design.md](docs/03-design/high-level-design.md).*
+
 ```mermaid
 flowchart LR
     subgraph Browser["Browser tab (one per user)"]
@@ -68,12 +70,13 @@ realtime-chat/
 │   ├── index.html          # Page layout: top bar, sidebar (rooms / online / theme), log, prompt
 │   ├── styles.css          # Design tokens + 4 themes + layout (CSS variables, no framework)
 │   └── client.js           # Socket.IO client, rendering, slash commands, theme switching, input history
-├── tests/                  # Unit + integration tests (coming in a later phase)
+├── tests/                  # Unit tests (M2) + Socket.IO integration test (M3)
 ├── docs/                   # Specs, design (HLD/LLD/ADRs), security, testing, ops, process → docs/README.md
 ├── .github/                # PR + issue templates (CI workflow coming in M2)
 ├── package.json            # Dependencies + npm scripts
 ├── package-lock.json       # Exact installed versions (commit this!)
 ├── tsconfig.json           # TypeScript compiler settings (strict, ES modules / NodeNext)
+├── .node-version          # Node version used by Render (22)
 ├── .gitignore              # Keeps node_modules, dist, *.db, .env out of git
 └── README.md
 ```
@@ -122,8 +125,8 @@ npm ls --depth=0
 |------------------|--------------------------------------------------------------------------|
 | `express`        | HTTP server: serves `public/` and the `/health` endpoint                 |
 | `socket.io`      | Real-time two-way events over WebSockets (with reconnection + fallbacks) |
-| `zod`            | Schema validation for incoming events *(used from Phase 3)*              |
-| `better-sqlite3` | Fast, synchronous SQLite driver for message history *(used later)*       |
+| `zod`            | Schema validation for incoming events *(used from M2)*              |
+| `better-sqlite3` | Fast, synchronous SQLite driver for message history *(used from M4)*       |
 
 ### Development dependencies (`devDependencies`)
 
@@ -142,7 +145,7 @@ npm ls --depth=0
 
 ### Requirements
 
-- **Node.js 20 or newer** (`node -v`)
+- **Node.js 20 or newer** (`node -v`); production uses Node 22 (pinned in `.node-version`)
 - **npm** (comes with Node)
 - **git**
 
@@ -222,12 +225,14 @@ curl http://localhost:3000/health
 
 | Date (UTC+8) | Milestone                                                                 |
 |--------------|---------------------------------------------------------------------------|
-| 2026-10-08   | **Phase 1:** project scaffold (Node + TypeScript, ES modules, scripts)    |
-| 2026-10-08   | **Phase 2:** Express + Socket.IO server, two tabs exchange messages       |
-| 2026-10-08   | **UI:** terminal-style frontend, slash commands, 4 switchable themes      |
+| 2026-10-08   | **M0:** project scaffold (Node + TypeScript, ES modules, scripts)         |
+| 2026-10-08   | **M1:** Express + Socket.IO server, two tabs exchange messages            |
+| 2026-10-08   | **M1:** terminal-style frontend, slash commands, 4 switchable themes      |
 | 2026-10-08   | **Docs:** specs, HLD/LLD, ADRs, threat model, testing strategy, workflows |
 
 Exact commit timestamps: `git log --date=iso --pretty="%h %ad %s"`
+
+---
 
 ## Project status & plans
 
