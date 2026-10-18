@@ -22,21 +22,50 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] `/verify` safety codes match; MITM simulation differs (T-08)
 - [ ] No keys or plaintext in any log statement (grep in CI)
 
-## Privacy
+## Privacy (RA 10173 - Data Privacy Act)
 - [ ] Data inventory in privacy-and-sessions.md matches the code
 - [ ] No raw IPs logged; logs contain no content (T-15)
-- [ ] Privacy notice + rules page live; DB-IP attribution shown
+- [ ] Privacy notice published, compliant with RA 10173 requirements
+- [ ] Rules page live with clear prohibited conduct list
+- [ ] DB-IP attribution shown in footer
+- [ ] Data retention policy documented and enforced
+- [ ] Privacy Impact Assessment completed before launch
+- [ ] Data Protection Officer designated
 
-## Safety
+## Safety (RA 11930 - Anti-OSAEC, RA 11313 - Safe Spaces Act)
 - [ ] 18+ gate + rules enforced on the server (S-01)
 - [ ] Personal-info warning shown each session (S-08)
 - [ ] Links not clickable (S-09)
+- [ ] Content filters active for known harmful patterns (S-15)
+- [ ] `minor` report category triggers immediate escalation (S-16)
+- [ ] `harassment` and `sexual` report categories implemented per RA 11313
+- [ ] Report categories cover all Safe Spaces Act violation types
+
+## Monitoring & moderation
+- [ ] Automated behavioral monitoring operational (S-13)
+- [ ] Abuse scoring metrics tracked per IP hash
+- [ ] Report velocity and pattern detection working
+- [ ] Human moderator review process documented (S-14)
+- [ ] Escalation workflow documented and tested (S-16)
+- [ ] Moderator access controls verified (no message content, no raw IPs)
+- [ ] Moderator training documentation completed (PH law requirements)
+- [ ] Incident response plan documented
 
 ## Supply chain & ops
 - [ ] `npm audit --audit-level=high` clean in CI (T-21)
 - [ ] Dependabot + CodeQL enabled (T-21)
 - [ ] Branch protection on `main`; deploys only via CI (T-09)
 - [ ] Uptime monitor alerting; rollback tested once
+- [ ] HTTPS everywhere, secure WebSockets only
+
+## Legal compliance
+- [ ] Terms of service published
+- [ ] Privacy policy published (RA 10173)
+- [ ] Acceptable use policy published
+- [ ] Age policy documented
+- [ ] Law enforcement cooperation guidelines documented (RA 10175)
+- [ ] Incident response plan covers RA 11930 reporting obligations
+- [ ] Legal review completed by qualified Philippine lawyer
 
 ## Manual verification before launch
 - [ ] `<img src=x onerror=alert(1)>` → shown as text
@@ -45,3 +74,5 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Socket from another origin → refused
 - [ ] Dev tools → Network → WS frames: only ciphertext visible
 - [ ] securityheaders.com grade ≥ A
+- [ ] Report flow: submit report → confirm ban triggers after threshold
+- [ ] Content filter: send known banned word → filter activates
