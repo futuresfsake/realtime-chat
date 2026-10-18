@@ -138,6 +138,35 @@ As the **operator**, I want repeat abusers blocked automatically, so that others
 - The block uses a salted hash of the IP that rotates daily. Raw IPs are never stored.
 - **Features:** F-28
 
+### US-28 Content is filtered for harmful patterns 🔜
+As a **chatter**, I want obvious harmful content (slurs, spam, solicitation) to be caught before it reaches my screen, so that the platform feels safer.
+- Client-side filters check messages before encryption for banned words, spam patterns, and known harmful content.
+- Users are warned when messages appear to contain personal information (phone numbers, email addresses, social handles).
+- URLs are displayed as plain text and never rendered as clickable links.
+- **Features:** F-32
+
+### US-29 Reports cover all types of violations 🔜
+As a **chatter**, I want to report specific types of abuse, so that the platform can respond appropriately to different violations.
+- Report categories: `harassment`, `sexual`, `spam`, `hate`, `minor`, `threats`, `other`.
+- Reports tagged `minor` or `threats` are flagged for immediate human moderator review.
+- Report categories align with Safe Spaces Act (RA 11313) and Anti-OSAEC Law (RA 11930) requirements.
+- **Features:** F-33
+
+### US-30 Abuse patterns are detected automatically 🔜
+As the **operator**, I want automated monitoring to detect abuse patterns without reading messages, so that I can respond to threats at scale.
+- The system tracks report velocity, session churn patterns, and connection anomalies per IP hash.
+- Safety metrics are logged every 60 seconds for trend analysis.
+- Pattern detection flags potential coordinated harassment or repeat offenders for human review.
+- **Features:** F-34
+
+### US-31 Human moderators can review abuse trends 🔜
+As the **operator**, I want human moderators to review aggregated report data, so that we can adjust safety controls and handle escalations that automated systems can't resolve.
+- Moderators see aggregated report patterns, abuse scores, and escalated cases.
+- Moderators never see message content, raw IP addresses, or full IP hashes.
+- Escalation workflow ensures `minor` and `threats` reports get priority human review.
+- Moderators are trained on Philippine law requirements (RA 11313, RA 11930, RA 10173).
+- **Features:** F-35
+
 ## Epic E: Platform (M2, M7)
 
 ### US-21 Bad input is rejected safely (M2) 🔜

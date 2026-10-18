@@ -45,6 +45,10 @@ A tiny URL (`/health`) that answers `{"status":"ok"}` when the server is alive. 
 | F-29 | Privacy-safe structured logs + metrics | M7 | US-25 |
 | F-30 | Uptime monitor + post-deploy smoke test | M7 | US-25 |
 | F-31 | Repo automation: Dependabot, CodeQL, linting, link checks | M7 | — (enabler) |
+| F-32 | Content filters: banned word list, spam patterns, personal info warnings (client-side, pre-encryption) | M6 | US-28 |
+| F-33 | Expanded report categories: `harassment`, `sexual`, `spam`, `hate`, `minor`, `threats`, `other` | M6 | US-29 |
+| F-34 | Automated behavioral monitoring: report velocity, session churn, connection pattern tracking | M7 | US-30 |
+| F-35 | Human moderator tools: aggregated report dashboard, escalation workflow, abuse trend analysis | M7 | US-31 |
 
 ### What happened to "online list per room" (old F-14)?
 It used to mean "the list of usernames inside a group room". Rooms are now **strictly two people**, so a list makes no sense. It's replaced by:
