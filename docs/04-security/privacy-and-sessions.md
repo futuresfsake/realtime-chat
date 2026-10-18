@@ -87,5 +87,41 @@ Logged-in users with accounts, multiple backend services that must trust the sam
 | DB-IP | **Nothing**: the database is a local file, with no API calls |
 | GitHub | Our source code only |
 
-## 8. Legal note *(not legal advice)*
-We operate from the Philippines, where the **Data Privacy Act of 2012 (RA 10173)** applies. A global audience may bring in other laws (e.g. GDPR for EU users). Minimizing data, as above, is the strongest compliance position. **Have the privacy notice reviewed by someone qualified before launch (M8).**
+## 8. Data retention policy
+
+| Data | Retention | Deletion method |
+|---|---|---|
+| Messages | Never stored | N/A |
+| Encryption keys | Session memory only | Garbage collected when session ends |
+| Session ID | Session memory only | Removed from memory on session end |
+| IP address | Milliseconds | Discarded immediately after hash/country lookup |
+| IP hash | 24 hours max | Daily salt rotation makes old hashes unlinkable |
+| Abuse reports | 30 days | Purged from logs after retention period |
+| Operational logs | 7-30 days | Purged per Render log retention policy |
+| Theme preference | Until user clears | Browser localStorage, never sent to server |
+| Age/rules consent | Until tab closes | Browser sessionStorage only |
+
+This retention policy supports the Data Privacy Act's proportionality principle: data is kept only as long as necessary for the purpose it was collected.
+
+## 9. Legal compliance *(not legal advice)*
+
+### Data Privacy Act of 2012 (RA 10173)
+We operate from the Philippines, where RA 10173 applies. The platform's data minimization approach is the strongest compliance position. Key obligations:
+
+- **Privacy notice:** Must be published before launch (M8) explaining what data we collect and why
+- **Data Protection Officer:** Designate an interim DPO (the operator)
+- **Processing records:** Maintain the data inventory above as our record of processing activities
+- **Breach notification:** If a breach involving personal data occurs, notify the NPC and affected individuals within 72 hours
+- **Data subject rights:** Users have rights to access, correct, and erase their data under RA 10173; our data minimization means there is almost nothing to access or erase
+
+### Cybercrime Prevention Act (RA 10175)
+The platform must implement reasonable security measures and cooperate with law enforcement on valid court orders. Our security architecture (E2EE, input validation, rate limiting, HTTPS) fulfills the technical security obligations.
+
+### Safe Spaces Act (RA 11313)
+User reporting mechanisms for harassment and sexual content address the platform's obligations under Section 12 regarding gender-based online sexual harassment.
+
+### Anti-OSAEC Law (RA 11930)
+The `minor` report category with immediate escalation, 18+ gate, and text-only design address child safety obligations. Any confirmed child exploitation must be reported to authorities.
+
+### International
+A global audience may bring in other laws (GDPR for EU users, various US state privacy laws). Our data minimization approach simplifies compliance across jurisdictions. **Have the privacy notice and terms reviewed by a qualified Philippine lawyer before launch (M8).**
