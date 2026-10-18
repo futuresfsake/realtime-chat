@@ -142,29 +142,55 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 | US-18 Report | F-26 |
 | US-19 No rematch | F-27 |
 | US-20 Temp bans | F-28 |
+| US-28 Content filters | F-32 |
+| US-29 Expanded report categories | F-33 |
 
 **Exit criteria**
-- [ ] Rules page + privacy notice written in plain language
+- [ ] Rules page + privacy notice written in plain language, referencing RA 11313 and RA 11930 obligations
 - [ ] Ban logic unit-tested (3 distinct reporters / 1 h → 24 h block; salt rotates daily)
+- [ ] Content filters active for banned words, spam patterns, and personal info warnings
+- [ ] Report categories cover `harassment`, `sexual`, `spam`, `hate`, `minor`, `threats`, `other`
+- [ ] `minor` and `threats` reports flagged for priority escalation
 - [ ] [trust-and-safety.md](../04-security/trust-and-safety.md) controls all ✅ or accepted
-**Demo:** three tabs report one → it can't match for 24 h (shortened in a test config).
+**Demo:** three tabs report one → it can't match for 24 h (shortened in a test config); send a banned word → filter activates.
 
-## M7 Quality, observability, automation 🔜
+## M7 Quality, observability, monitoring & moderation 🔜
+
+| Story | Features |
+|---|---|
+| US-25 Operator monitoring | F-29, F-30 |
+| US-30 Automated monitoring | F-34 |
+| US-31 Human moderator tools | F-35 |
+
 **Exit criteria**
 - [ ] Coverage ≥ 80% on `security/`, `crypto/`, `matchmaking/`, `sessions/`
 - [ ] JSON logs with no content and no raw IPs; counters for sessions, matches, rejections, reports
+- [ ] Automated behavioral monitoring operational: report velocity, session churn, connection pattern tracking
+- [ ] Safety metrics logged every 60 seconds; abuse scoring per IP hash functional
+- [ ] Human moderator review process documented with access controls (no message content, no raw IPs)
+- [ ] Escalation workflow: `minor` and `threats` reports trigger priority human review
+- [ ] Moderator training documentation covering RA 11313, RA 11930, and RA 10173
 - [ ] Uptime monitor + post-deploy smoke test in CI/CD
 - [ ] Dependabot, CodeQL, ESLint/Prettier, link checker in CI ([automation.md](../07-process/automation.md))
 - [ ] Small load test (e.g. 200 simulated users) documented in [scaling.md](../06-operations/scaling.md)
+- [ ] Incident response plan documented
 
 ## M8 Public launch 🔜
 **Release DoD**
-- [ ] [Security checklist](../04-security/security-checklist.md) 100% passed
+- [ ] [Security checklist](../04-security/security-checklist.md) 100% passed (including monitoring and legal gates)
 - [ ] All open decisions in [open-decisions.md](../00-overview/open-decisions.md) resolved
-- [ ] Privacy notice + rules live; DB-IP attribution shown
+- [ ] Privacy notice published, compliant with Data Privacy Act (RA 10173)
+- [ ] Terms of service and acceptable use policy published
+- [ ] Rules page live with prohibited conduct aligned to RA 11313 and RA 11930
+- [ ] DB-IP attribution shown
+- [ ] Automated monitoring operational and producing safety metrics
+- [ ] Human moderator review process active
+- [ ] Law enforcement cooperation guidelines documented (RA 10175)
+- [ ] Incident response plan tested
+- [ ] Legal review by qualified Philippine lawyer completed
 - [ ] README, docs and CHANGELOG up to date; `v1.0.0` git tag
 - [ ] Rollback tested once
-- [ ] Share the link 🌍
+- [ ] Share the link (Philippines beta first)
 
 ## After v1 (growth backlog)
 Multi-language UI (i18n) for global reach · multi-instance scaling with Redis (see [scaling.md](../06-operations/scaling.md)) · additional regions · PWA (installable app) · periodic re-keying.
