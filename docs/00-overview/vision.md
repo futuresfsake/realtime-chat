@@ -43,12 +43,26 @@ You open the site, confirm you're 18+ and accept the rules, then optionally pick
 - **Web E2EE limits:** the server delivers the JavaScript, so users must trust that code (see `04-security/e2ee.md`)
 
 ## Principles
-1. **Collect nothing we don't need; keep nothing longer than needed.**
+1. **Collect nothing we don't need; keep nothing longer than needed.** (Data Privacy Act, RA 10173)
 2. **Never trust the client:** validate everything at the server boundary.
 3. **The server is a blind relay:** it routes ciphertext and never sees content.
 4. **Safety features ship before growth features.**
 5. **Be honest about limits:** document accepted risks instead of hiding them.
 6. **Design for scale, build for today:** interfaces ready for scaling, implementation as simple as possible.
+7. **Comply with Philippine law:** RA 10173 (Data Privacy), RA 10175 (Cybercrime Prevention), RA 11313 (Safe Spaces), RA 11930 (Anti-OSAEC) are not optional.
+8. **Automate what we can, moderate what we must:** automated behavioral monitoring handles scale; human moderators handle judgment calls and escalations.
+
+## Content moderation approach
+E2EE prevents us from reading message content, but safety requires active moderation. Our approach:
+
+1. **Automated monitoring** detects abuse patterns through behavioral signals (report velocity, session patterns, connection anomalies) without reading messages
+2. **Content filters** catch known harmful patterns at the client level before encryption
+3. **Human moderators** review aggregated report data, handle escalations, and adjust automated thresholds
+4. **User self-moderation** through instant skip/leave, reporting with specific categories, and clear community rules
+
+See `04-security/trust-and-safety.md` for detailed controls.
 
 ## Lessons from history
-Anonymous stranger chat has a known failure mode: **Omegle** (2009–2023) shut down after years of abuse and child-safety problems. We take that seriously. Adult-only access, reporting, rate limits, no media, and clear rules are **launch requirements**, not extras (see `04-security/trust-and-safety.md`).
+Anonymous stranger chat has a known failure mode: **Omegle** (2009–2023) shut down after years of abuse and child-safety problems. We take that seriously. Adult-only access, reporting, rate limits, no media, automated monitoring, human moderator oversight, and clear rules are **launch requirements**, not extras (see `04-security/trust-and-safety.md`).
+
+Philippine law reinforces this: the Safe Spaces Act (RA 11313) requires mechanisms against gender-based online harassment, and the Anti-OSAEC Law (RA 11930) makes child safety controls a legal obligation.
