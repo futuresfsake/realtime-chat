@@ -3,10 +3,10 @@
 | File | What it contains |
 |---|---|
 | [e2ee.md](e2ee.md) | The end-to-end encryption protocol, step by step, what it protects and **what it doesn't** |
-| [privacy-and-sessions.md](privacy-and-sessions.md) | What a session is, session-only history, **why we don't use JWT**, a data inventory of everything we touch and for how long |
-| [trust-and-safety.md](trust-and-safety.md) | Protecting users from *each other*: 18+ gate, rules, reports, bans, legal notes |
-| [threat-model.md](threat-model.md) | Every threat (T-##), how we mitigate it, and its status |
-| [security-checklist.md](security-checklist.md) | The launch gate: every box must be checked before M8 |
+| [privacy-and-sessions.md](privacy-and-sessions.md) | What a session is, session-only history, **why we don't use JWT**, data inventory, retention policy, and legal compliance (RA 10173, RA 10175, RA 11313, RA 11930) |
+| [trust-and-safety.md](trust-and-safety.md) | Protecting users from *each other*: 18+ gate, rules, reports, bans, content filters, **automated behavioral monitoring**, **human moderator oversight**, escalation workflows, and Philippine law compliance |
+| [threat-model.md](threat-model.md) | Every threat (T-##), how we mitigate it, and its status — includes compliance threats (T-26 to T-30) for RA 11313, RA 11930, RA 10173, and RA 10175 |
+| [security-checklist.md](security-checklist.md) | The launch gate: every box must be checked before M8, including monitoring, moderation, and legal compliance gates |
 
 ## What are "threat model items"?
 A **threat model** is a structured list of *"what could go wrong, and what do we do about it?"*. Each **item** (row) has:

@@ -27,8 +27,13 @@
 - **Fix:** protocol strings are versioned (`rc/v1`); bump the version on any crypto change and refuse mismatches cleanly.
 
 ### Abuse wave (spam / harassment)
-- **Check:** logs for `RATE_LIMITED`, `BANNED`, report spikes by ipHash prefix.
-- **Fix (short term):** tighten limits via env vars and redeploy, or suspend the service. **Long term:** add a challenge (e.g. a free CAPTCHA) on `/start`.
+- **Check:** logs for `RATE_LIMITED`, `BANNED`, report spikes by ipHash prefix. Check automated monitoring metrics for unusual report velocity or session churn.
+- **Fix (short term):** tighten limits via env vars and redeploy, or suspend the service. Notify human moderators for immediate pattern review. **Long term:** add a challenge (e.g. a free CAPTCHA) on `/start`; adjust content filter thresholds.
+- **If child safety concern (`minor` reports):** escalate immediately per RA 11930 procedures; follow the incident response plan.
+
+### High-priority escalation (moderator action needed)
+- **Trigger:** automated monitoring flags clustering of `minor` or `threats` reports against an IP hash pattern, or a human moderator identifies a systemic abuse trend.
+- **Action:** review aggregated report data (never message content); adjust ban thresholds or content filters; if RA 11930 or RA 10175 obligations are triggered, follow the law enforcement cooperation guidelines.
 
 ### `EADDRINUSE` locally
 - Another server is running: Ctrl+C it, or `kill $(lsof -t -i :3000)`, or `PORT=3001 npm run dev`.

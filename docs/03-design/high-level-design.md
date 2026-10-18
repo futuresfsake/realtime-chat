@@ -53,7 +53,9 @@ flowchart TB
 | Socket gateway | First line of defense: Origin, per-IP caps, rate limits, schema validation | Socket.IO + zod |
 | Session manager | Creates and ends 2-person sessions; relays envelopes to the partner only | In-memory maps |
 | Matchmaker | Waiting pool; interest/country matching; 10 s fallback | In-memory indexes |
-| Trust & safety | Reports, no-rematch, temporary bans by daily-salted IP hash | In-memory, TTL |
+| Trust & safety | Reports, no-rematch, temporary bans by daily-salted IP hash, content filters | In-memory, TTL |
+| Monitoring | Automated behavioral monitoring: report velocity, session patterns, abuse scoring | In-memory counters, logged |
+| Moderation | Human moderator tools: aggregated report data, escalation workflow, trend analysis | Log-based, no message content |
 | Geo lookup | IP → country code, then the IP is discarded | DB-IP Lite (MMDB) |
 
 ## 3. User lifecycle
