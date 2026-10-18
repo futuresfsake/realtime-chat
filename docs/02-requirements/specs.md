@@ -45,6 +45,10 @@
 | FR-31 | A report ends the session and adds both sides to each other's no-rematch list for 24 h | Unit | M6 |
 | FR-32 | 3 reports from distinct clients within 1 h → the reported IP hash is blocked from matching for 24 h | Unit | M6 |
 | FR-33 | IP hash = HMAC-SHA-256(dailySalt, ip). The salt is random, held in memory, and rotates every 24 h | Unit | M6 |
+| FR-34 | Content filters check messages client-side before encryption for banned words, spam patterns, and personal info patterns; server enforces content policy acknowledgment | Unit + Integration | M6 |
+| FR-35 | Report categories include `harassment`, `sexual`, `spam`, `hate`, `minor`, `threats`, `other`; `minor` and `threats` are flagged for priority escalation | Unit | M6 |
+| FR-36 | Automated behavioral monitoring tracks report velocity, session churn, and connection patterns per IP hash; produces safety metrics logged every 60 s | Unit + Integration | M7 |
+| FR-37 | Human moderator dashboard (or report export) provides aggregated report data without message content or raw IPs | Integration | M7 |
 
 ### Platform
 | ID | Requirement | Verified by | M |
@@ -70,6 +74,9 @@
 | NFR-11 | Accessibility | Keyboard-only usable; `aria-live` chat log; respects `prefers-reduced-motion`; contrast ≥ WCAG AA |
 | NFR-12 | Compatibility | Latest 2 versions of Chrome, Edge, Firefox, Safari (WebCrypto ECDH/AES-GCM required) |
 | NFR-13 | Maintainability | TypeScript `strict`; CI must pass to merge; ≥ 80% coverage on core modules |
+| NFR-14 | Legal compliance | Platform complies with RA 10173 (Data Privacy), RA 10175 (Cybercrime Prevention), RA 11313 (Safe Spaces), RA 11930 (Anti-OSAEC); privacy notice and terms published before launch |
+| NFR-15 | Moderation | Automated monitoring produces safety metrics; human moderator review process documented and operational; escalation workflow handles priority reports within 24 hours |
+| NFR-16 | Content safety | Content filters active for known harmful patterns; report system covers all violation types per Philippine law; `minor` reports trigger immediate escalation |
 
 ## Limits (single source of truth in code: `src/config.ts`)
 | Limit | Value |
