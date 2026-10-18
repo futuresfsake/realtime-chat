@@ -12,7 +12,7 @@
 | [`01-product/`](01-product/README.md) | **What** we build: features, user stories, slash commands, milestones | `milestones.md` |
 | [`02-requirements/`](02-requirements/README.md) | **Exact rules** the system must follow, plus quality targets (FR/NFR) | `specs.md` |
 | [`03-design/`](03-design/README.md) | **How** it's built: HLD, LLD, matchmaking, validation (zod), decisions (ADRs) | `high-level-design.md` |
-| [`04-security/`](04-security/README.md) | **How we protect users**: E2EE, privacy and sessions, trust & safety, threat model | `README.md` |
+| [`04-security/`](04-security/README.md) | **How we protect users**: E2EE, privacy and sessions, trust & safety (automated monitoring + human moderators), threat model, legal compliance | `README.md` |
 | [`05-quality/`](05-quality/README.md) | **How we know it works**: testing strategy | `testing-strategy.md` |
 | [`06-operations/`](06-operations/README.md) | **How it runs in production**: Render, deployment, health checks, scaling, runbook | `render.md` |
 | [`07-process/`](07-process/README.md) | **How we work**: workflows, Definition of Done, CI/CD, automation, templates | `workflows.md` |

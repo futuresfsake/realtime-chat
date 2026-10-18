@@ -37,5 +37,18 @@
 | **Token bucket** | A rate-limiting algorithm that allows short bursts but caps the long-term rate |
 | **TLS / HTTPS / WSS** | Transport encryption between browser and server (HTTPS for pages, WSS for WebSockets) |
 | **Trust & Safety** | Practices that protect users from abuse, harassment and harmful content |
+| **RA 10173** | Data Privacy Act of 2012: Philippine law regulating the processing of personal information, enforced by the National Privacy Commission |
+| **RA 10175** | Cybercrime Prevention Act of 2012: Philippine law establishing protections against cybercrime and promoting cybersecurity |
+| **RA 11313** | Safe Spaces Act of 2019 ("Bawal Bastos" Law): Philippine law addressing gender-based sexual harassment in public spaces and online platforms |
+| **RA 11930** | Anti-OSAEC & CSAEM Act: Philippine law addressing online sexual abuse and exploitation of children and child sexual abuse materials |
+| **NPC** | National Privacy Commission: the Philippine government body that enforces the Data Privacy Act (RA 10173) |
+| **DPO** | Data Protection Officer: the person designated to oversee data privacy compliance within an organization |
+| **OSAEC** | Online Sexual Abuse or Exploitation of Children |
+| **CSAEM** | Child Sexual Abuse or Exploitation Materials |
+| **Content filter** | Client-side mechanism that checks messages for banned words, spam patterns, and personal info before encryption |
+| **Automated monitoring** | Server-side system that tracks behavioral signals (report velocity, session patterns, connection anomalies) to detect abuse without reading message content |
+| **Human moderator** | A person who reviews aggregated report data, handles escalations, and adjusts safety controls; never sees message content |
+| **Escalation** | The process of flagging high-priority reports (e.g., child safety, threats) for immediate human moderator review |
+| **Abuse scoring** | Tracking report frequency and severity per IP hash to identify repeat offenders and abuse patterns |
 | **WebCrypto** | The browser's built-in, audited cryptography API (`crypto.subtle`) |
 | **zod** | A TypeScript library that validates data at runtime and infers TypeScript types from the same schema |
