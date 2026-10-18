@@ -18,6 +18,8 @@ No accounts. No stored messages. Free to use, safe by design.
 4. Chat with **end-to-end encryption**: the server only relays ciphertext it can't read
 5. `/next` to meet someone new, `/report` to report abuse. When a chat ends, its messages are **gone forever**
 
+**Safety:** automated behavioral monitoring detects abuse patterns; content filters catch harmful messages before encryption; human moderators review aggregated reports and handle escalations; all designed to comply with Philippine law (Data Privacy Act, Cybercrime Prevention Act, Safe Spaces Act, Anti-OSAEC Law).
+
 **Never:** accounts, passwords, user-chosen names, group chats, file/image uploads, stored history.
 
 ## What works today (M1)
@@ -108,9 +110,9 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 | M3 1:1 anonymous sessions | Random names, pairs of two, `/next` `/leave`, status, typing, reactions | 4–5 d | 🔜 |
 | M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code | 4–5 d | 🔜 |
 | M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
-| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans | 3–4 d | 🔜 |
-| M7 Quality & automation | Coverage, logs, monitoring, Dependabot, CodeQL, load test | 2–3 d | 🔜 |
-| M8 Public launch | Security checklist 100%, share the link 🌍 | 1–2 d | 🔜 |
+| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, expanded report categories | 3–4 d | 🔜 |
+| M7 Quality, monitoring & moderation | Coverage, logs, automated monitoring, human moderator tools, Dependabot, CodeQL, load test | 2–3 d | 🔜 |
+| M8 Public launch | Security checklist 100%, legal compliance verified, PH beta launch | 1–2 d | 🔜 |
 
 Details, stories and exit criteria: [docs/01-product/milestones.md](docs/01-product/milestones.md) · Open decisions: [docs/00-overview/open-decisions.md](docs/00-overview/open-decisions.md)
 
@@ -127,7 +129,7 @@ Multi-language UI · multi-instance scaling with Redis · more regions · instal
 | [01-product](docs/01-product/README.md) | Milestones, user stories, features, slash commands |
 | [02-requirements](docs/02-requirements/README.md) | Functional + non-functional requirements, limits |
 | [03-design](docs/03-design/README.md) | HLD, LLD, matchmaking, zod validation, ADRs |
-| [04-security](docs/04-security/README.md) | E2EE, privacy & sessions (incl. why no JWT), trust & safety, threat model, checklist |
+| [04-security](docs/04-security/README.md) | E2EE, privacy & sessions (incl. why no JWT), trust & safety, automated monitoring, human moderation, threat model, checklist |
 | [05-quality](docs/05-quality/README.md) | Testing strategy |
 | [06-operations](docs/06-operations/README.md) | Render, deployment, health checks, scaling, runbook |
 | [07-process](docs/07-process/README.md) | Workflows, Definition of Done, CI/CD, automation, templates |
