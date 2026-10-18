@@ -52,6 +52,11 @@
 | T-23 | Info disclosure | Error messages leak internals | Clients get error codes only | 🔜 M2 |
 | T-24 | DoS | Free-tier quota exhaustion (hours/bandwidth) | Rate limits; monitor usage; alerts | 🔜 M7 |
 | T-25 | Downgrade | Forcing an unencrypted session | No plaintext path exists; envelope-only protocol | 🔜 M4 |
+| T-26 | Safety | Gender-based online sexual harassment (RA 11313) | Dedicated report categories (`harassment`, `sexual`), content filters for slurs and explicit solicitation, automated ban on threshold, human moderator escalation | 🔜 M6/M7 |
+| T-27 | Safety | Platform used for child exploitation or grooming (RA 11930) | 18+ gate, text-only (no media), `minor` report with immediate escalation, no persistent contact, no user-chosen names, law enforcement reporting procedures | 🔜 M6/M7 |
+| T-28 | Compliance | Failure to comply with Data Privacy Act (RA 10173) | Data minimization, privacy notice, data inventory, retention policy, NPC breach notification procedure | 🔜 M7/M8 |
+| T-29 | Compliance | Law enforcement data preservation request (RA 10175) | Documented cooperation procedures; minimal data available (no message content, no raw IPs); legal counsel contact established | 🔜 M8 |
+| T-30 | Safety | Coordinated harassment campaigns | Automated detection of report clustering by IP hash patterns, rate limiting across sessions, human moderator pattern analysis | 🔜 M7 |
 
 ## Accepted risks (stated publicly in the privacy notice)
 T-08 (if users don't verify), T-09, T-12 (partial), T-17 (self-declared age), T-19, T-20.
