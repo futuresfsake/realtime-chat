@@ -106,18 +106,20 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 |---|---|---|---|
 | M0 Foundations | Scaffold, TypeScript, scripts | — | ✅ |
 | M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
-| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, CI, Render CD | 3–4 d | 🔜 **next** |
-| M3 1:1 anonymous sessions | Random names, pairs of two, `/next` `/leave`, status, typing, reactions | 4–5 d | 🔜 |
-| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code | 4–5 d | 🔜 |
+| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🔜 **next** |
+| M3 1:1 anonymous sessions | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🔜 |
+| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🔜 |
 | M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
-| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, expanded report categories | 3–4 d | 🔜 |
-| M7 Quality, monitoring & moderation | Coverage, logs, automated monitoring, human moderator tools, Dependabot, CodeQL, load test | 2–3 d | 🔜 |
-| M8 Public launch | Security checklist 100%, legal compliance verified, PH beta launch | 1–2 d | 🔜 |
+| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
+| M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | 🔜 |
+| M8 Public launch | Legal sign-off, compliance 100%, PH beta launch | 2–3 d | 🔜 |
+| M9 Production hardening | Pen test, DR drill, performance baseline, chaos testing | 3–4 d | 🔜 |
+| M10 Post-launch operations | Incident response drill, on-call, operational maturity | 2–3 d | 🔜 |
 
 Details, stories and exit criteria: [docs/01-product/milestones.md](docs/01-product/milestones.md) · Open decisions: [docs/00-overview/open-decisions.md](docs/00-overview/open-decisions.md)
 
 ### After v1
-Multi-language UI · multi-instance scaling with Redis · more regions · installable PWA. See [scaling.md](docs/06-operations/scaling.md).
+Multi-language UI · multi-instance scaling with Redis · more regions · installable PWA · X25519 migration · CDN · custom domain · browser fingerprinting. See [scaling.md](docs/06-operations/scaling.md).
 
 ---
 
@@ -134,6 +136,7 @@ Multi-language UI · multi-instance scaling with Redis · more regions · instal
 | [06-operations](docs/06-operations/README.md) | Render, deployment, health checks, scaling, runbook |
 | [07-process](docs/07-process/README.md) | Workflows, Definition of Done, CI/CD, automation, templates |
 | [08-guides](docs/08-guides/README.md) | Local development |
+| [09-it-review](docs/09-it-review/README.md) | IT Manager production readiness review (47 findings, 12 documents) |
 | [GLOSSARY](docs/GLOSSARY.md) | Every term and acronym |
 
 ---
