@@ -58,8 +58,25 @@
 | T-29 | Compliance | Law enforcement data preservation request (RA 10175) | Documented cooperation procedures; minimal data available (no message content, no raw IPs); legal counsel contact established | 🔜 M8 |
 | T-30 | Safety | Coordinated harassment campaigns | Automated detection of report clustering by IP hash patterns, rate limiting across sessions, human moderator pattern analysis | 🔜 M7 |
 
+### IT Manager Review — Additional Threats
+
+| ID | STRIDE | Threat | Mitigation | Status |
+|---|---|---|---|---|
+| T-31 | Spoofing | Automated bots bypass Origin check by spoofing headers outside browser | Connection token (HMAC-signed, IP-bound, 30s TTL) + proof-of-work challenge | 🔜 M2/M6 |
+| T-32 | DoS | WebSocket handshake flood (before rate limiter kicks in) | Connection-rate limiting at gateway: 5 new connections/IP/10s | 🔜 M2 |
+| T-33 | Tampering | Outdated client code (stale tab) sends incompatible events after deploy | Protocol versioning (`rc/v1` in handshake); mismatch → refused + refresh notice | 🔜 M2 |
+| T-34 | Info disclosure | Structured logs accidentally contain raw IP addresses | CI semgrep rule fails build on `console.*` with raw IP patterns; log audit | 🔜 M2 |
+| T-35 | DoS | Unbounded in-memory maps (bans, sessions, pools) exhaust 512MB instance | `maxSize` on all TtlMap instances; memory ceiling `--max-old-space-size=400` | 🔜 M2 |
+| T-36 | Tampering | Client-side content filters bypassed by modified client | Accepted risk (E2EE limitation); behavioral monitoring detects abuse patterns | ⚠️ accepted |
+| T-37 | DoS | Key exchange hangs indefinitely if one client never sends public key | 10s key exchange timeout; session ends with CRYPTO_TIMEOUT | 🔜 M4 |
+| T-38 | Compliance | Breach notification not sent within 72 hours (RA 10173) | Documented procedure with NPC template; tested via tabletop exercise | 🔜 M7/M8 |
+| T-39 | Safety | `minor` report not escalated promptly (RA 11930) | Immediate email alert on `minor` report; documented PNP-ACG/NBI-CCD procedure | 🔜 M7 |
+| T-40 | DoS | Render free tier quota exhaustion suspends service | Monitor usage; alert at 80% quota; documented cost triggers in scaling.md | 🔜 M7 |
+| T-41 | Info disclosure | Health check exposes internal system details to unauthenticated users | Return detailed metrics only for operator; public `/health` returns status only | 🔜 M2 |
+| T-42 | Spoofing | Ban evasion via VPN + new browser (no fingerprinting) | Accepted for v1; browser fingerprinting tracked as post-v1 improvement | ⚠️ accepted |
+
 ## Accepted risks (stated publicly in the privacy notice)
-T-08 (if users don't verify), T-09, T-12 (partial), T-17 (self-declared age), T-19, T-20.
+T-08 (if users don't verify), T-09, T-12 (partial), T-17 (self-declared age), T-19, T-20, T-36, T-42.
 
 ## Review triggers
 Re-review this file when adding an event, endpoint, dependency, third party or storage, and before every milestone ends.
