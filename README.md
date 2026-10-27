@@ -137,6 +137,7 @@ Multi-language UI · multi-instance scaling with Redis · more regions · instal
 | [07-process](docs/07-process/README.md) | Workflows, Definition of Done, CI/CD, automation, templates |
 | [08-guides](docs/08-guides/README.md) | Local development |
 | [09-it-review](docs/09-it-review/README.md) | IT Manager production readiness review (47 findings, 12 documents) |
+| [10-pipeline](docs/10-pipeline/README.md) | Production pipeline: M/S/H pipelines, DoR/DoD, story classification, agents, skills, workflows |
 | [GLOSSARY](docs/GLOSSARY.md) | Every term and acronym |
 
 ---
