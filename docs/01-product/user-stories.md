@@ -189,6 +189,180 @@ As the **operator**, I want human moderators to review aggregated report data, s
 - An uptime monitor checks `/health` every 5 minutes and alerts by email.
 - **Features:** F-06, F-29, F-30
 
+## Epic G: IT Manager — Security Hardening (M2, M6)
+
+### US-32 Connection authentication token (M2) 🔜
+As the **operator**, I want every WebSocket connection to present a short-lived, server-signed token, so that automated scripts and bots cannot connect without passing through our HTTPS endpoint first.
+- Given a client requests `GET /connect-token`, the server returns a signed nonce with a 30-second TTL bound to the client's IP hash.
+- Given a WebSocket handshake includes a valid, unexpired token, the connection is accepted.
+- Given a WebSocket handshake has no token, an expired token, or a token bound to a different IP hash, the connection is refused with `AUTH_REQUIRED`.
+- Tokens are HMAC-SHA-256 signed with a server secret that rotates daily.
+- **Features:** F-36
+
+### US-33 Structured logging (M2) 🔜
+As the **operator**, I want all server logs to be structured JSON with log levels, correlation IDs, and zero PII, so that I can debug production issues without violating user privacy.
+- Every log line is a single JSON object with `ts`, `level`, `event`, `correlationId`, and `data`.
+- Log levels: `error`, `warn`, `info`, `debug`. Production runs at `info` level.
+- No raw IP addresses appear in any log statement (verified by CI grep/semgrep rule).
+- No message content (plaintext or ciphertext) appears in any log.
+- Each WebSocket connection gets a unique correlation ID carried through all related log lines.
+- **Features:** F-37
+
+### US-34 Deep health check (M2) 🔜
+As the **operator**, I want `/health` to report actual system health (memory, connections, Socket.IO status), so that I can detect degradation before users are affected.
+- `/health` returns `{"status": "ok|degraded|unhealthy", "checks": {...}, "version": "..."}`.
+- `degraded` when memory > 80% of ceiling or connections > 80% of max.
+- `unhealthy` when shutting down or critical subsystem failure.
+- HTTP 200 for ok/degraded, 503 for unhealthy.
+- **Features:** F-38
+
+### US-35 Protocol versioning (M2) 🔜
+As the **operator**, I want the WebSocket protocol to carry a version identifier, so that breaking changes don't silently crash old clients.
+- Clients send `protocolVersion: "rc/v1"` in the Socket.IO `auth` option during handshake.
+- The server validates the version and rejects mismatches with `PROTOCOL_MISMATCH`.
+- When a client has an outdated version, the server emits `system:refresh` with a reason and a 5-minute deadline before force-disconnecting.
+- **Features:** F-39
+
+### US-36 WebSocket edge case resilience (M3) 🔜
+As a **chatter**, I want the system to handle edge cases gracefully (double `/next`, disconnect during key exchange, concurrent state transitions), so that no chat session gets stuck or corrupted.
+- Given both partners press `/next` simultaneously, no orphaned session is created.
+- Given a client disconnects during key exchange, the other client receives a timeout within 10 seconds.
+- Given a client reconnects to an expired session (> 30s), they receive a clean error, not a stale session.
+- Given maximum-length (500 char) and boundary-violating (501 char) messages, the correct one is accepted and the other rejected.
+- **Features:** part of F-13
+
+### US-37 Key exchange timeout (M4) 🔜
+As a **chatter**, I want the key exchange to have a timeout, so that I don't wait indefinitely if my partner's browser can't complete the handshake.
+- If both public keys are not exchanged within 10 seconds of session match, the session ends with `CRYPTO_TIMEOUT`.
+- Both clients see a clear error message explaining the failure.
+- **Features:** part of F-20
+
+## Epic H: IT Manager — Compliance & Legal (M6, M8)
+
+### US-38 Privacy notice and terms of service (M6) 🔜
+As the **operator**, I want draft legal documents (privacy notice, terms of service, acceptable use policy), so that they can be reviewed by a Philippine lawyer before launch.
+- Privacy notice covers: what data is processed, lawful basis, data subject rights, retention periods, DPO contact.
+- Privacy notice references RA 10173 obligations explicitly.
+- Terms of service covers: acceptable use, prohibited conduct, reporting, bans, disclaimers.
+- Acceptable use policy aligns prohibited conduct with RA 11313 (Safe Spaces Act) categories.
+- All documents are in plain language, accessible to non-legal readers.
+- **Features:** F-40
+
+### US-39 Bot prevention with proof-of-work (M6) 🔜
+As the **operator**, I want clients to solve a computational challenge before their first session, so that bot operators face meaningful friction.
+- Before issuing a connection token or allowing `session:start`, the server sends a proof-of-work challenge.
+- The challenge is: find a nonce where `SHA-256(prefix + nonce)` has N leading zero bits.
+- Difficulty is configurable (default: ~50ms on a modern browser, expensive for bot farms).
+- Legitimate browsers solve it transparently; headless bot scripts must burn CPU per connection.
+- Challenge is rate-limited: one challenge per IP per 10 seconds.
+- **Features:** F-41
+
+## Epic I: IT Manager — Monitoring & Quality (M7)
+
+### US-40 Service level indicators and objectives (M7) 🔜
+As the **operator**, I want defined SLIs and SLOs, so that I can measure whether the service is meeting expectations.
+- SLIs: availability (health check), connection success rate, match latency, relay latency, error rate, memory usage.
+- SLOs: 99.5% uptime, <50ms p95 relay, <15s match (with pool), <1% error rate, <400MB RSS.
+- SLO dashboard or log-based tracking implemented.
+- **Features:** F-42
+
+### US-41 Metrics collection (M7) 🔜
+As the **operator**, I want in-process metrics collected and logged every 60 seconds, so that I can track system health trends.
+- Metrics snapshot includes: connections (current, peak, total), sessions (active, total, avg duration), matchmaking (pool size, matches, fallbacks), safety (reports, bans, escalations), rate limits (limited, blocked), memory (rss, heap).
+- Metrics are logged as structured JSON at `info` level.
+- No PII in metrics (IP hashes are counts, not individual values).
+- **Features:** F-43
+
+### US-42 Alerting system (M7) 🔜
+As the **operator**, I want alerts for critical conditions, so that I can respond before users are severely affected.
+- UptimeRobot monitors `/health` every 5 minutes with email alerts.
+- `minor` report category triggers immediate email to operator.
+- Memory > 400MB sustained for 5 minutes triggers warning.
+- Error rate > 5% for 5 minutes triggers warning.
+- Report spike (> 20 reports in 10 minutes) triggers moderator notification.
+- **Features:** F-44
+
+### US-43 Accessibility compliance (M7) 🔜
+As a **chatter** using assistive technology, I want the chat interface to be fully keyboard-navigable and screen-reader compatible, so that I can use the service without a mouse.
+- All interactive elements are reachable and operable by keyboard alone.
+- Chat messages are announced to screen readers via `aria-live` region.
+- Focus management is logical: new messages don't steal focus from the input.
+- Color contrast meets WCAG 2.1 AA (≥ 4.5:1 for normal text, ≥ 3:1 for large text).
+- UI respects `prefers-reduced-motion` (no animations when set).
+- Lighthouse accessibility score ≥ 90.
+- **Features:** F-45
+
+### US-44 Incident response and escalation procedures (M7) 🔜
+As the **operator**, I want documented incident response, breach notification, and child safety escalation procedures, so that I can respond correctly under time pressure.
+- Incident response plan covers: severity classification, response flow, containment, investigation, resolution, post-incident review.
+- Breach notification procedure covers RA 10173 NPC 72-hour requirement with templates.
+- Child safety escalation covers RA 11930 reporting to PNP-ACG/NBI-CCD.
+- Law enforcement cooperation procedure covers RA 10175 data preservation requests.
+- All procedures tested via tabletop exercise before M8.
+- **Features:** F-46
+
+## Epic J: IT Manager — Launch & Production (M8, M9, M10)
+
+### US-45 Legal compliance sign-off (M8) 🔜
+As the **operator**, I want all legal requirements verified and signed off, so that the platform launches in compliance with Philippine law.
+- Philippine lawyer has reviewed and approved: privacy notice, terms of service, rules page.
+- NPC registration completed (or filed, if processing time extends past launch).
+- Data Protection Officer formally designated.
+- RA 11930 designated officer appointed.
+- Privacy Impact Assessment completed.
+- Data processing agreement with Render reviewed.
+- **Features:** F-47
+
+### US-46 Launch readiness verification (M8) 🔜
+As the **operator**, I want a final launch readiness checklist verified, so that nothing is missed before sharing the link.
+- Security checklist 100% passed.
+- All IT Manager review CRITICAL findings resolved.
+- All IT Manager review MAJOR findings resolved or accepted with documented rationale.
+- Production configuration verified (env vars, ALLOWED_ORIGINS, Node flags).
+- Release smoke test passed on live URL (phone + laptop).
+- Rollback tested once successfully.
+- README and docs up to date.
+- `v1.0.0` git tag created.
+- **Features:** F-48
+
+### US-47 Penetration testing (M9) 🔜
+As the **operator**, I want the system tested by adversarial methods, so that hidden vulnerabilities are found before attackers find them.
+- OWASP ZAP baseline scan clean (no high/medium alerts).
+- WebSocket fuzzing: no crashes from malformed frames or payloads.
+- Origin bypass testing: verified the Origin check cannot be circumvented.
+- Session hijacking testing: verified forged session IDs are always rejected.
+- XSS injection testing: verified all user input is safely rendered.
+- CSP bypass testing: verified CSP blocks injected scripts.
+- Rate limit bypass testing: verified burst and sustained abuse is contained.
+- Results documented in a penetration test report.
+- **Features:** pen test report artifact
+
+### US-48 Disaster recovery drill (M9) 🔜
+As the **operator**, I want to verify I can recover from disasters, so that I'm not learning the process during an actual incident.
+- Rollback drill: deploy intentionally broken version → rollback → service restored in < 5 minutes.
+- Service rebuild drill: delete Render service → recreate from scratch → operational in < 20 minutes.
+- State recovery verification: restart with state file → verify bans persist across restart.
+- Emergency hotfix drill: simulate SEV-1 → hotfix deployed via documented exception process.
+- All drill results documented.
+
+### US-49 Performance baseline (M9) 🔜
+As the **operator**, I want measured performance baselines, so that I can detect regressions and plan capacity.
+- Load test: 200 concurrent pairs sustained for 10 minutes, p95 relay < 50ms.
+- Soak test: 50 pairs cycling for 8 hours, RSS growth < 10%.
+- Cross-browser E2EE test: key exchange + messaging verified on Chrome, Edge, Firefox, Safari.
+- Results documented with specific numbers, not "it seems fine."
+
+### US-50 Operational maturity (M10) 🔜
+As the **operator**, I want operational processes established after launch, so that the platform can sustain itself.
+- Incident response drill completed (simulated SEV-2 scenario).
+- On-call rotation documented (even if single-person).
+- First week production metrics reviewed and documented.
+- Post-launch retrospective completed.
+- Bug triage process established.
+- Moderator review cycle confirmed (at minimum weekly).
+- Cost monitoring active (Render hours and bandwidth).
+- v1.1 roadmap drafted based on launch learnings.
+
 ## Epic F: Already delivered (M1)
 
 ### US-26 Personalize the look ✅
