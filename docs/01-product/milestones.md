@@ -47,6 +47,24 @@ flowchart LR
 
 ---
 
+## Production Pipeline
+
+Every milestone and story flows through the IT Manager production pipeline:
+
+| Pipeline | Scope | Documentation |
+|---|---|---|
+| **M-Pipeline** | Milestone lifecycle: Plan → M-DoR → Stories → M-DoD → Release | [milestone-pipeline.md](../10-pipeline/milestone-pipeline.md) |
+| **S-Pipeline** | Story lifecycle: DoR → Build → DoD → Merge | [story-lifecycle.md](../10-pipeline/story-lifecycle.md) |
+| **H-Pipeline** | Hotfix fast-track: Triage → H-DoR → Fix → H-DoD → Deploy | [hotfix-pipeline.md](../10-pipeline/hotfix-pipeline.md) |
+
+Stories are classified as **GATED** (CRITICAL/HIGH: manual review required) or **CONTINUOUS** (MEDIUM/LOW: automated gates only). See [story-classification.md](../10-pipeline/story-classification.md) for the full classification of all 50 stories.
+
+**Pipeline rules:**
+- Per-file commits, per-file pushes — always
+- No story starts without DoR pass
+- No story merges without DoD pass
+- DoD audits 7 angles: code, security, testing, docs, UX, compliance, evidence
+
 ## Milestone Definition of Done (applies to every milestone)
 1. ✅ All the milestone's stories meet the **story DoD** ([user-stories.md](user-stories.md#definition-of-done-for-every-story))
 2. ✅ The milestone's exit criteria below are all checked
@@ -55,6 +73,9 @@ flowchart LR
 5. ✅ Docs, feature statuses and README status table updated
 6. ✅ **Demo script** performed end-to-end on the live URL (phone + laptop)
 7. ✅ Retro note added at the bottom of this file (what went well, what to change)
+8. ✅ **M-DoD report** generated: `testresults/dod/MN-dod.json`
+9. ✅ **All story DoD reports** exist in `testresults/dod/`
+10. ✅ **Milestone tagged** in git: `git tag -a MN-complete`
 
 ---
 
