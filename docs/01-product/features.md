@@ -50,6 +50,24 @@ A tiny URL (`/health`) that answers `{"status":"ok"}` when the server is alive. 
 | F-34 | Automated behavioral monitoring: report velocity, session churn, connection pattern tracking | M7 | US-30 |
 | F-35 | Human moderator tools: aggregated report dashboard, escalation workflow, abuse trend analysis | M7 | US-31 |
 
+## IT Manager Review — New Features (2026-10-27)
+
+| ID | Feature | Milestone | From stories |
+|---|---|---|---|
+| F-36 | Connection authentication token (HMAC-signed nonce, 30s TTL, IP-bound) | M2 | US-32 |
+| F-37 | Structured JSON logging (levels, correlation IDs, PII prevention, semgrep CI rule) | M2 | US-33 |
+| F-38 | Deep health check (memory, connections, Socket.IO status, version) | M2 | US-34 |
+| F-39 | Protocol versioning (`rc/v1` in handshake, mismatch rejection, refresh notification) | M2 | US-35 |
+| F-40 | Privacy notice, terms of service, and acceptable use policy drafts | M6 | US-38 |
+| F-41 | Proof-of-work bot prevention (SHA-256 challenge, configurable difficulty) | M6 | US-39 |
+| F-42 | SLI/SLO definition and collection (availability, relay latency, error rate, memory) | M7 | US-40 |
+| F-43 | In-process metrics collection (60s snapshots: connections, sessions, safety, memory) | M7 | US-41 |
+| F-44 | Alerting system (UptimeRobot, metric thresholds, `minor` report immediate alert) | M7 | US-42 |
+| F-45 | WCAG AA accessibility compliance (keyboard nav, screen reader, contrast, focus) | M7 | US-43 |
+| F-46 | Incident response, breach notification, child safety, and law enforcement procedures | M7 | US-44 |
+| F-47 | Legal compliance sign-off (NPC registration, DPO, PIA, lawyer review) | M8 | US-45 |
+| F-48 | Launch readiness verification (final checklist, smoke test, config audit) | M8 | US-46 |
+
 ### What happened to "online list per room" (old F-14)?
 It used to mean "the list of usernames inside a group room". Rooms are now **strictly two people**, so a list makes no sense. It's replaced by:
 - **F-14 Partner status:** you see whether *your* stranger is connected, typing, or has left.
