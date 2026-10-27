@@ -67,12 +67,65 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Incident response plan covers RA 11930 reporting obligations
 - [ ] Legal review completed by qualified Philippine lawyer
 
+## Connection & protocol security (IT Manager review)
+- [ ] Connection token required for WebSocket handshake (US-32)
+- [ ] Connection token is HMAC-signed with 30s TTL, bound to IP hash
+- [ ] Protocol version `rc/v1` validated on every connection (US-35)
+- [ ] Outdated clients receive `system:refresh` notification before disconnect
+- [ ] Connection-rate limiting: max 5 new connections per IP per 10 seconds
+- [ ] Proof-of-work challenge required before first session (US-39)
+- [ ] Key exchange timeout: 10s, then session ends with CRYPTO_TIMEOUT (US-37)
+
+## Monitoring & observability (IT Manager review)
+- [ ] Structured JSON logging with correlation IDs, no PII (US-33)
+- [ ] CI grep/semgrep rule fails on raw IP in any log statement
+- [ ] Deep health check reports memory, connections, status (US-34)
+- [ ] Memory ceiling configured (`--max-old-space-size=400`)
+- [ ] In-memory data structures have `maxSize` bounds
+- [ ] SLIs and SLOs defined and tracked (US-40)
+- [ ] Alerting configured for critical conditions (US-42)
+
+## Infrastructure (IT Manager review)
+- [ ] `.node-version` file pins Node 22
+- [ ] `better-sqlite3` removed from dependencies
+- [ ] `.env.example` exists with all required variables
+- [ ] Response compression enabled (gzip)
+- [ ] CODEOWNERS file protects security-critical paths
+- [ ] `SECURITY.md` published with vulnerability disclosure policy
+
+## Compliance & legal (IT Manager review)
+- [ ] Privacy Impact Assessment completed
+- [ ] NPC registration completed or filed
+- [ ] Data Protection Officer designated
+- [ ] RA 11930 designated officer appointed
+- [ ] Breach notification procedure documented and tested
+- [ ] Law enforcement cooperation procedure documented
+- [ ] Data processing agreement with Render reviewed
+- [ ] Terms of service published
+- [ ] Acceptable use policy published
+
+## Testing (IT Manager review)
+- [ ] Penetration test report with no unresolved critical/major findings
+- [ ] OWASP ZAP baseline scan clean
+- [ ] WebSocket fuzzing: no crashes
+- [ ] Rollback drill completed in < 5 minutes
+- [ ] Service rebuild drill completed in < 20 minutes
+- [ ] WCAG AA accessibility audit score ≥ 90 (Lighthouse)
+- [ ] Cross-browser E2EE verified (Chrome, Edge, Firefox, Safari)
+- [ ] Load test: 200 pairs, p95 relay < 50ms
+- [ ] Soak test: 8 hours, RSS growth < 10%
+
 ## Manual verification before launch
 - [ ] `<img src=x onerror=alert(1)>` → shown as text
 - [ ] 20 fast messages → `slow down`
 - [ ] 10 KB payload from dev tools → rejected
 - [ ] Socket from another origin → refused
+- [ ] Socket without connection token → refused
 - [ ] Dev tools → Network → WS frames: only ciphertext visible
 - [ ] securityheaders.com grade ≥ A
 - [ ] Report flow: submit report → confirm ban triggers after threshold
 - [ ] Content filter: send known banned word → filter activates
+- [ ] Bot script without PoW → connection refused or session denied
+- [ ] Outdated protocol version → client sees "please refresh"
+- [ ] `/health` shows memory and connection count
+- [ ] Structured logs contain no raw IPs (grep verification)
