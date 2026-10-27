@@ -62,3 +62,53 @@ Status: ⏸ waiting · ✅ decided · 🔄 assumed (proceeding with recommendati
 | G-22 | **Philippine lawyer review** — when should this start? | TDD-M8 | Start during M6 (when rules page and privacy notice are drafted). Budget 2–4 weeks for review. | ⏸ |
 | G-23 | **Data Protection Officer** — RA 10173 requires a DPO. Who? | TDD-M8 | The operator (project owner) acts as interim DPO | 🔄 |
 | G-24 | **Beta rollout plan** — "Philippines beta first" but no details on how/where to share the link | TDD-M8 | Share via personal networks + Philippine tech communities; monitor for 1 week before wider release | ⏸ |
+
+## IT Manager Review — New Gaps (2026-10-27)
+
+### Security & Authentication
+
+| ID | Gap | Affects | Recommendation | Status |
+|---|---|---|---|---|
+| G-25 | **No WebSocket connection authentication** — Origin check alone is insufficient against automated scripts | US-32, M2 | Implement server-signed connection token (HMAC, 30s TTL, IP-bound) | 🔄 |
+| G-26 | **No bot prevention** — zero friction for headless browsers or bot farms | US-39, M6 | Proof-of-work challenge (SHA-256, ~50ms for browsers); Cloudflare Turnstile as backup | 🔄 |
+| G-27 | **No connection-rate limiting on WS handshake** — only established connections are rate-limited | US-32, M2 | Max 5 new connections per IP per 10 seconds at gateway level | 🔄 |
+| G-28 | **No key exchange timeout** — half-keyed sessions hang indefinitely | US-37, M4 | 10-second timeout; session ends with CRYPTO_TIMEOUT | 🔄 |
+
+### Infrastructure & Operations
+
+| ID | Gap | Affects | Recommendation | Status |
+|---|---|---|---|---|
+| G-29 | **No structured logging** — only `console.log` with no levels, no correlation, no JSON | US-33, M2 | JSON structured logging with levels, correlation IDs, and PII prevention | 🔄 |
+| G-30 | **Health check is shallow** — returns static 200 without checking system state | US-34, M2 | Deep health check: memory, connections, Socket.IO status | 🔄 |
+| G-31 | **No memory bounds** — in-memory maps can grow unbounded on 512MB instance | M2 | `maxSize` on all TtlMap instances; `--max-old-space-size=400` | 🔄 |
+| G-32 | **No SLIs/SLOs** — no measurable service level targets | US-40, M7 | Define availability, relay latency, error rate, memory targets | 🔄 |
+| G-33 | **In-memory state lost on restart** — bans, reports, rate limits all reset | M7 | State persistence to temp file on graceful shutdown; reload on startup | 🔄 |
+
+### Compliance & Legal
+
+| ID | Gap | Affects | Recommendation | Status |
+|---|---|---|---|---|
+| G-34 | **No breach notification procedure** — RA 10173 requires NPC notification within 72 hours | US-44, M7/M8 | Document procedure with templates; test via tabletop exercise | ⏸ |
+| G-35 | **No Privacy Impact Assessment** — required for high-risk processing under RA 10173 | US-45, M8 | Complete PIA before launch | ⏸ |
+| G-36 | **No NPC registration** — required as personal information controller | US-45, M8 | Register before launch | ⏸ |
+| G-37 | **No DPO designated** — RA 10173 requires Data Protection Officer | US-45, M8 | Operator acts as interim DPO; formalize | 🔄 |
+| G-38 | **No RA 11930 designated officer** — Anti-OSAEC Law requires a designated responsible officer | US-45, M8 | Appoint before launch | ⏸ |
+| G-39 | **Legal review not scheduled** — requires 2-4 weeks lead time | US-45, M6/M8 | Engage Philippine lawyer during M6; budget PHP 15K-50K | ⏸ |
+
+### Testing & Quality
+
+| ID | Gap | Affects | Recommendation | Status |
+|---|---|---|---|---|
+| G-40 | **Zero tests exist** — comprehensive strategy documented but no test files in repo | M2 | First test must ship with M2 | 🔄 |
+| G-41 | **No penetration testing plan** — adversarial testing not scheduled | US-47, M9 | OWASP ZAP baseline + manual WebSocket fuzzing | 🔄 |
+| G-42 | **No accessibility testing** — WCAG AA claimed but not verified | US-43, M7 | Lighthouse + axe-core + manual keyboard/screen reader test | 🔄 |
+
+### Pipeline & Process
+
+| ID | Gap | Affects | Recommendation | Status |
+|---|---|---|---|---|
+| G-43 | **`build` script missing from package.json** — `tsc` compilation not configured | M2 | Add `"build": "tsc"` to scripts | 🔄 |
+| G-44 | **No `.node-version` file** — referenced in docs but not created | M2 | Create `.node-version` with `22` | 🔄 |
+| G-45 | **No `.env.example`** — developers have no reference for required env vars | M2 | Create with PORT, NODE_ENV, ALLOWED_ORIGINS | 🔄 |
+| G-46 | **No `SECURITY.md`** — no vulnerability disclosure policy | M2 | Create GitHub security policy with responsible disclosure instructions | 🔄 |
+| G-47 | **No protocol versioning** — breaking changes crash stale clients | US-35, M2 | `rc/v1` in handshake auth; mismatch → refused | 🔄 |
