@@ -1,0 +1,6 @@
+# Security-critical paths need owner review
+/src/                @futuresfsake
+/docs/04-security/   @futuresfsake
+/docs/11-dict-review/ @futuresfsake
+/.github/            @futuresfsake
+/SECURITY.md         @futuresfsake
