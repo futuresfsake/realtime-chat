@@ -17,6 +17,7 @@
 | [`06-operations/`](06-operations/README.md) | **How it runs in production**: Render, deployment, health checks, scaling, runbook | `render.md` |
 | [`07-process/`](07-process/README.md) | **How we work**: workflows, Definition of Done, CI/CD, automation, templates | `workflows.md` |
 | [`08-guides/`](08-guides/README.md) | **Hands-on how-tos**: local development (Codespaces + your own machine) | `local-development.md` |
+| [`11-dict-review/`](11-dict-review/README.md) | **DICT-style review**: data retention and database decisions, management roles, deployment security, tooling, compliance crosswalk | `README.md` |
 | [`GLOSSARY.md`](GLOSSARY.md) | Every acronym and technical term used in these docs | — |
 
 Every folder has its own `README.md` summary.
