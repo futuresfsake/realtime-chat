@@ -65,6 +65,8 @@ Stories are classified as **GATED** (CRITICAL/HIGH: manual review required) or *
 - No story merges without DoD pass
 - DoD audits 7 angles: code, security, testing, docs, UX, compliance, evidence
 
+**DICT security gates:** each milestone also has privacy/security release gates, see [11-dict-review/milestones.md](../11-dict-review/milestones.md).
+
 ## Milestone Definition of Done (applies to every milestone)
 1. ✅ All the milestone's stories meet the **story DoD** ([user-stories.md](user-stories.md#definition-of-done-for-every-story))
 2. ✅ The milestone's exit criteria below are all checked
