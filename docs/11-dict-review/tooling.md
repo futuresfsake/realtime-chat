@@ -20,7 +20,7 @@ Checked on the developer machine on 2026-10-28.
 |---|---|---|---|
 | `zod` < 4.6.6 | High | Memory exhaustion validating oversized collections (GHSA-mrhx-c7xc-m3w5). Zod is our input validator, so this matters | Upgrade to >= 4.6.6 |
 | `qs` | Moderate | `stringify` DoS on odd array elements (GHSA-6pq8-jhm2-2vcw) | `npm audit fix` |
-| (second high in the same report) | High | See `npm audit` output | `npm audit fix` |
+| `body-parser` 2.0.0 to 2.3.0 | High | DoS via trailing bytes after a compressed request body (GHSA-27r3-jxmh-p828). Transitive via Express | `npm audit fix` |
 
 Action: open `chore/update-dependencies`, run `npm audit fix`, re-run tests, merge before M2 deploy.
 
