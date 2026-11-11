@@ -16,6 +16,10 @@ interface ClientRecord {
   name: string | null; // only while chatting; never kept beyond the session
 }
 
+export type LeaveResult =
+  | { ok: true; ended: Session | null; partner: string | null; wasSearching: boolean }
+  | { ok: false; code: "INVALID_STATE" };
+
 export interface SessionManagerOptions {
   newId?: () => string;
   rng?: () => number;
@@ -81,6 +85,26 @@ export class SessionManager {
       cb.name = generateName(this.rng);
     } while (cb.name === ca.name);
     return session;
+  }
+
+  // /leave: end whatever is going on and become idle (READY). Does not search again.
+  leave(socketId: string): LeaveResult {
+    return this.finish(socketId, "READY");
+  }
+
+  // /next: end whatever is going on and become SEARCHING. The caller re-enqueues.
+  next(socketId: string): LeaveResult {
+    return this.finish(socketId, "SEARCHING");
+  }
+
+  private finish(socketId: string, target: "READY" | "SEARCHING"): LeaveResult {
+    const client = this.clients.get(socketId);
+    if (!client || client.state === "READY") return { ok: false, code: "INVALID_STATE" };
+    const wasSearching = client.state === "SEARCHING";
+    const partner = this.getPartner(socketId);
+    const ended = client.sessionId ? this.endSession(client.sessionId) : null;
+    client.state = target;
+    return { ok: true, ended, partner: ended ? partner : null, wasSearching };
   }
 
   getSessionId(socketId: string): string | null {
