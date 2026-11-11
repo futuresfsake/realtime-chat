@@ -28,7 +28,7 @@
 | ID | STRIDE | Threat | Mitigation | Status |
 |---|---|---|---|---|
 | T-01 | Tampering | Malformed or oversized events crash or confuse the server | zod `strictObject` schemas; 4 KB payload limit; wrapped handlers | 🔜 M2 |
-| T-02 | DoS | Message/command flooding | Token buckets (messages, start/next, typing, reports) | 🔜 M2 |
+| T-02 | DoS | Message/command flooding | Token buckets (messages + reactions, start/next, typing, reports) | ✅ M2/M3 (reports: M6) |
 | T-03 | DoS | One IP opens many sockets | ≤ 5 sockets per IP hash | 🔜 M2 |
 | T-04 | Spoofing | Cross-Site WebSocket Hijacking | Origin allowlist | 🔜 M2 |
 | T-05 | Tampering / EoP | XSS via message text, which also steals E2EE keys | `textContent` only; strict CSP (no `unsafe-inline`) | ✅ textContent / 🔜 CSP M2 |

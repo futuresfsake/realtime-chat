@@ -10,13 +10,14 @@ import type { GraceTimers } from "../sessions/reconnectGrace.js";
 import type { LeaveResult, SessionManager } from "../sessions/sessionManager.js";
 import type {
   ChatMessage,
+  ChatReaction,
   ClientToServerEvents,
   ErrorCode,
   ServerToClientEvents,
   SessionEndReason,
   SocketData,
 } from "../types/events.js";
-import { ChatSendSchema, EmptySchema } from "../validation/schemas.js";
+import { ChatSendSchema, EmptySchema, ReactionSchema, TypingSchema } from "../validation/schemas.js";
 import { HandlerError, withHandler } from "./handler.js";
 
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -72,6 +73,8 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   socket.emit("stats:online", { count: io.engine.clientsCount });
 
   const messageBucket = new TokenBucket(config.messageBurstCapacity, config.messageRefillPerSec, clock);
+  // Typing signals are tiny and frequent: 10 in a burst, then 2 per second.
+  const typingBucket = new TokenBucket(10, 2, clock);
   // /start and /next share one limit per network address (hashed), across all its sockets.
   const searchLimiter = {
     consume: () => searchLimits.consume(ipHash),
@@ -168,6 +171,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
         }
         const msg: ChatMessage = {
           id: randomUUID(),
+          seq: sessions.nextSeq(socket.id)!,
           from: sessions.getName(socket.id)!,
           text,
           sentAt: clock.now(), // server time, not client time
@@ -176,6 +180,41 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
         io.to(partnerId).emit("chat:message", msg);
       },
       hooks("chat:send"),
+    ),
+  );
+
+  // A reaction to a message of this chat. Both sides are told, like a
+  // message. Shares the message limit, so reactions cannot be used to flood.
+  socket.on(
+    "chat:react",
+    withHandler(
+      ReactionSchema,
+      messageBucket,
+      ({ ref, emoji }) => {
+        const partnerId = sessions.getPartner(socketId);
+        const name = sessions.getName(socketId);
+        if (!partnerId || !name) throw new HandlerError("NOT_IN_SESSION");
+        const reaction: ChatReaction = { ref, emoji, from: name };
+        socket.emit("chat:reaction", reaction);
+        io.to(partnerId).emit("chat:reaction", reaction);
+      },
+      hooks("chat:react"),
+    ),
+  );
+
+  // "Typing" is a hint, not data: outside a chat it is silently ignored, and
+  // it is sent volatile so a stale "typing…" is never replayed after a drop.
+  socket.on(
+    "typing",
+    withHandler(
+      TypingSchema,
+      typingBucket,
+      ({ isTyping }) => {
+        const partnerId = sessions.getPartner(socketId);
+        if (!partnerId) return;
+        io.to(partnerId).volatile.emit("partner:status", { state: isTyping ? "typing" : "idle" });
+      },
+      hooks("typing"),
     ),
   );
 

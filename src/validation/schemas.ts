@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ALLOWED_REACTIONS } from "../types/events.js";
 
 // Every client -> server payload has a strict schema: wrong types, missing
 // fields and unknown fields are all rejected.
@@ -8,6 +9,18 @@ export const ChatSendSchema = z.strictObject({
   // Optional: the server already knows your session. If you send one it must
   // be yours, otherwise the message is refused (forged-id protection).
   sessionId: z.uuid().optional(),
+});
+
+// A reaction to one message of the current session. The server checks the
+// emoji but not that `ref` exists: it keeps no list of messages.
+export const ReactionSchema = z.strictObject({
+  ref: z.number().int().positive().max(1_000_000),
+  emoji: z.enum(ALLOWED_REACTIONS),
+});
+
+// "I started / stopped typing". Carries no text.
+export const TypingSchema = z.strictObject({
+  isTyping: z.boolean(),
 });
 
 // Session commands carry no data.

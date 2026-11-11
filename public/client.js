@@ -19,6 +19,8 @@ const els = {
   user: $("ps1-user"),
   room: $("ps1-room"),
   roomName: $("room-name"),
+  typing: $("typing"),
+  partnerStatus: $("partner-status"),
   onlineTop: $("conn-online"),
   onlineSide: $("online-count"),
   themes: $("themes"),
@@ -47,12 +49,42 @@ const socket = io({
 let me = "guest";
 let partner = null; // set while chatting with someone
 
+// Everything said in the current chat lives here, in memory only (US-09).
+const store = SessionStore.create();
+let partnerState = "none"; // none | connected | typing | reconnecting
+
 function setChatting(myName, partnerName) {
   me = myName || "guest";
   partner = partnerName;
   els.user.textContent = me;
   els.room.textContent = partnerName || "lobby";
   els.roomName.textContent = partnerName || "lobby";
+  setPartnerState(partnerName ? "connected" : "none");
+}
+
+// Sidebar: one line about the partner. ● connected, ✎ typing, ⟳ reconnecting.
+function setPartnerState(state) {
+  partnerState = state;
+  clearTimeout(partnerTypingTimer);
+  const text = {
+    none: "no one yet. type /start",
+    connected: `● ${partner} connected`,
+    typing: `✎ ${partner} is typing…`,
+    reconnecting: `⟳ ${partner} reconnecting…`,
+  }[state];
+  els.partnerStatus.textContent = text;
+  els.partnerStatus.dataset.state = state;
+  // The line under the chat only ever says "typing", and only while it is true.
+  els.typing.textContent = state === "typing" ? `${partner} is typing…` : "";
+  // A partner who goes quiet without saying so (switched tabs) is not typing after 3 s.
+  if (state === "typing") partnerTypingTimer = setTimeout(() => setPartnerState("connected"), 3000);
+}
+let partnerTypingTimer = null;
+
+// The chat is over: forget every message (screen and memory).
+function wipeHistory() {
+  store.clear();
+  els.log.replaceChildren();
 }
 const history = [];
 let historyIndex = 0;
@@ -77,6 +109,7 @@ function addLine(parts, className = "") {
   els.log.appendChild(li);
   while (els.log.children.length > MAX_LINES) els.log.firstElementChild.remove();
   if (shouldStick) els.log.scrollTop = els.log.scrollHeight;
+  return li;
 }
 const sys = (text) => addLine([[`*** ${text}`]], "sys");
 const err = (text) => addLine([[`!!! ${text}`]], "err");
@@ -267,7 +300,8 @@ socket.on("connect", () => {
 });
 
 socket.on("session:matched", ({ myName, partnerName }) => {
-  els.log.replaceChildren(); // a new chat starts empty
+  wipeHistory(); // a new chat starts empty
+  stopTyping();
   setChatting(myName, partnerName);
   sys(`connected to ${partnerName}. you are ${myName}. say hi! (/leave to end the chat)`);
 });
@@ -280,8 +314,9 @@ const ENDED_TEXT = {
   timeout: "you were offline for too long, so that chat has ended. type /start to meet someone new",
 };
 socket.on("session:ended", ({ reason }) => {
+  wipeHistory(); // the chat is over: nothing of it is kept
+  stopTyping();
   setChatting("guest", null);
-  if (reason === "skipped") els.log.replaceChildren(); // /next: start with a clean screen
   sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
 });
 
@@ -290,7 +325,11 @@ const STATUS_TEXT = {
   connected: "your partner is back",
 };
 socket.on("partner:status", ({ state }) => {
-  if (partner && STATUS_TEXT[state]) sys(STATUS_TEXT[state]);
+  if (!partner) return;
+  if (STATUS_TEXT[state]) sys(STATUS_TEXT[state]);
+  if (state === "typing") setPartnerState("typing");
+  else if (state === "reconnecting") setPartnerState("reconnecting");
+  else setPartnerState("connected"); // connected | idle
 });
 
 // A count only: the server never sends names or locations.
@@ -301,10 +340,36 @@ socket.on("stats:online", ({ count }) => {
 });
 
 socket.on("chat:message", (msg) => {
-  addLine(
+  const mine = msg.from === me;
+  store.addMessage(msg, mine);
+  const li = addLine(
     [[`[${timestamp(msg.sentAt)}] `, "ts"], [`<${msg.from}> `, "who"], [msg.text]],
-    msg.from === me ? "self" : ""
+    mine ? "self" : ""
   );
+  li.dataset.seq = String(msg.seq);
+  // Their message arrived, so they are not "typing" any more.
+  if (!mine && partnerState === "typing") setPartnerState("connected");
+});
+
+// ---------- Reactions ----------
+// Shows "😂 2  👍" at the end of the message that was reacted to.
+function renderReactions(ref, reactions) {
+  const li = els.log.querySelector(`li[data-seq="${ref}"]`);
+  if (!li) return; // scrolled off the screen
+  let span = li.querySelector(".reactions");
+  if (!span) {
+    span = document.createElement("span");
+    span.className = "reactions";
+    li.appendChild(span);
+  }
+  const counts = new Map();
+  for (const { emoji } of reactions) counts.set(emoji, (counts.get(emoji) || 0) + 1);
+  span.textContent = ` ${[...counts].map(([emoji, n]) => (n > 1 ? `${emoji}×${n}` : emoji)).join(" ")}`;
+}
+
+socket.on("chat:reaction", ({ ref, emoji, from }) => {
+  const reactions = store.addReaction(ref, emoji, from);
+  if (reactions) renderReactions(ref, reactions); // unknown message or repeat: ignored
 });
 
 // ---------- Local slash commands (never sent to the server) ----------
@@ -314,6 +379,7 @@ const commands = {
     sys("  /help     show this list");
     sys("  /clear    clear the screen");
     sys("  /start    find a stranger to chat with");
+    sys("  /react    react to their last message: /react 😂  (👍 ❤️ 😂 😮 😢 🙏)");
     sys("  /next     skip to a new stranger");
     sys("  /leave    leave the chat (or stop searching)");
     sys("  /whoami   show your random name");
@@ -321,7 +387,21 @@ const commands = {
     sys("  up/down   browse your input history");
   },
   clear() {
-    els.log.replaceChildren();
+    wipeHistory();
+  },
+  react(args) {
+    const emoji = args.join("").replace(/\uFE0F/g, ""); // "❤" and "❤️" are the same reaction
+    const allowed = store.ALLOWED_REACTIONS;
+    const match = allowed.find((e) => e.replace(/\uFE0F/g, "") === emoji);
+    if (!match) return sys(`usage: /react <emoji>  (${allowed.join(" ")})`);
+    if (!partner) return err("you are not chatting with anyone. type /start to meet a stranger");
+    const ref = store.lastPartnerSeq();
+    if (ref === null) return err("nothing to react to yet: your partner has not said anything");
+    socket.emit("chat:react", { ref, emoji: match }, (ack) => {
+      if (!ack || ack.ok) return;
+      if (ack.error.code === "RATE_LIMITED") err("slow down - reaction not sent");
+      else err("reaction not sent - please try again");
+    });
   },
   whoami() {
     sys(partner ? `you are ${me}, chatting with ${partner}` : "you are not in a chat yet. type /start");
@@ -379,10 +459,41 @@ function runCommand(line) {
 }
 
 // ---------- Input handling ----------
+// Tells the partner when I start and stop typing. Never any text, only
+// "typing" or "not typing". Sent at most every 2 seconds, and "stopped" goes
+// out 3 seconds after the last key press, or at once when I send.
+let iAmTyping = false;
+let lastTypingSentAt = 0;
+let stopTypingTimer = null;
+
+function sendTyping(isTyping) {
+  if (partner && socket.connected) socket.volatile.emit("typing", { isTyping });
+}
+
+function stopTyping() {
+  clearTimeout(stopTypingTimer);
+  if (iAmTyping) sendTyping(false);
+  iAmTyping = false;
+}
+
+els.input.addEventListener("input", () => {
+  // Commands (/next, /react...) are not "typing to the partner".
+  if (!partner || els.input.value.trim() === "" || els.input.value.startsWith("/")) return stopTyping();
+  const now = Date.now();
+  if (!iAmTyping || now - lastTypingSentAt > 2000) {
+    sendTyping(true);
+    lastTypingSentAt = now;
+    iAmTyping = true;
+  }
+  clearTimeout(stopTypingTimer);
+  stopTypingTimer = setTimeout(stopTyping, 3000);
+});
+
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const text = els.input.value.trim();
   if (!text) return;
+  stopTyping();
 
   history.push(text);
   if (history.length > MAX_HISTORY) history.shift();

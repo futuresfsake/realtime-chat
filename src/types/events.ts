@@ -30,6 +30,7 @@ export type AckFn = (ack: Ack) => void;
 
 export interface ChatMessage {
   id: string;
+  seq: number; // 1, 2, 3... within one session; reactions point at it
   from: string;
   text: string;
   sentAt: number; // epoch ms, server time
@@ -39,8 +40,19 @@ export interface ChatMessage {
 // "partner_timeout": your partner's was.
 export type SessionEndReason = "left" | "partner_left" | "skipped" | "timeout" | "partner_timeout";
 
-// More states (typing, idle) arrive with US-06/07.
-export type PartnerState = "connected" | "reconnecting";
+// "typing" / "idle": the partner started or stopped typing (no content).
+// There is no "left" state: session:ended already says the partner is gone.
+export type PartnerState = "connected" | "reconnecting" | "typing" | "idle";
+
+// The only reactions that are relayed. Keep in sync with public/js/sessionStore.js.
+export const ALLOWED_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"] as const;
+export type Reaction = (typeof ALLOWED_REACTIONS)[number];
+
+export interface ChatReaction {
+  ref: number; // seq of the message reacted to
+  emoji: Reaction;
+  from: string; // random name of who reacted
+}
 
 export interface SessionMatched {
   sessionId: string;
@@ -54,10 +66,13 @@ export interface ClientToServerEvents {
   "session:start": (payload: unknown, ack?: unknown) => void;
   "session:next": (payload: unknown, ack?: unknown) => void;
   "session:leave": (payload: unknown, ack?: unknown) => void;
+  "chat:react": (payload: unknown, ack?: unknown) => void;
+  typing: (payload: unknown, ack?: unknown) => void;
 }
 
 export interface ServerToClientEvents {
   "chat:message": (msg: ChatMessage) => void;
+  "chat:reaction": (reaction: ChatReaction) => void;
   "session:matched": (info: SessionMatched) => void;
   "session:ended": (info: { reason: SessionEndReason }) => void;
   "partner:status": (info: { state: PartnerState }) => void;

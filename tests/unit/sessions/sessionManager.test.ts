@@ -120,6 +120,25 @@ describe("SessionManager", () => {
     });
   });
 
+  describe("nextSeq", () => {
+    it("counts 1, 2, 3 per session and starts again at 1 in a new session", () => {
+      const { sm, s } = paired();
+      expect(sm.nextSeq("a")).toBe(1);
+      expect(sm.nextSeq("b")).toBe(2);
+      expect(sm.nextSeq("a")).toBe(3);
+      sm.endSession(s.id);
+      sm.startSearching("a");
+      sm.startSearching("b");
+      sm.createSession("a", "b");
+      expect(sm.nextSeq("b")).toBe(1);
+    });
+    it("is null outside a session", () => {
+      const sm = setup();
+      expect(sm.nextSeq("a")).toBeNull();
+      expect(sm.nextSeq("zzz")).toBeNull();
+    });
+  });
+
   describe("session integrity", () => {
     it("accepts only the two participants", () => {
       const { sm, s } = paired();

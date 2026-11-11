@@ -31,6 +31,8 @@ export interface SessionManagerOptions {
 export class SessionManager {
   private readonly clients = new Map<string, ClientRecord>();
   private readonly sessions = new Map<string, Session>();
+  // How many messages each session has relayed. A number only: never content.
+  private readonly messageCounts = new Map<string, number>();
   private readonly newId: () => string;
   private readonly rng: () => number;
 
@@ -118,6 +120,16 @@ export class SessionManager {
     return session.a === socketId ? session.b : session.a;
   }
 
+  // The number for the next message of this client's session (1, 2, 3...),
+  // or null if the client is not in a session.
+  nextSeq(socketId: string): number | null {
+    const sessionId = this.getSessionId(socketId);
+    if (!sessionId || !this.sessions.has(sessionId)) return null;
+    const seq = (this.messageCounts.get(sessionId) ?? 0) + 1;
+    this.messageCounts.set(sessionId, seq);
+    return seq;
+  }
+
   // O(1). The only check that decides who may act on a session.
   isMember(socketId: string, sessionId: string): boolean {
     const session = this.sessions.get(sessionId);
@@ -129,6 +141,7 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
     this.sessions.delete(sessionId);
+    this.messageCounts.delete(sessionId);
     for (const id of [session.a, session.b]) {
       const client = this.clients.get(id);
       if (client) {

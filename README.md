@@ -6,7 +6,7 @@ No accounts. No stored messages. Free to use, safe by design.
 > **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
 > 📚 Full documentation: [**docs/**](docs/README.md) · 🗺️ Plan: [**milestones**](docs/01-product/milestones.md)
 
-> ⚠️ **Status: M2 code complete (hardening), first deploy pending.** Today the app is a single shared chat room behind an 18+ gate, **without** end-to-end encryption yet. The anonymous 1:1, encrypted, interest-matched product is being built milestone by milestone; next is **M3: 1:1 anonymous sessions**.
+> ⚠️ **Status: M3 code complete (1:1 sessions), first deploy pending.** Today the app pairs you with **one stranger** at a time behind an 18+ gate, **without** end-to-end encryption yet. The encrypted, interest-matched product is being built milestone by milestone; next is **M4: end-to-end encryption**.
 
 ---
 
@@ -22,11 +22,14 @@ No accounts. No stored messages. Free to use, safe by design.
 
 **Never:** accounts, passwords, user-chosen names, group chats, file/image uploads, stored history.
 
-## What works today (M1 + M2)
+## What works today (M1 to M3)
 
-- Real-time messaging between all connected tabs (Socket.IO)
+- **M3, 1:1 chats:** `/start` finds a stranger, you both get random names (`quiet-otter-42`), and messages go only to each other. `/next` skips, `/leave` stops. See when your partner is connected, typing or reconnecting; react with `/react 😂`; see how many people are online (a number, nothing else)
+- **M3, survives bad networks:** a dropped connection is held for 30 s and the chat carries on, missed messages included; after that the chat ends for both
+- **M3, nothing kept:** the chat exists only in your browser's memory and is wiped when it ends (the server keeps relayed messages in memory for about 100 s so a dropped client can catch up, never on disk)
+- Real-time messaging over Socket.IO
 - Terminal-style UI with 4 themes (`phosphor`, `amber`, `ice`, `paper`), saved per browser
-- Slash commands `/help` `/clear` `/whoami` `/theme`, and ↑/↓ input history
+- Slash commands `/help` `/start` `/next` `/leave` `/react` `/clear` `/whoami` `/theme`, and ↑/↓ input history
 - Connection status + auto-reconnect; `/health` endpoint; graceful shutdown
 - XSS-safe rendering (`textContent`)
 - **M2 hardening:** strict zod validation of every event; token-bucket rate limits (5-message burst); 4 KB payload cap; Origin allowlist; short-lived connection token; 5 sockets per IP; security headers + CSP with no inline scripts; 18+ and rules gate enforced by the server; structured JSON logs with no IPs or content; deep `/health`; protocol version `rc/v1`
@@ -55,14 +58,17 @@ realtime-chat/
 │   ├── index.ts            # Entry: listen on PORT, port-in-use message, graceful shutdown
 │   ├── app.ts              # buildServer(): Express + Socket.IO (doesn't listen → testable)
 │   ├── config.ts           # Environment variables + limits, validated at startup
-│   ├── gateway/            # Connection guards, handler wrapper (validate → rate limit → ack)
+│   ├── gateway/            # Connection guards, handler wrapper, registerHandlers (session + chat events)
+│   ├── sessions/           # Session state machine, random names, reconnect grace timers
+│   ├── matchmaking/        # Simple first-two pairing (replaced by interest matching in M5)
 │   ├── http/               # Security headers, /health
 │   ├── security/           # Token bucket, client IP, IP hashing, connection token
 │   ├── observability/      # JSON logger
 │   ├── validation/         # zod schemas
 │   └── types/events.ts     # Event contracts, protocol + rules versions
 ├── public/                 # Frontend (static files)
-│   ├── index.html · styles.css · client.js · js/themes.js
+│   ├── index.html · styles.css · client.js · favicon.svg
+│   └── js/themes.js · js/sessionStore.js   # theme; in-memory chat history + reactions
 ├── tests/                  # unit/ and integration/ (real server on a random port)
 ├── docs/                   # Specs, design, security, operations, process, guides → docs/README.md
 ├── .github/                # CI workflow, CODEOWNERS, Dependabot, PR + issue templates
