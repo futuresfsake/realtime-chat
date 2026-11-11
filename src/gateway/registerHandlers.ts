@@ -5,8 +5,8 @@ import type { Clock } from "../lib/clock.js";
 import type { SimpleMatchmaker } from "../matchmaking/simpleMatchmaker.js";
 import type { Logger } from "../observability/logger.js";
 import { ipHashPrefix } from "../security/ipHash.js";
-import { TokenBucket } from "../security/tokenBucket.js";
-import type { SessionManager } from "../sessions/sessionManager.js";
+import { KeyedLimiter, TokenBucket } from "../security/tokenBucket.js";
+import type { LeaveResult, SessionManager } from "../sessions/sessionManager.js";
 import type {
   ChatMessage,
   ClientToServerEvents,
@@ -28,13 +28,14 @@ export interface HandlerDeps {
   clock: Clock;
   sessions: SessionManager;
   matchmaker: SimpleMatchmaker;
+  searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
   onDisconnect: (socket: ChatSocket) => void; // e.g. release the per-IP socket slot
 }
 
 // Wires every per-connection event. Session rules live in SessionManager; this
 // file only translates between sockets and those rules.
 export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
-  const { io, config, logger, clock, sessions, matchmaker } = deps;
+  const { io, config, logger, clock, sessions, matchmaker, searchLimits } = deps;
   const { correlationId, ipHash } = socket.data;
 
   sessions.registerClient(socket.id);
@@ -44,8 +45,11 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   });
 
   const messageBucket = new TokenBucket(config.messageBurstCapacity, config.messageRefillPerSec, clock);
-  // /start and /leave are rate limited too: no flooding the matchmaker.
-  const commandBucket = new TokenBucket(config.messageBurstCapacity, config.messageRefillPerSec, clock);
+  // /start and /next share one limit per network address (hashed), across all its sockets.
+  const searchLimiter = {
+    consume: () => searchLimits.consume(ipHash),
+    retryAfterMs: () => searchLimits.retryAfterMs(ipHash),
+  };
 
   const hooks = (event: string) => ({
     onRejected: (code: ErrorCode, err?: unknown) => {
@@ -54,52 +58,69 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     },
   });
 
-  // Closes the session (if any) and tells both sides why.
-  function closeSession(sessionId: string, mine: SessionEndReason, theirs: SessionEndReason): void {
-    const partnerId = sessions.getPartner(socket.id);
-    if (!sessions.endSession(sessionId)) return;
-    socket.emit("session:ended", { reason: mine });
-    if (partnerId) io.to(partnerId).emit("session:ended", { reason: theirs });
-    logger.info("session_end", { correlationId, data: { reason: mine, activeSessions: sessions.sessionCount() } });
+  // Puts a searching client in the queue and, if someone was waiting, starts
+  // the session. Synchronous from enqueue to emit: no other event can interleave.
+  function search(): void {
+    const pair = matchmaker.enqueue(socket.id);
+    if (!pair) return;
+    const session = sessions.createSession(pair[0], pair[1]);
+    const nameA = sessions.getName(session.a)!;
+    const nameB = sessions.getName(session.b)!;
+    io.to(session.a).emit("session:matched", { sessionId: session.id, myName: nameA, partnerName: nameB });
+    io.to(session.b).emit("session:matched", { sessionId: session.id, myName: nameB, partnerName: nameA });
+    logger.info("session_start", { correlationId, data: { activeSessions: sessions.sessionCount() } });
+  }
+
+  function announceEnd(result: Extract<LeaveResult, { ok: true }>, mine: SessionEndReason): void {
+    if (result.ended || result.wasSearching) socket.emit("session:ended", { reason: mine });
+    if (result.ended && result.partner) io.to(result.partner).emit("session:ended", { reason: "partner_left" });
+    if (result.ended) {
+      logger.info("session_end", { correlationId, data: { reason: mine, activeSessions: sessions.sessionCount() } });
+    }
   }
 
   socket.on(
     "session:start",
     withHandler(
       EmptySchema,
-      commandBucket,
+      searchLimiter,
       () => {
         if (!sessions.startSearching(socket.id).ok) throw new HandlerError("INVALID_STATE");
-        const pair = matchmaker.enqueue(socket.id);
-        if (!pair) return;
-        // Synchronous from here to the emits: no other event can interleave.
-        const session = sessions.createSession(pair[0], pair[1]);
-        const nameA = sessions.getName(session.a)!;
-        const nameB = sessions.getName(session.b)!;
-        io.to(session.a).emit("session:matched", { sessionId: session.id, myName: nameA, partnerName: nameB });
-        io.to(session.b).emit("session:matched", { sessionId: session.id, myName: nameB, partnerName: nameA });
-        logger.info("session_start", { correlationId, data: { activeSessions: sessions.sessionCount() } });
+        search();
       },
       hooks("session:start"),
     ),
   );
 
+  // /next: end this chat (or search) and look for someone new. Shares the
+  // /start limit, so skipping through people to find a particular one is slow.
+  socket.on(
+    "session:next",
+    withHandler(
+      EmptySchema,
+      searchLimiter,
+      () => {
+        const result = sessions.next(socket.id);
+        if (!result.ok) throw new HandlerError(result.code);
+        matchmaker.remove(socket.id);
+        announceEnd(result, "skipped");
+        search();
+      },
+      hooks("session:next"),
+    ),
+  );
+
+  // /leave: end the chat and go idle. Not rate limited: it only ever shrinks state.
   socket.on(
     "session:leave",
     withHandler(
       EmptySchema,
-      commandBucket,
+      null,
       () => {
-        const state = sessions.getClientState(socket.id);
-        if (state === "SEARCHING") {
-          matchmaker.remove(socket.id);
-          sessions.stopSearching(socket.id);
-          socket.emit("session:ended", { reason: "left" });
-          return;
-        }
-        const sessionId = sessions.getSessionId(socket.id);
-        if (!sessionId) throw new HandlerError("INVALID_STATE");
-        closeSession(sessionId, "left", "partner_left");
+        const result = sessions.leave(socket.id);
+        if (!result.ok) throw new HandlerError(result.code);
+        matchmaker.remove(socket.id);
+        announceEnd(result, "left");
       },
       hooks("session:leave"),
     ),
