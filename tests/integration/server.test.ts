@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { PROTOCOL_VERSION, RULES_VERSION } from "../../src/types/events.js";
-import { ORIGIN, connect, send, startServer } from "./helpers.js";
+import { ORIGIN, command, connect, next, pair, send, startServer } from "./helpers.js";
 import type { TestServer } from "./helpers.js";
 
 let server: TestServer;
@@ -212,16 +212,15 @@ describe("WebSocket handshake", () => {
 });
 
 describe("chat:send", () => {
-  it("delivers a message to every connected client with server-made id and time", async () => {
+  it("delivers a message to the partner with server-made id, time and name", async () => {
     server = await startServer();
-    const alice = await connect(server);
-    const bob = await connect(server);
-    const received = new Promise<Record<string, any>>((resolve) => bob.once("chat:message", resolve));
+    const { a: alice, b: bob } = await pair(server);
+    const received = next<Record<string, any>>(bob, "chat:message");
 
     expect(await send(alice, { text: "  hello bob  " })).toEqual({ ok: true });
     const msg = await received;
     expect(msg.text).toBe("hello bob");
-    expect(msg.from).toBe(alice.id?.slice(0, 5));
+    expect(msg.from).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
     expect(msg.sentAt).toBe(server.clock.now());
     expect(msg.id).toMatch(/^[0-9a-f-]{36}$/);
   });
@@ -237,14 +236,14 @@ describe("chat:send", () => {
     ["unknown fields", { text: "hi", evil: true }],
   ])("rejects %s with VALIDATION and keeps running", async (_name, payload) => {
     server = await startServer();
-    const socket = await connect(server);
+    const { a: socket } = await pair(server);
     expect(await send(socket, payload)).toEqual({ ok: false, error: { code: "VALIDATION" } });
     expect(await send(socket, { text: "still alive" })).toEqual({ ok: true });
   });
 
   it("allows 5 messages in a burst, then says slow down, then recovers", async () => {
     server = await startServer();
-    const socket = await connect(server);
+    const { a: socket } = await pair(server);
     for (let i = 0; i < 5; i++) expect(await send(socket, { text: `m${i}` })).toEqual({ ok: true });
     expect(await send(socket, { text: "m5" })).toEqual({
       ok: false,
@@ -256,26 +255,27 @@ describe("chat:send", () => {
 
   it("rate limits each socket separately", async () => {
     server = await startServer();
-    const noisy = await connect(server);
-    const quiet = await connect(server);
+    const { a: noisy, b: quiet } = await pair(server);
     for (let i = 0; i < 6; i++) await send(noisy, { text: "spam" });
     expect(await send(quiet, { text: "hi" })).toEqual({ ok: true });
   });
 
   it("drops a client that sends more than 4 KB, and keeps serving others", async () => {
     server = await startServer();
-    const big = await connect(server);
-    const other = await connect(server);
+    const { a: big, b: other } = await pair(server);
     const dropped = new Promise<string>((resolve) => big.once("disconnect", resolve));
+    const partnerTold = next<Record<string, string>>(other, "session:ended");
     big.emit("chat:send", { text: "x".repeat(10_000) });
     await dropped;
     expect(big.connected).toBe(false);
-    expect(await send(other, { text: "fine" })).toEqual({ ok: true });
+    // The dropped client's chat is over, but the server keeps serving others.
+    expect((await partnerTold).reason).toBe("partner_left");
+    expect(await command(other, "session:start")).toEqual({ ok: true });
   });
 
   it("survives a client that sends no ack callback", async () => {
     server = await startServer();
-    const socket = await connect(server);
+    const { a: socket } = await pair(server);
     socket.emit("chat:send", { bad: true });
     socket.emit("chat:send", { text: "no ack" });
     expect(await send(socket, { text: "ok" })).toEqual({ ok: true });
@@ -286,7 +286,10 @@ describe("privacy of logs", () => {
   it("never logs raw IPs, message text, tokens or full IP hashes", async () => {
     server = await startServer();
     const token = await server.token();
+    const other = await connect(server);
     const socket = await connect(server, { authOverrides: { token } });
+    await command(other, "session:start");
+    await command(socket, "session:start");
     await send(socket, { text: "my-secret-message-0917" });
     await send(socket, { nope: "my-secret-message-0917" });
     await connect(server, { origin: "https://evil.example" }).catch(() => {});
