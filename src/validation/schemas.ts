@@ -5,7 +5,13 @@ import { z } from "zod";
 
 export const ChatSendSchema = z.strictObject({
   text: z.string().trim().min(1).max(500),
+  // Optional: the server already knows your session. If you send one it must
+  // be yours, otherwise the message is refused (forged-id protection).
+  sessionId: z.uuid().optional(),
 });
+
+// Session commands carry no data.
+export const EmptySchema = z.strictObject({});
 
 export const ConsentSchema = z.strictObject({
   adult: z.literal(true),
