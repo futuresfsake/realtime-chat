@@ -79,7 +79,7 @@ export function send(socket: Socket, payload: unknown): Promise<any> {
   return socket.timeout(2000).emitWithAck("chat:send", payload);
 }
 
-export function command(socket: Socket, event: "session:start" | "session:leave", payload: unknown = {}): Promise<any> {
+export function command(socket: Socket, event: "session:start" | "session:next" | "session:leave", payload: unknown = {}): Promise<any> {
   return socket.timeout(2000).emitWithAck(event, payload);
 }
 
