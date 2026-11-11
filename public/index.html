@@ -3,19 +3,57 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>realtime-chat // tty1</title>
-  <!-- Runs BEFORE first paint so the saved theme shows immediately (no flash). -->
-  <script>
-    try {
-      document.documentElement.dataset.theme = localStorage.getItem("rtc.theme") || "phosphor";
-    } catch (e) { /* storage blocked: CSS falls back to the default theme */ }
-  </script>
+  <script src="/js/themes.js"></script>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="crt">
+  <!-- Shown before anything connects. The server enforces the same
+       acknowledgement, so removing this element does not bypass it. -->
+  <section id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
+    <form id="gate-form" class="gate-box">
+      <h1 id="gate-title">// BEFORE YOU CONNECT</h1>
+
+      <h2>ADULTS ONLY</h2>
+      <p>This chat is for people <strong>18 years old or older</strong>. If you are under 18, please close this page.</p>
+
+      <h2>THIS IS A PREVIEW</h2>
+      <ul>
+        <li>Everyone connected shares <strong>one public room</strong>. Anyone here can read what you send.</li>
+        <li>Messages are <strong>not end-to-end encrypted yet</strong>. They pass through our server, which relays them and does not store them.</li>
+        <li>Do not share your name, phone number, address, school, workplace or social media accounts.</li>
+      </ul>
+
+      <h2>RULES</h2>
+      <ul>
+        <li>No harassment, threats or bullying.</li>
+        <li>No sexual harassment and no unwanted sexual messages (Safe Spaces Act, RA 11313).</li>
+        <li>Nothing sexual involving minors, ever. It is a crime and will be reported to the authorities (RA 11930).</li>
+        <li>No hate speech, spam, scams, impersonation or sharing other people's personal information.</li>
+      </ul>
+
+      <h2>PRIVACY</h2>
+      <ul>
+        <li>No accounts, no cookies, no analytics, no ads.</li>
+        <li>Your IP address is used for a moment to limit abuse. We keep only a scrambled (hashed) form of it, in memory, for up to 24 hours. It is never written to our logs.</li>
+        <li>Messages are relayed and then gone. We keep no chat history.</li>
+        <li>The server is hosted by Render in Singapore.</li>
+        <li>Your theme and this acknowledgement are saved only in your own browser.</li>
+      </ul>
+
+      <label class="gate-check"><input type="checkbox" id="gate-adult" required /> I am 18 years old or older.</label>
+      <label class="gate-check"><input type="checkbox" id="gate-rules" required /> I have read the above and I will follow the rules.</label>
+
+      <button type="submit" id="gate-enter">[ ENTER ]</button>
+      <p class="dim gate-version">notice version <span id="gate-version"></span></p>
+    </form>
+  </section>
+
+  <div class="crt" id="app">
+    <p id="preview-banner" class="preview-banner" hidden>PREVIEW: not launched yet. Things may break or reset at any time.</p>
     <header class="bar">
-      <span class="brand">REALTIME-CHAT <span class="dim">v0.2</span></span>
+      <span class="brand">REALTIME-CHAT <span class="dim">v0.3</span></span>
       <span class="bar-mid dim">tty1 · room #<span id="room-name">general</span></span>
       <span class="conn" id="conn" data-state="connecting">
         <span class="led"></span><span id="conn-text">CONNECTING</span>
@@ -44,7 +82,7 @@
         <p id="typing" class="typing dim" aria-live="polite"></p>
         <form id="prompt" class="prompt" autocomplete="off">
           <label for="input" class="ps1"><span id="ps1-user">guest</span>@<span id="ps1-room">general</span>:~$</label>
-          <input id="input" maxlength="500" spellcheck="false" autofocus />
+          <input id="input" maxlength="500" spellcheck="false" />
         </form>
       </main>
     </div>
