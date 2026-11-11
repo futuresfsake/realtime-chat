@@ -6,9 +6,9 @@ export const PROTOCOL_VERSION = "rc/v1";
 
 // Version of the rules + privacy notice shown at the gate. Changing the text
 // means changing this, which makes every visitor acknowledge the new text.
-export const RULES_VERSION = "2026-11-preview";
+export const RULES_VERSION = "2026-11-preview-2";
 
-export type ErrorCode = "VALIDATION" | "RATE_LIMITED" | "INTERNAL";
+export type ErrorCode = "VALIDATION" | "RATE_LIMITED" | "INTERNAL" | "NOT_IN_SESSION" | "INVALID_STATE";
 
 // Sent as the connect_error message when a handshake is refused.
 export type HandshakeErrorCode =
@@ -33,13 +33,25 @@ export interface ChatMessage {
   sentAt: number; // epoch ms, server time
 }
 
+export type SessionEndReason = "left" | "partner_left" | "skipped";
+
+export interface SessionMatched {
+  sessionId: string;
+  myName: string;
+  partnerName: string;
+}
+
 export interface ClientToServerEvents {
   // Payloads are typed "unknown" on purpose: the server validates every one.
   "chat:send": (payload: unknown, ack?: unknown) => void;
+  "session:start": (payload: unknown, ack?: unknown) => void;
+  "session:leave": (payload: unknown, ack?: unknown) => void;
 }
 
 export interface ServerToClientEvents {
   "chat:message": (msg: ChatMessage) => void;
+  "session:matched": (info: SessionMatched) => void;
+  "session:ended": (info: { reason: SessionEndReason }) => void;
 }
 
 export interface SocketData {
