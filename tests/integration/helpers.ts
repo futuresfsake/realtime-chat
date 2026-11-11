@@ -78,3 +78,23 @@ export async function connect(server: TestServer, options: ConnectOptions = {}):
 export function send(socket: Socket, payload: unknown): Promise<any> {
   return socket.timeout(2000).emitWithAck("chat:send", payload);
 }
+
+export function command(socket: Socket, event: "session:start" | "session:leave", payload: unknown = {}): Promise<any> {
+  return socket.timeout(2000).emitWithAck(event, payload);
+}
+
+export function next<T = any>(socket: Socket, event: string): Promise<T> {
+  return new Promise((resolve) => socket.once(event, resolve));
+}
+
+// Connects two clients and pairs them. Returns both sockets and the session id.
+export async function pair(server: TestServer): Promise<{ a: Socket; b: Socket; sessionId: string }> {
+  const a = await connect(server);
+  const b = await connect(server);
+  const matchedA = next(a, "session:matched");
+  const matchedB = next(b, "session:matched");
+  await command(a, "session:start");
+  await command(b, "session:start");
+  const [infoA] = await Promise.all([matchedA, matchedB]);
+  return { a, b, sessionId: infoA.sessionId };
+}
