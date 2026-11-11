@@ -103,26 +103,35 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 | **US-35 Protocol versioning** | F-39 `rc/v1` in handshake auth, version mismatch rejection |
 
 **Exit criteria**
-- [ ] Unit tests: schemas, rate limiter (with a fake clock)
-- [ ] GitHub Actions CI: `npm ci → typecheck → test → build → audit` on every PR
+- [x] Unit tests: schemas, rate limiter (with a fake clock)
+- [x] GitHub Actions CI: `npm ci → typecheck → test → build → audit` on every PR
 - [ ] Branch protection: `main` requires a PR and green CI
 - [ ] Render service live, Auto-Deploy = **After CI checks pass**, health check `/health`
 - [ ] `ALLOWED_ORIGINS` configured; a socket from another origin is refused
 - [ ] Security headers grade ≥ A
-- [ ] **IT-REVIEW:** Connection token issued via `/connect-token` and validated on WS handshake
-- [ ] **IT-REVIEW:** Structured JSON logging with correlation IDs; no raw IPs in any log (verified by CI grep)
-- [ ] **IT-REVIEW:** `/health` returns memory usage, connection count, and Socket.IO status
-- [ ] **IT-REVIEW:** Protocol version `rc/v1` validated on every connection; mismatch → refused
-- [ ] **IT-REVIEW:** `better-sqlite3` removed from dependencies
-- [ ] **IT-REVIEW:** `.node-version` file created (pin Node 22)
-- [ ] **IT-REVIEW:** `npm run build` script working (tsc compilation)
-- [ ] **IT-REVIEW:** `.env.example` created with all required env vars
-- [ ] **IT-REVIEW:** Memory ceiling configured (`--max-old-space-size=400`)
-- [ ] **IT-REVIEW:** CSP includes `report-uri` or `report-to` directive
-- [ ] **IT-REVIEW:** CODEOWNERS file for security-critical paths
-- [ ] **IT-REVIEW:** `SECURITY.md` with vulnerability disclosure policy
-- [ ] **IT-REVIEW:** Connection-rate limiting on WS handshake (5 new connections/IP/10s)
-- [ ] **IT-REVIEW:** Cold start loading screen in client UI
+- [x] **IT-REVIEW:** Connection token issued via `/connect-token` and validated on WS handshake
+- [x] **IT-REVIEW:** Structured JSON logging with correlation IDs; no raw IPs in any log (verified by CI grep)
+- [x] **IT-REVIEW:** `/health` returns memory usage, connection count, and Socket.IO status
+- [x] **IT-REVIEW:** Protocol version `rc/v1` validated on every connection; mismatch → refused
+- [x] **IT-REVIEW:** `better-sqlite3` removed from dependencies
+- [x] **IT-REVIEW:** `.node-version` file created (pin Node 22)
+- [x] **IT-REVIEW:** `npm run build` script working (tsc compilation)
+- [x] **IT-REVIEW:** `.env.example` created with all required env vars
+- [x] **IT-REVIEW:** Memory ceiling configured (`--max-old-space-size=400`)
+- [x] **IT-REVIEW:** CSP includes `report-uri` or `report-to` directive
+- [x] **IT-REVIEW:** CODEOWNERS file for security-critical paths
+- [x] **IT-REVIEW:** `SECURITY.md` with vulnerability disclosure policy
+- [x] **IT-REVIEW:** Connection-rate limiting on WS handshake (5 new connections/IP/10s)
+- [x] **IT-REVIEW:** Cold start loading screen in client UI
+- [x] **IT-REVIEW (AA-02, AA-03, moved from M6):** 18+ and rules acknowledgement enforced on the WS handshake; outdated `rulesVersion` → `CONSENT_REQUIRED`. The gate text is a preview draft, not yet reviewed by counsel (M6/M8)
+
+**Built differently from the TDD, and why**
+- WebSocket-only transport, so the Origin check can be strict ([ADR-0011](../03-design/adr/0011-websocket-only-transport.md)).
+- The inline theme script moved to `public/js/themes.js` instead of a CSP hash (G-14): no inline script is allowed at all.
+- Public `/health` shows `ok/degraded` per check; exact numbers need the `x-health-key` header in production. This reconciles US-34 with [health-checks.md](../06-operations/health-checks.md) ("never include user counts").
+- US-35 `system:refresh` (5-minute warning to connected old clients) is not built: with one instance every deploy restarts the server, so old clients are refused at reconnect and told to refresh. Revisit with multi-instance scaling.
+- Only the schemas for events that exist today are in `schemas.ts`; session and E2EE schemas arrive with M3/M4.
+
 **Demo:** spam 20 messages → "slow down" after 5; send a 10 KB payload → rejected; phone ↔ laptop chat on the live URL; connection without token → refused; check `/health` returns system metrics.
 **Risks:** CSP blocks the inline theme script → allow it by hash. Connection token adds latency → keep TTL short (30s).
 
