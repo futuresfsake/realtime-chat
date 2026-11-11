@@ -251,10 +251,11 @@ socket.on("session:matched", ({ myName, partnerName }) => {
 const ENDED_TEXT = {
   partner_left: "your partner left. type /start to meet someone new",
   left: "you left the chat. type /start to meet someone new",
-  skipped: "chat ended. type /start to meet someone new",
+  skipped: "chat ended. looking for someone new...",
 };
 socket.on("session:ended", ({ reason }) => {
   setChatting("guest", null);
+  if (reason === "skipped") els.log.replaceChildren(); // /next: start with a clean screen
   sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
 });
 
@@ -272,6 +273,7 @@ const commands = {
     sys("  /help     show this list");
     sys("  /clear    clear the screen");
     sys("  /start    find a stranger to chat with");
+    sys("  /next     skip to a new stranger");
     sys("  /leave    leave the chat (or stop searching)");
     sys("  /whoami   show your random name");
     sys("  /theme    list themes, /theme <name> to switch");
@@ -285,6 +287,9 @@ const commands = {
   },
   start() {
     sendCommand("session:start", () => sys("searching for a stranger..."));
+  },
+  next() {
+    sendCommand("session:next");
   },
   leave() {
     sendCommand("session:leave");
@@ -309,9 +314,15 @@ function sendCommand(event, onOk) {
     if (!ack) return;
     if (ack.ok) return onOk?.();
     if (ack.error.code === "INVALID_STATE") {
-      err(event === "session:start" ? "you are already searching or chatting (/leave first)" : "nothing to leave");
+      err(
+        event === "session:start"
+          ? "you are already searching or chatting (/next to skip, /leave to stop)"
+          : event === "session:next"
+            ? "you are not in a chat. type /start first"
+            : "nothing to leave"
+      );
     } else if (ack.error.code === "RATE_LIMITED") {
-      err("slow down, try again in a moment");
+      err("slow down - too many searches, try again in a minute");
     } else {
       err("that did not work - please try again");
     }
