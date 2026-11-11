@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { Server } from "socket.io";
 import type { Config } from "./config.js";
 import { IpSocketCap, checkOrigin } from "./gateway/connectionGuards.js";
-import { withHandler } from "./gateway/handler.js";
+import { registerHandlers } from "./gateway/registerHandlers.js";
 import { healthRoute } from "./http/health.js";
 import { CSP_REPORT_PATH, securityHeaders } from "./http/securityHeaders.js";
 import type { Clock } from "./lib/clock.js";
@@ -16,16 +16,17 @@ import type { Logger } from "./observability/logger.js";
 import { clientIp } from "./security/clientIp.js";
 import { ConnectTokens } from "./security/connectToken.js";
 import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
-import { KeyedLimiter, TokenBucket } from "./security/tokenBucket.js";
+import { KeyedLimiter } from "./security/tokenBucket.js";
+import { SimpleMatchmaker } from "./matchmaking/simpleMatchmaker.js";
+import { SessionManager } from "./sessions/sessionManager.js";
 import { PROTOCOL_VERSION, RULES_VERSION } from "./types/events.js";
 import type {
-  ChatMessage,
   ClientToServerEvents,
   HandshakeErrorCode,
   ServerToClientEvents,
   SocketData,
 } from "./types/events.js";
-import { ChatSendSchema, ConsentSchema, HandshakeAuthSchema } from "./validation/schemas.js";
+import { ConsentSchema, HandshakeAuthSchema } from "./validation/schemas.js";
 
 export interface ServerDeps {
   config: Config;
@@ -199,41 +200,17 @@ export function buildServer(deps: ServerDeps) {
   });
 
   // ---------- Events ----------
+  const sessions = new SessionManager();
+  const matchmaker = new SimpleMatchmaker();
   io.on("connection", (socket) => {
-    const { correlationId, ipHash } = socket.data;
-    logger.info("ws_connect", {
-      correlationId,
-      data: { ipHashPrefix: ipHashPrefix(ipHash), connectionCount: io.engine.clientsCount },
-    });
-
-    const messageBucket = new TokenBucket(config.messageBurstCapacity, config.messageRefillPerSec, clock);
-
-    socket.on(
-      "chat:send",
-      withHandler(
-        ChatSendSchema,
-        messageBucket,
-        ({ text }) => {
-          const msg: ChatMessage = {
-            id: randomUUID(),
-            from: socket.id.slice(0, 5), // temporary until random names (M3)
-            text,
-            sentAt: clock.now(), // server time, not client time
-          };
-          io.emit("chat:message", msg); // shared room until 1:1 sessions (M3)
-        },
-        {
-          onRejected: (code, err) => {
-            if (code === "INTERNAL") logger.error("event_failed", { correlationId, err, data: { event: "chat:send" } });
-            else logger.warn("event_rejected", { correlationId, data: { event: "chat:send", code } });
-          },
-        },
-      ),
-    );
-
-    socket.on("disconnect", (reason) => {
-      ipSocketCap.remove(ipHash, socket.id);
-      logger.info("ws_disconnect", { correlationId, data: { reason } });
+    registerHandlers(socket, {
+      io,
+      config,
+      logger,
+      clock,
+      sessions,
+      matchmaker,
+      onDisconnect: (s) => ipSocketCap.remove(s.data.ipHash, s.id),
     });
   });
 
