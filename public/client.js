@@ -19,6 +19,8 @@ const els = {
   user: $("ps1-user"),
   room: $("ps1-room"),
   roomName: $("room-name"),
+  onlineTop: $("conn-online"),
+  onlineSide: $("online-count"),
   themes: $("themes"),
   app: $("app"),
   gate: $("gate"),
@@ -196,16 +198,33 @@ function retryConnect(delayMs) {
 }
 
 // ---------- Socket events ----------
+// After a short network drop the server restores this same socket and replays
+// what was missed (those events arrive just before "connect" fires). So if a
+// chat is still set here and the socket was restored, the chat simply goes on.
 socket.on("connect", () => {
-  setChatting("guest", null);
   setConnection("online", "ONLINE");
+  if (socket.recovered && partner) {
+    sys(`reconnected. your chat with ${partner} continues`);
+    return;
+  }
+  if (partner) err("the connection was lost for too long, so that chat has ended");
+  setChatting("guest", null);
   sys("connected to the server. type /start to meet a stranger");
 });
 
 socket.on("disconnect", (reason) => {
-  setChatting("guest", null);
   setConnection("offline", "OFFLINE");
-  err(`connection lost (${reason}) - retrying...`);
+  // Keep the chat on screen: it survives a drop of up to 30 seconds.
+  if (partner) err("connection lost - reconnecting... your chat is kept for 30 seconds");
+  else err(`connection lost (${reason}) - retrying...`);
+});
+
+// Closing or leaving the page is a real goodbye: tell the server, so the
+// partner sees "left" at once instead of 30 seconds of "reconnecting".
+window.addEventListener("pagehide", () => socket.disconnect());
+// Some browsers keep a hidden page alive and show it again on "back".
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && hasConsent() && !socket.connected) socket.connect();
 });
 
 // The server refuses a handshake with one of these codes (never details).
@@ -227,6 +246,11 @@ socket.on("connect_error", (error) => {
     case "MAINTENANCE":
       err("the service is under maintenance - retrying in 30s");
       return retryConnect(30000);
+    case "RETRY":
+      // The server still had our old connection open (typical after switching
+      // between Wi-Fi and mobile data). It has closed it: connect once more.
+      if (++authRetries > 5) return err("could not connect - please refresh this page");
+      return retryConnect(250);
     case "AUTH_REQUIRED":
     case "VALIDATION":
       // The token expired or was already used: get a new one, a few times.
@@ -252,11 +276,28 @@ const ENDED_TEXT = {
   partner_left: "your partner left. type /start to meet someone new",
   left: "you left the chat. type /start to meet someone new",
   skipped: "chat ended. looking for someone new...",
+  partner_timeout: "your partner did not come back. type /start to meet someone new",
+  timeout: "you were offline for too long, so that chat has ended. type /start to meet someone new",
 };
 socket.on("session:ended", ({ reason }) => {
   setChatting("guest", null);
   if (reason === "skipped") els.log.replaceChildren(); // /next: start with a clean screen
   sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
+});
+
+const STATUS_TEXT = {
+  reconnecting: "your partner lost their connection. waiting up to 30 seconds for them...",
+  connected: "your partner is back",
+};
+socket.on("partner:status", ({ state }) => {
+  if (partner && STATUS_TEXT[state]) sys(STATUS_TEXT[state]);
+});
+
+// A count only: the server never sends names or locations.
+socket.on("stats:online", ({ count }) => {
+  const n = Number.isInteger(count) && count >= 0 ? count : 0;
+  els.onlineTop.textContent = ` · ${n} online`;
+  els.onlineSide.textContent = `(${n})`;
 });
 
 socket.on("chat:message", (msg) => {

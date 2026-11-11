@@ -23,6 +23,10 @@ export const HandshakeAuthSchema = z.strictObject({
   protocolVersion: z.string().min(1).max(16),
   token: z.string().min(1).max(512),
   consent: ConsentSchema,
+  // Added by the Socket.IO client when it reconnects, so the server can
+  // restore the same socket after a short network drop (US-11).
+  pid: z.string().min(1).max(64).optional(),
+  offset: z.string().min(1).max(64).optional(),
 });
 
 export type ChatSend = z.infer<typeof ChatSendSchema>;

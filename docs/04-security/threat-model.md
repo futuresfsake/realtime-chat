@@ -39,12 +39,12 @@
 | T-10 | Tampering | Replay, reorder or cross-session splicing of envelopes | Strictly increasing `seq`; AAD binds sessionId + direction + seq | 🔜 M4 |
 | T-11 | Info disclosure | AES-GCM IV reuse | Per-direction keys; counter-based IVs | 🔜 M4 |
 | T-12 | Info disclosure | Message length reveals content | Pad to 64-byte buckets | 🔜 M4 / ⚠️ partial |
-| T-13 | Spoofing | Joining someone else's session with a forged sessionId | Server checks session membership on every event | 🔜 M3 |
+| T-13 | Spoofing | Joining someone else's session with a forged sessionId | Server checks session membership on every event | ✅ M3 |
 | T-14 | Info disclosure | Partner learns your IP | Server relay, no WebRTC | ✅ by design |
 | T-15 | Info disclosure | Our logs de-anonymize users | No raw IPs; daily-salted HMAC; no content | 🔜 M2/M7 |
 | T-16 | Repudiation / safety | Harassment by strangers | Report, no-rematch, temp bans, instant `/next` | 🔜 M3/M6 |
 | T-17 | Safety | Minors on the platform | 18+ gate (self-declared), rules, reporting reason `minor` | 🔜 M6 / ⚠️ residual |
-| T-18 | DoS | Bots farming matches | `/start` + `/next` rate limit per IP hash | 🔜 M2 |
+| T-18 | DoS | Bots farming matches | `/start` + `/next` rate limit per IP hash (10 per minute) | ✅ M3 |
 | T-19 | Spoofing | Ban evasion with a VPN | Short bans; rate limits | ⚠️ accepted |
 | T-20 | Spoofing | Faking country via VPN | — | ⚠️ accepted |
 | T-21 | Tampering | Vulnerable dependencies | `npm audit` in CI, Dependabot, CodeQL | 🔜 M2/M7 |

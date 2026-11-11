@@ -264,13 +264,14 @@ describe("chat:send", () => {
     server = await startServer();
     const { a: big, b: other } = await pair(server);
     const dropped = new Promise<string>((resolve) => big.once("disconnect", resolve));
-    const partnerTold = next<Record<string, string>>(other, "session:ended");
+    const partnerTold = next<Record<string, string>>(other, "partner:status");
     big.emit("chat:send", { text: "x".repeat(10_000) });
     await dropped;
     expect(big.connected).toBe(false);
-    // The dropped client's chat is over, but the server keeps serving others.
-    expect((await partnerTold).reason).toBe("partner_left");
-    expect(await command(other, "session:start")).toEqual({ ok: true });
+    // To the server this looks like a dropped link, so the partner is told
+    // and the chat is held for the grace period. Others are served as usual.
+    expect((await partnerTold).state).toBe("reconnecting");
+    expect(await send(other, { text: "fine" })).toEqual({ ok: true });
   });
 
   it("survives a client that sends no ack callback", async () => {

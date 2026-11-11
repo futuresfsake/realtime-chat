@@ -18,6 +18,7 @@ import { ConnectTokens } from "./security/connectToken.js";
 import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
 import { KeyedLimiter } from "./security/tokenBucket.js";
 import { SimpleMatchmaker } from "./matchmaking/simpleMatchmaker.js";
+import { GraceTimers } from "./sessions/reconnectGrace.js";
 import { SessionManager } from "./sessions/sessionManager.js";
 import { PROTOCOL_VERSION, RULES_VERSION } from "./types/events.js";
 import type {
@@ -67,6 +68,13 @@ export function buildServer(deps: ServerDeps) {
     // handshake, but not on the same-origin GET that long-polling starts
     // with, so polling could not be origin-checked reliably. See ADR-0011.
     transports: ["websocket"],
+    // A socket that drops (tunnel, Wi-Fi to mobile data) can come back as the
+    // same socket and receive what it missed. Middlewares still run for it:
+    // a returning socket needs a fresh token and counts toward the IP cap.
+    connectionStateRecovery: {
+      maxDisconnectionDuration: config.recoveryWindowMs,
+      skipMiddlewares: false,
+    },
     allowRequest: (req, decide) => {
       if (shuttingDown) return decide("shutting down", false);
       const ipHash = ipHashOf(req);
@@ -192,10 +200,25 @@ export function buildServer(deps: ServerDeps) {
     if (!token.ok) return refuse("AUTH_REQUIRED", token.reason);
 
     if (!HandshakeAuthSchema.safeParse(auth).success) return refuse("VALIDATION");
+
+    // The client says "I am the socket with this private id", but that socket
+    // still looks connected here. This happens when a phone changes network:
+    // the browser reconnects at once, while the server has not noticed yet
+    // that the old link is dead. Close the old link now (which makes it
+    // restorable) and ask the client to connect once more. The private id is
+    // a secret only that client knows, so nobody can close someone else's.
+    if (typeof auth.pid === "string") {
+      const stale = findSocketByPrivateId(io, auth.pid);
+      if (stale) {
+        stale.conn.close(true);
+        return refuse("RETRY");
+      }
+    }
+
     if (!ipSocketCap.add(ipHash, socket.id)) return refuse("TOO_MANY_CONNECTIONS");
 
-    socket.data.ipHash = ipHash;
-    socket.data.correlationId = randomUUID().slice(0, 8);
+    socket.data.ipHash = ipHash; // may differ after a network change
+    socket.data.correlationId = socket.data.correlationId ?? randomUUID().slice(0, 8); // kept across a recovery
     next();
   });
 
@@ -204,6 +227,7 @@ export function buildServer(deps: ServerDeps) {
   const searchLimits = new KeyedLimiter(10, 10 / 60, clock);
   const sessions = new SessionManager();
   const matchmaker = new SimpleMatchmaker();
+  const grace = new GraceTimers();
   io.on("connection", (socket) => {
     registerHandlers(socket, {
       io,
@@ -213,20 +237,43 @@ export function buildServer(deps: ServerDeps) {
       sessions,
       matchmaker,
       searchLimits,
+      grace,
+      isShuttingDown: () => shuttingDown,
       onDisconnect: (s) => ipSocketCap.remove(s.data.ipHash, s.id),
     });
   });
+
+  // "N online": a count only. Sent as a normal (stored) event on purpose: a
+  // client can only be restored after a drop if it received something recently,
+  // so this broadcast is also the keepalive for connection recovery.
+  const onlineTimer = setInterval(() => {
+    io.emit("stats:online", { count: io.engine.clientsCount });
+  }, config.onlineBroadcastMs);
+  onlineTimer.unref();
 
   // Stop taking new work, then close. /health turns 503 immediately so the
   // platform stops routing here.
   function shutdown(): Promise<void> {
     shuttingDown = true;
+    clearInterval(onlineTimer);
+    grace.clear();
     return new Promise((resolve) => {
       void io.close(() => resolve());
     });
   }
 
   return { app, httpServer, io, shutdown };
+}
+
+type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+
+// Socket.IO keeps the private session id on the socket but does not expose it
+// in its types. At most maxConnections sockets are scanned.
+function findSocketByPrivateId(io: IoServer, pid: string) {
+  for (const socket of io.sockets.sockets.values()) {
+    if ((socket as unknown as { pid?: string }).pid === pid) return socket;
+  }
+  return undefined;
 }
 
 function summarizeCspReport(body: unknown): Record<string, unknown> {

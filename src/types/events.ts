@@ -17,7 +17,9 @@ export type HandshakeErrorCode =
   | "CONSENT_REQUIRED"
   | "AUTH_REQUIRED"
   | "VALIDATION"
-  | "TOO_MANY_CONNECTIONS";
+  | "TOO_MANY_CONNECTIONS"
+  // "Your old connection was still open here. It is closed now: connect again."
+  | "RETRY";
 
 // Clients only ever receive a code: never a stack trace or internal message.
 export type Ack<T = void> =
@@ -33,7 +35,12 @@ export interface ChatMessage {
   sentAt: number; // epoch ms, server time
 }
 
-export type SessionEndReason = "left" | "partner_left" | "skipped";
+// "timeout": your own connection was gone for too long.
+// "partner_timeout": your partner's was.
+export type SessionEndReason = "left" | "partner_left" | "skipped" | "timeout" | "partner_timeout";
+
+// More states (typing, idle) arrive with US-06/07.
+export type PartnerState = "connected" | "reconnecting";
 
 export interface SessionMatched {
   sessionId: string;
@@ -53,6 +60,9 @@ export interface ServerToClientEvents {
   "chat:message": (msg: ChatMessage) => void;
   "session:matched": (info: SessionMatched) => void;
   "session:ended": (info: { reason: SessionEndReason }) => void;
+  "partner:status": (info: { state: PartnerState }) => void;
+  // A count only: no names, no locations.
+  "stats:online": (info: { count: number }) => void;
 }
 
 export interface SocketData {

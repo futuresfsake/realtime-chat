@@ -6,6 +6,7 @@ import type { SimpleMatchmaker } from "../matchmaking/simpleMatchmaker.js";
 import type { Logger } from "../observability/logger.js";
 import { ipHashPrefix } from "../security/ipHash.js";
 import { KeyedLimiter, TokenBucket } from "../security/tokenBucket.js";
+import type { GraceTimers } from "../sessions/reconnectGrace.js";
 import type { LeaveResult, SessionManager } from "../sessions/sessionManager.js";
 import type {
   ChatMessage,
@@ -29,20 +30,46 @@ export interface HandlerDeps {
   sessions: SessionManager;
   matchmaker: SimpleMatchmaker;
   searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
+  grace: GraceTimers; // countdowns for chats whose socket dropped
+  isShuttingDown: () => boolean;
   onDisconnect: (socket: ChatSocket) => void; // e.g. release the per-IP socket slot
 }
+
+// Disconnect reasons that look like a network problem. After these, Socket.IO
+// lets the same socket come back (same id, missed events replayed), so the
+// chat is held for a while. Any other reason is a deliberate goodbye. Socket.IO
+// also restores sockets after a server shutdown; those are left out on
+// purpose, because sessions live in memory and do not survive a restart.
+const RECOVERABLE_REASONS: ReadonlySet<string> = new Set([
+  "transport error",
+  "transport close",
+  "forced close",
+  "ping timeout",
+]);
 
 // Wires every per-connection event. Session rules live in SessionManager; this
 // file only translates between sockets and those rules.
 export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
-  const { io, config, logger, clock, sessions, matchmaker, searchLimits } = deps;
+  const { io, config, logger, clock, sessions, matchmaker, searchLimits, grace } = deps;
   const { correlationId, ipHash } = socket.data;
+  const socketId = socket.id;
 
-  sessions.registerClient(socket.id);
+  // A socket that dropped while chatting and came back in time keeps its chat
+  // (US-11). Everyone else starts fresh: a brand-new socket, or one that came
+  // back too late or was not chatting when it dropped.
+  const resumed = grace.cancel(socketId) && socket.recovered && sessions.getClientState(socketId) !== undefined;
+  if (resumed) {
+    const partnerId = sessions.getPartner(socketId);
+    if (partnerId) io.to(partnerId).emit("partner:status", { state: "connected" });
+  } else {
+    sessions.registerClient(socketId);
+  }
   logger.info("ws_connect", {
     correlationId,
-    data: { ipHashPrefix: ipHashPrefix(ipHash), connectionCount: io.engine.clientsCount },
+    data: { ipHashPrefix: ipHashPrefix(ipHash), connectionCount: io.engine.clientsCount, resumed },
   });
+  // Show the count right away instead of waiting for the next broadcast.
+  socket.emit("stats:online", { count: io.engine.clientsCount });
 
   const messageBucket = new TokenBucket(config.messageBurstCapacity, config.messageRefillPerSec, clock);
   // /start and /next share one limit per network address (hashed), across all its sockets.
@@ -152,14 +179,38 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     ),
   );
 
+  // The countdown ran out: the dropped socket never came back.
+  function expire(): void {
+    const partnerId = sessions.getPartner(socketId);
+    const { ended } = sessions.removeClient(socketId);
+    if (!ended) return; // the partner already ended the chat meanwhile
+    if (partnerId) io.to(partnerId).emit("session:ended", { reason: "partner_timeout" });
+    // Nobody is listening on this id right now. Socket.IO remembers the event
+    // a little longer than the grace period, so a client that returns just
+    // too late is still told its chat is over.
+    io.to(socketId).emit("session:ended", { reason: "timeout" });
+    logger.info("session_end", { correlationId, data: { reason: "timeout", activeSessions: sessions.sessionCount() } });
+  }
+
   socket.on("disconnect", (reason) => {
-    matchmaker.remove(socket.id);
-    const { ended, partner } = sessions.removeClient(socket.id);
-    if (ended && partner) {
-      io.to(partner).emit("session:ended", { reason: "partner_left" });
-      logger.info("session_end", { correlationId, data: { reason: "disconnect", activeSessions: sessions.sessionCount() } });
-    }
+    matchmaker.remove(socketId);
     deps.onDisconnect(socket);
-    logger.info("ws_disconnect", { correlationId, data: { reason } });
+    const partnerId = sessions.getPartner(socketId);
+
+    if (partnerId && RECOVERABLE_REASONS.has(reason) && !deps.isShuttingDown()) {
+      // Probably a network blip: keep the chat and give them time to return.
+      io.to(partnerId).emit("partner:status", { state: "reconnecting" });
+      grace.hold(socketId, config.reconnectGraceMs, expire);
+    } else {
+      const { ended } = sessions.removeClient(socketId);
+      if (ended && partnerId) {
+        io.to(partnerId).emit("session:ended", { reason: "partner_left" });
+        logger.info("session_end", {
+          correlationId,
+          data: { reason: "disconnect", activeSessions: sessions.sessionCount() },
+        });
+      }
+    }
+    logger.info("ws_disconnect", { correlationId, data: { reason, held: grace.has(socketId) } });
   });
 }

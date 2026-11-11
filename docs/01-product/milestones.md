@@ -150,10 +150,21 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 | US-11 Survive drops | F-05 + Socket.IO connection state recovery (30 s) |
 
 **Exit criteria**
-- [ ] Session state machine implemented (READY → SEARCHING → CHATTING → ENDED) with unit tests
-- [ ] **Integration test:** 3 clients → A and B paired; C waits; A's message reaches only B
-- [ ] A forged session id can't join or read another session (test)
-- [ ] Old global broadcast removed
+- [x] Session state machine implemented (READY → SEARCHING → CHATTING → ENDED) with unit tests
+- [x] **Integration test:** 3 clients → A and B paired; C waits; A's message reaches only B
+- [x] A forged session id can't join or read another session (test)
+- [x] Old global broadcast removed
+
+**Story status:** US-01 to US-05, US-10 and US-11 are built and tested. US-06 is partly built (`partner:status` with `reconnecting` / `connected`; typing, idle and the sidebar display are open). US-07, US-08 and US-09 are open.
+
+**Built differently from the TDD, and why**
+- `chat:send` does not need a `sessionId`: the server already knows the sender's session. If one is sent it must be the sender's own, otherwise `NOT_IN_SESSION`.
+- `/leave` and `/next` live in the session manager as `leave()` / `next()`; `/start` and `/next` share one limit of 10 per minute per IP hash, and `/leave` is unlimited (as specified).
+- US-11: Socket.IO can only restore a socket if the last event that socket received is still in its buffer, so a quiet chat could not be restored at all. The 5-second `stats:online` broadcast (US-10) doubles as the keepalive, and Socket.IO's recovery window is 40 s (30 s grace + 5 s broadcast gap + 5 s slack). Our own 30-second countdown decides when a chat ends.
+- US-11: middlewares are **not** skipped for a restored socket (`skipMiddlewares: false`), so it still needs a fresh connect token and still counts toward the per-IP socket cap.
+- US-11: if a client reconnects before the server noticed the old link died (typical when a phone changes network), the handshake closes the stale link and answers `RETRY`; the client's next attempt is restored normally.
+- US-11: a deliberate disconnect (closing the tab, `/leave`) ends the chat at once; only network-style disconnects get the 30-second grace period. Server restarts end all chats (sessions are in memory).
+- US-11: because missed events are replayed, relayed events stay in server memory for up to about 100 seconds. [privacy-and-sessions.md](../04-security/privacy-and-sessions.md) and the gate text say so.
 **Demo:** three tabs: two get paired, the third waits; `/next` re-pairs; refresh wipes history.
 **Risks:** race conditions when two people skip at once → all pairing logic runs in one synchronous function.
 

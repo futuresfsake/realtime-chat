@@ -37,6 +37,9 @@ const EnvSchema = z.object({
   MAX_SOCKETS_PER_IP: z.coerce.number().int().min(1).max(100).default(5),
 });
 
+const RECONNECT_GRACE_MS = 30_000;
+const ONLINE_BROADCAST_MS = 5_000;
+
 export interface Config {
   port: number;
   nodeEnv: "development" | "production" | "test";
@@ -58,6 +61,9 @@ export interface Config {
   connectTokenTtlMs: number;
   maxConnections: number;
   memoryCeilingMb: number;
+  reconnectGraceMs: number;
+  onlineBroadcastMs: number;
+  recoveryWindowMs: number;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -102,5 +108,15 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     connectTokenTtlMs: 30_000,
     maxConnections: 500,
     memoryCeilingMb: 400, // matches --max-old-space-size in "npm start"
+    // A chat survives a dropped connection for this long, then ends for both.
+    reconnectGraceMs: RECONNECT_GRACE_MS,
+    // "N online" is broadcast this often. It is also the keepalive that makes
+    // reconnecting possible at all: see recoveryWindowMs.
+    onlineBroadcastMs: ONLINE_BROADCAST_MS,
+    // How long Socket.IO remembers a dropped socket and the events it missed.
+    // A client can only be restored if the last event it received is still
+    // remembered, so this must cover the grace period PLUS the longest gap
+    // between two events (one online broadcast), plus a little slack.
+    recoveryWindowMs: RECONNECT_GRACE_MS + ONLINE_BROADCAST_MS + 5_000,
   };
 }
