@@ -22,7 +22,7 @@ Estimates assume ~5 focused hours/day and include learning, tests and docs. **E2
 | M0 | Foundations | Project skeleton | — | done | ✅ |
 | M1 | Walking skeleton | Two tabs chat; terminal UI | US-26, US-27 | done | ✅ |
 | **M2** | **Hardening + CI/CD + first deploy** | Safe to be on the internet, deployed automatically | US-21–24, US-32–35 | 4–5 d | 🔜 **next** |
-| M3 | 1:1 anonymous sessions | Random names, pairs of two, skip/leave, status, reactions | US-01–11, US-36 | 4–5 d | 🔜 |
+| M3 | 1:1 anonymous sessions | Random names, pairs of two, skip/leave, status, reactions | US-01–11, US-36 | 4–5 d | 🟡 code complete, deploy + demo pending |
 | M4 | End-to-end encryption | Server can't read anything | US-12, US-13, US-37 | 4–5 d | 🔜 |
 | M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | 🔜 |
 | M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | 🔜 |
@@ -65,6 +65,8 @@ Stories are classified as **GATED** (CRITICAL/HIGH: manual review required) or *
 - No story merges without DoD pass
 - DoD audits 7 angles: code, security, testing, docs, UX, compliance, evidence
 
+**DICT security gates:** each milestone also has privacy/security release gates, see [11-dict-review/milestones.md](../11-dict-review/milestones.md).
+
 ## Milestone Definition of Done (applies to every milestone)
 1. ✅ All the milestone's stories meet the **story DoD** ([user-stories.md](user-stories.md#definition-of-done-for-every-story))
 2. ✅ The milestone's exit criteria below are all checked
@@ -101,30 +103,39 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 | **US-35 Protocol versioning** | F-39 `rc/v1` in handshake auth, version mismatch rejection |
 
 **Exit criteria**
-- [ ] Unit tests: schemas, rate limiter (with a fake clock)
-- [ ] GitHub Actions CI: `npm ci → typecheck → test → build → audit` on every PR
+- [x] Unit tests: schemas, rate limiter (with a fake clock)
+- [x] GitHub Actions CI: `npm ci → typecheck → test → build → audit` on every PR
 - [ ] Branch protection: `main` requires a PR and green CI
 - [ ] Render service live, Auto-Deploy = **After CI checks pass**, health check `/health`
 - [ ] `ALLOWED_ORIGINS` configured; a socket from another origin is refused
 - [ ] Security headers grade ≥ A
-- [ ] **IT-REVIEW:** Connection token issued via `/connect-token` and validated on WS handshake
-- [ ] **IT-REVIEW:** Structured JSON logging with correlation IDs; no raw IPs in any log (verified by CI grep)
-- [ ] **IT-REVIEW:** `/health` returns memory usage, connection count, and Socket.IO status
-- [ ] **IT-REVIEW:** Protocol version `rc/v1` validated on every connection; mismatch → refused
-- [ ] **IT-REVIEW:** `better-sqlite3` removed from dependencies
-- [ ] **IT-REVIEW:** `.node-version` file created (pin Node 22)
-- [ ] **IT-REVIEW:** `npm run build` script working (tsc compilation)
-- [ ] **IT-REVIEW:** `.env.example` created with all required env vars
-- [ ] **IT-REVIEW:** Memory ceiling configured (`--max-old-space-size=400`)
-- [ ] **IT-REVIEW:** CSP includes `report-uri` or `report-to` directive
-- [ ] **IT-REVIEW:** CODEOWNERS file for security-critical paths
-- [ ] **IT-REVIEW:** `SECURITY.md` with vulnerability disclosure policy
-- [ ] **IT-REVIEW:** Connection-rate limiting on WS handshake (5 new connections/IP/10s)
-- [ ] **IT-REVIEW:** Cold start loading screen in client UI
+- [x] **IT-REVIEW:** Connection token issued via `/connect-token` and validated on WS handshake
+- [x] **IT-REVIEW:** Structured JSON logging with correlation IDs; no raw IPs in any log (verified by CI grep)
+- [x] **IT-REVIEW:** `/health` returns memory usage, connection count, and Socket.IO status
+- [x] **IT-REVIEW:** Protocol version `rc/v1` validated on every connection; mismatch → refused
+- [x] **IT-REVIEW:** `better-sqlite3` removed from dependencies
+- [x] **IT-REVIEW:** `.node-version` file created (pin Node 22)
+- [x] **IT-REVIEW:** `npm run build` script working (tsc compilation)
+- [x] **IT-REVIEW:** `.env.example` created with all required env vars
+- [x] **IT-REVIEW:** Memory ceiling configured (`--max-old-space-size=400`)
+- [x] **IT-REVIEW:** CSP includes `report-uri` or `report-to` directive
+- [x] **IT-REVIEW:** CODEOWNERS file for security-critical paths
+- [x] **IT-REVIEW:** `SECURITY.md` with vulnerability disclosure policy
+- [x] **IT-REVIEW:** Connection-rate limiting on WS handshake (5 new connections/IP/10s)
+- [x] **IT-REVIEW:** Cold start loading screen in client UI
+- [x] **IT-REVIEW (AA-02, AA-03, moved from M6):** 18+ and rules acknowledgement enforced on the WS handshake; outdated `rulesVersion` → `CONSENT_REQUIRED`. The gate text is a preview draft, not yet reviewed by counsel (M6/M8)
+
+**Built differently from the TDD, and why**
+- WebSocket-only transport, so the Origin check can be strict ([ADR-0011](../03-design/adr/0011-websocket-only-transport.md)).
+- The inline theme script moved to `public/js/themes.js` instead of a CSP hash (G-14): no inline script is allowed at all.
+- Public `/health` shows `ok/degraded` per check; exact numbers need the `x-health-key` header in production. This reconciles US-34 with [health-checks.md](../06-operations/health-checks.md) ("never include user counts").
+- US-35 `system:refresh` (5-minute warning to connected old clients) is not built: with one instance every deploy restarts the server, so old clients are refused at reconnect and told to refresh. Revisit with multi-instance scaling.
+- Only the schemas for events that exist today are in `schemas.ts`; session and E2EE schemas arrive with M3/M4.
+
 **Demo:** spam 20 messages → "slow down" after 5; send a 10 KB payload → rejected; phone ↔ laptop chat on the live URL; connection without token → refused; check `/health` returns system metrics.
 **Risks:** CSP blocks the inline theme script → allow it by hash. Connection token adds latency → keep TTL short (30s).
 
-## M3 1:1 anonymous sessions 🔜
+## M3 1:1 anonymous sessions 🟡
 **Goal:** strangers are paired two at a time with random names; global broadcast is gone.
 
 | Story | Features |
@@ -139,11 +150,47 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 | US-11 Survive drops | F-05 + Socket.IO connection state recovery (30 s) |
 
 **Exit criteria**
-- [ ] Session state machine implemented (READY → SEARCHING → CHATTING → ENDED) with unit tests
-- [ ] **Integration test:** 3 clients → A and B paired; C waits; A's message reaches only B
-- [ ] A forged session id can't join or read another session (test)
-- [ ] Old global broadcast removed
+- [x] Session state machine implemented (READY → SEARCHING → CHATTING → ENDED) with unit tests
+- [x] **Integration test:** 3 clients → A and B paired; C waits; A's message reaches only B
+- [x] A forged session id can't join or read another session (test)
+- [x] Old global broadcast removed
+
+**Story status:** US-01 to US-11 and the M3 part of US-36 are built and tested (see the table below). What is left before M3 is *done* is process, not code: CI green on `main`, deploy to Render, the demo on the live URL, the M-DoD report and the `M3-complete` tag.
+
+| Story | State | Where |
+|---|---|---|
+| US-01 random name | ✅ | `src/sessions/nameGenerator.ts` |
+| US-02 / US-03 exactly two, no forged ids | ✅ | `sessionManager.ts`, `registerHandlers.ts`, `isolation.test.ts` |
+| US-04 / US-05 `/next` `/leave` | ✅ | `skip.test.ts` |
+| US-06 partner status | ✅ | `partner:status`, sidebar `// PARTNER`, `status.test.ts` |
+| US-07 typing | ✅ | `typing` event, 3 s auto-clear, `status.test.ts` |
+| US-08 reactions | ✅ | `chat:react`, `/react`, `status.test.ts` |
+| US-09 session-only history | ✅ | `public/js/sessionStore.js`, `history.test.ts` |
+| US-10 online counter | ✅ | `stats:online`, `recovery.test.ts` |
+| US-11 survive drops | ✅ | `reconnectGrace.ts`, `recovery.test.ts` |
+| US-36 edge cases (M3 part) | ✅ | `edgecases.test.ts`. "Disconnect during key exchange" belongs to M4 (US-37) |
+
+**Built differently from the TDD, and why**
+- `chat:send` does not need a `sessionId`: the server already knows the sender's session. If one is sent it must be the sender's own, otherwise `NOT_IN_SESSION`.
+- `/leave` and `/next` live in the session manager as `leave()` / `next()`; `/start` and `/next` share one limit of 10 per minute per IP hash, and `/leave` is unlimited (as specified).
+- US-11: Socket.IO can only restore a socket if the last event that socket received is still in its buffer, so a quiet chat could not be restored at all. The 5-second `stats:online` broadcast (US-10) doubles as the keepalive, and Socket.IO's recovery window is 40 s (30 s grace + 5 s broadcast gap + 5 s slack). Our own 30-second countdown decides when a chat ends.
+- US-11: middlewares are **not** skipped for a restored socket (`skipMiddlewares: false`), so it still needs a fresh connect token and still counts toward the per-IP socket cap.
+- US-11: if a client reconnects before the server noticed the old link died (typical when a phone changes network), the handshake closes the stale link and answers `RETRY`; the client's next attempt is restored normally.
+- US-11: a deliberate disconnect (closing the tab, `/leave`) ends the chat at once; only network-style disconnects get the 30-second grace period. Server restarts end all chats (sessions are in memory).
+- US-06: the TDD's `left` state is not a partner state: `session:ended` already says the partner is gone, and ending the chat clears the sidebar.
+- US-07: the "typing" signal is sent `volatile`, so a stale "typing…" is never replayed to a client that was offline. It has its own limit (10 burst, 2 per second), separate from messages, and is ignored outside a chat.
+- US-08: every message carries a per-session number (`seq`, 1, 2, 3…) so a reaction can point at it. The server only counts messages, it does not keep them. Reactions share the message rate limit.
+- US-09: the screen is wiped whenever a chat ends, including when the partner leaves. The last messages are not left on screen to read.
+- US-09: `sessionStore.js` is a plain script exposing one global (`SessionStore`), so it loads under the strict CSP and can be unit-tested without a browser.
+- The sidebar's "ROOMS / #general" box is gone: there are no rooms any more.
+- US-11: because missed events are replayed, relayed events stay in server memory for up to about 100 seconds. [privacy-and-sessions.md](../04-security/privacy-and-sessions.md) and the gate text say so.
 **Demo:** three tabs: two get paired, the third waits; `/next` re-pairs; refresh wipes history.
+**Also try:** type in one tab and watch "is typing…" in the other; `/react 😂`; turn Wi-Fi off for 10 s in one tab (the partner sees "reconnecting…", then it carries on); turn it off for 40 s (both are told the chat ended).
+
+**Retro (draft, to finish after the live demo)**
+- *Went well:* all session rules in one synchronous module made races easy to test; a real-browser check caught three client bugs the server tests could not.
+- *Change:* Socket.IO's connection recovery has hidden prerequisites (a recent event to restore from, a stale link that must be closed first). Read the library's source before designing around it.
+- *Open:* the simultaneous-`/next` case can pair the same two people again (no-rematch is M6).
 **Risks:** race conditions when two people skip at once → all pairing logic runs in one synchronous function.
 
 ## M4 End-to-end encryption 🔜

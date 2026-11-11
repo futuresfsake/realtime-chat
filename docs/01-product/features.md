@@ -6,7 +6,7 @@ Features are **extracted from user stories**. Status: ✅ done · 🚧 in progre
 
 | ID | Feature | Status | From stories | Notes |
 |---|---|---|---|---|
-| F-01 | Real-time message relay | ✅ prototype | US-02 | Currently broadcasts to **everyone**. Becomes strictly 1:1 in M3 (F-13) |
+| F-01 | Real-time message relay | ✅ | US-02 | Strictly 1:1 since M3 (F-13) |
 | F-02 | Terminal UI with 4 themes (phosphor, amber, ice, paper), saved per browser | ✅ ⏸ | US-26 | **Will be modified.** Waiting for new requirements (open decision D-07) |
 | F-03 | Slash commands | 🚧 | US-27 + many | `/help /clear /whoami /theme` ✅. Full set in [slash-commands.md](slash-commands.md) |
 | F-04 | Input history (↑ / ↓, last 50, memory only) | ✅ | US-27 | Kept as is |
@@ -25,14 +25,14 @@ A tiny URL (`/health`) that answers `{"status":"ok"}` when the server is alive. 
 | F-09 | Security headers (helmet, CSP), Origin allowlist, 4 KB payload limit | M2 | US-23 |
 | F-10 | CI pipeline (typecheck, test, build, audit) on every PR | M2 | — (enabler) |
 | F-11 | Continuous deployment to Render, only after CI passes | M2 | US-24 |
-| F-12 | System-generated random names (`adjective-animal-NN`), new for every session | M3 | US-01 |
-| F-13 | 1:1 sessions: exactly two people per chat, random pairing | M3 | US-02, US-03 |
-| F-14 | **Partner status**: connected · typing · left | M3 | US-06 |
-| F-15 | Global "N online" counter | M3 | US-10 |
-| F-16 | `/next` (skip to a new stranger) and `/leave` (end and stop) | M3 | US-04, US-05 |
-| F-17 | Session-only history (kept in browser memory, wiped when the session ends) | M3 | US-09 |
-| F-18 | Typing indicator | M3 | US-07 |
-| F-19 | Emoji reactions to messages (fixed set of 6) | M3 | US-08 |
+| F-12 | System-generated random names (`adjective-animal-NN`), new for every session | ✅ M3 | US-01 |
+| F-13 | 1:1 sessions: exactly two people per chat, random pairing | ✅ M3 | US-02, US-03 |
+| F-14 | **Partner status**: connected · typing · reconnecting (ending the chat says "left") | ✅ M3 | US-06 |
+| F-15 | Global "N online" counter | ✅ M3 | US-10 |
+| F-16 | `/next` (skip to a new stranger) and `/leave` (end and stop) | ✅ M3 | US-04, US-05 |
+| F-17 | Session-only history (kept in browser memory, wiped when the session ends) | ✅ M3 | US-09 |
+| F-18 | Typing indicator | ✅ M3 | US-07 |
+| F-19 | Emoji reactions to messages (fixed set of 6) | ✅ M3 | US-08 |
 | F-20 | End-to-end encryption (ECDH P-256 → HKDF → AES-GCM-256) | M4 | US-12 |
 | F-21 | Safety code + `/verify` | M4 | US-13 |
 | F-22 | Interest matching (predefined list, max 5) | M5 | US-14 |
