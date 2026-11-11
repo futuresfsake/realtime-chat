@@ -3,7 +3,10 @@ const MAX_LINES = 500;    // cap DOM size so long sessions stay fast
 const MAX_HISTORY = 50;   // input history for the up/down arrow keys
 const THEMES = ["phosphor", "amber", "ice", "paper"]; // must match styles.css
 const DEFAULT_THEME = "phosphor";
-const THEME_KEY = "rtc.theme"; // same key as the inline script in index.html
+const THEME_KEY = "rtc.theme"; // same key as js/themes.js
+const PROTOCOL_VERSION = "rc/v1";        // must match src/types/events.ts
+const RULES_VERSION = "2026-11-preview"; // must match src/types/events.ts
+const CONSENT_KEY = "rtc.consent";       // sessionStorage: asked again in every new tab/visit
 
 // ---------- DOM references ----------
 const $ = (id) => document.getElementById(id);
@@ -15,10 +18,28 @@ const els = {
   connText: $("conn-text"),
   user: $("ps1-user"),
   themes: $("themes"),
+  app: $("app"),
+  gate: $("gate"),
+  gateForm: $("gate-form"),
+  gateAdult: $("gate-adult"),
+  gateRules: $("gate-rules"),
+  gateVersion: $("gate-version"),
+  banner: $("preview-banner"),
 };
 
 // ---------- State ----------
-const socket = io();
+// Step 1: fetch a short-lived token over HTTPS. Step 2: open the WebSocket
+// with it. Socket.IO calls this function again for every (re)connection, so
+// each attempt gets a fresh token.
+const socket = io({
+  autoConnect: false,
+  transports: ["websocket"],
+  auth: (cb) => {
+    fetchConnectToken().then((token) =>
+      cb({ protocolVersion: PROTOCOL_VERSION, token, consent: { adult: true, rulesVersion: RULES_VERSION } })
+    );
+  },
+});
 let me = "guest";
 const history = [];
 let historyIndex = 0;
@@ -92,6 +113,77 @@ function renderThemePicker() {
   );
 }
 
+// ---------- Age + rules gate ----------
+function hasConsent() {
+  try {
+    return sessionStorage.getItem(CONSENT_KEY) === RULES_VERSION;
+  } catch {
+    return false; // storage blocked: ask on every load
+  }
+}
+
+function showGate() {
+  els.gateVersion.textContent = RULES_VERSION;
+  els.gateAdult.checked = false;
+  els.gateRules.checked = false;
+  els.gate.hidden = false;
+  els.app.inert = true; // keyboard and screen readers stay inside the gate
+  els.gateAdult.focus();
+}
+
+els.gateForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!els.gateAdult.checked || !els.gateRules.checked) return;
+  try {
+    sessionStorage.setItem(CONSENT_KEY, RULES_VERSION);
+  } catch {
+    /* storage blocked: consent lasts for this page load only */
+  }
+  els.gate.hidden = true;
+  els.app.inert = false;
+  els.input.focus();
+  socket.connect();
+});
+
+// ---------- Connecting ----------
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Keeps trying until the server answers. On free hosting the server sleeps
+// when idle and needs up to a minute to wake, so say so instead of looking
+// broken.
+async function fetchConnectToken() {
+  let delay = 1000;
+  let toldUser = false;
+  for (;;) {
+    const slow = setTimeout(() => {
+      if (toldUser) return;
+      toldUser = true;
+      setConnection("connecting", "WAKING UP");
+      sys("waking up the server... this can take up to a minute after a quiet period");
+    }, 2500);
+    try {
+      const res = await fetch("/connect-token", { cache: "no-store" });
+      if (res.ok) {
+        const body = await res.json();
+        els.banner.hidden = !body.preview;
+        return body.token;
+      }
+      const retryAfter = Number(res.headers.get("Retry-After"));
+      if (retryAfter > 0) delay = Math.min(retryAfter * 1000, 30000);
+    } catch {
+      /* network error or server still starting: fall through and retry */
+    } finally {
+      clearTimeout(slow);
+    }
+    await sleep(delay);
+    delay = Math.min(delay * 2, 8000);
+  }
+}
+
+function retryConnect(delayMs) {
+  setTimeout(() => socket.connect(), delayMs);
+}
+
 // ---------- Socket events ----------
 socket.on("connect", () => {
   me = socket.id.slice(0, 5);
@@ -103,6 +195,40 @@ socket.on("connect", () => {
 socket.on("disconnect", (reason) => {
   setConnection("offline", "OFFLINE");
   err(`connection lost (${reason}) - retrying...`);
+});
+
+// The server refuses a handshake with one of these codes (never details).
+let authRetries = 0;
+socket.on("connect_error", (error) => {
+  setConnection("offline", "OFFLINE");
+  switch (error.message) {
+    case "PROTOCOL_MISMATCH":
+      return err("a new version is available - please refresh this page");
+    case "CONSENT_REQUIRED":
+      try {
+        sessionStorage.removeItem(CONSENT_KEY);
+      } catch {
+        /* ignore */
+      }
+      return showGate();
+    case "TOO_MANY_CONNECTIONS":
+      return err("too many connections from your network - close other tabs, then refresh");
+    case "MAINTENANCE":
+      err("the service is under maintenance - retrying in 30s");
+      return retryConnect(30000);
+    case "AUTH_REQUIRED":
+    case "VALIDATION":
+      // The token expired or was already used: get a new one, a few times.
+      if (++authRetries > 5) return err("could not connect - please refresh this page");
+      return retryConnect(1000 * authRetries);
+    default:
+      // Network trouble or the server refused before the handshake.
+      // Socket.IO retries by itself with backoff.
+      if (!socket.active) retryConnect(5000);
+  }
+});
+socket.on("connect", () => {
+  authRetries = 0;
 });
 
 socket.on("chat:message", (msg) => {
@@ -162,7 +288,17 @@ els.form.addEventListener("submit", (event) => {
 
   if (text.startsWith("/")) return runCommand(text);
   if (!socket.connected) return err("not connected - message not sent");
-  socket.emit("chat:send", text);
+  socket.emit("chat:send", { text }, (ack) => {
+    if (!ack || ack.ok) return;
+    if (ack.error.code === "RATE_LIMITED") {
+      const seconds = Math.max(1, Math.ceil((ack.error.retryAfterMs || 1000) / 1000));
+      err(`slow down - message not sent, try again in ${seconds}s`);
+    } else if (ack.error.code === "VALIDATION") {
+      err("message rejected (1 to 500 characters)");
+    } else {
+      err("message not sent - please try again");
+    }
+  });
 });
 
 els.input.addEventListener("keydown", (event) => {
@@ -180,12 +316,19 @@ els.input.addEventListener("keydown", (event) => {
 // Terminal feel: clicking empty space focuses the prompt
 // (skip when selecting text or clicking a control like a theme button)
 document.addEventListener("click", (event) => {
-  if (event.target.closest("button, a, input")) return;
+  if (!els.gate.hidden) return;
+  if (event.target.closest("button, a, input, label")) return;
   if (!window.getSelection()?.toString()) els.input.focus();
 });
 
 // ---------- Boot sequence ----------
 renderThemePicker();
-sys("REALTIME-CHAT v0.2 // tty1");
-sys("establishing websocket link...");
+sys("REALTIME-CHAT v0.3 // tty1");
 sys("type /help for commands");
+if (hasConsent()) {
+  sys("establishing websocket link...");
+  els.input.focus();
+  socket.connect();
+} else {
+  showGate();
+}
