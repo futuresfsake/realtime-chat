@@ -5,9 +5,13 @@ on:
     branches: [main]
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,9 +21,27 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
+      # Privacy gate (RA 10173 data minimisation): a raw IP address may only be
+      # read in src/security/clientIp.ts, which hands it straight to the hasher.
+      - name: No raw IP access outside clientIp.ts
+        run: |
+          if grep -rnE "req\.ip\b|req\.ips\b|handshake\.address|remoteAddress|x-forwarded-for" src --include="*.ts" \
+              | grep -v "^src/security/clientIp.ts:" \
+              | grep -v "^src/app.ts:.*clientIp(req.headers\[\"x-forwarded-for\"\], req.socket.remoteAddress"; then
+            echo "::error::Raw IP address used outside src/security/clientIp.ts"
+            exit 1
+          fi
+      - name: No console logging in server code (use the structured logger)
+        run: |
+          if grep -rnE "console\.(log|info|warn|error|debug)" src --include="*.ts"; then
+            echo "::error::Use src/observability/logger.ts instead of console.*"
+            exit 1
+          fi
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,6 +51,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   sast:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
