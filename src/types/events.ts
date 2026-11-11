@@ -45,6 +45,7 @@ export interface ClientToServerEvents {
   // Payloads are typed "unknown" on purpose: the server validates every one.
   "chat:send": (payload: unknown, ack?: unknown) => void;
   "session:start": (payload: unknown, ack?: unknown) => void;
+  "session:next": (payload: unknown, ack?: unknown) => void;
   "session:leave": (payload: unknown, ack?: unknown) => void;
 }
 
