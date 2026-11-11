@@ -6,7 +6,7 @@ No accounts. No stored messages. Free to use, safe by design.
 > **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
 > 📚 Full documentation: [**docs/**](docs/README.md) · 🗺️ Plan: [**milestones**](docs/01-product/milestones.md)
 
-> ⚠️ **Status: M1 complete (walking skeleton).** Today the app is a single shared chat room. The anonymous 1:1, encrypted, interest-matched product is being built milestone by milestone, starting with **M2: Hardening + CI/CD + first deploy**.
+> ⚠️ **Status: M2 code complete (hardening), first deploy pending.** Today the app is a single shared chat room behind an 18+ gate, **without** end-to-end encryption yet. The anonymous 1:1, encrypted, interest-matched product is being built milestone by milestone; next is **M3: 1:1 anonymous sessions**.
 
 ---
 
@@ -22,13 +22,14 @@ No accounts. No stored messages. Free to use, safe by design.
 
 **Never:** accounts, passwords, user-chosen names, group chats, file/image uploads, stored history.
 
-## What works today (M1)
+## What works today (M1 + M2)
 
 - Real-time messaging between all connected tabs (Socket.IO)
 - Terminal-style UI with 4 themes (`phosphor`, `amber`, `ice`, `paper`), saved per browser
 - Slash commands `/help` `/clear` `/whoami` `/theme`, and ↑/↓ input history
 - Connection status + auto-reconnect; `/health` endpoint; graceful shutdown
-- Basic server-side input checks; XSS-safe rendering (`textContent`)
+- XSS-safe rendering (`textContent`)
+- **M2 hardening:** strict zod validation of every event; token-bucket rate limits (5-message burst); 4 KB payload cap; Origin allowlist; short-lived connection token; 5 sockets per IP; security headers + CSP with no inline scripts; 18+ and rules gate enforced by the server; structured JSON logs with no IPs or content; deep `/health`; protocol version `rc/v1`
 
 ---
 
@@ -53,12 +54,19 @@ realtime-chat/
 ├── src/                    # Server (TypeScript)
 │   ├── index.ts            # Entry: listen on PORT, port-in-use message, graceful shutdown
 │   ├── app.ts              # buildServer(): Express + Socket.IO (doesn't listen → testable)
-│   └── types.ts            # Event contracts
+│   ├── config.ts           # Environment variables + limits, validated at startup
+│   ├── gateway/            # Connection guards, handler wrapper (validate → rate limit → ack)
+│   ├── http/               # Security headers, /health
+│   ├── security/           # Token bucket, client IP, IP hashing, connection token
+│   ├── observability/      # JSON logger
+│   ├── validation/         # zod schemas
+│   └── types/events.ts     # Event contracts, protocol + rules versions
 ├── public/                 # Frontend (static files)
-│   ├── index.html · styles.css · client.js
-├── tests/                  # Unit tests (M2+), integration tests (M3+)
+│   ├── index.html · styles.css · client.js · js/themes.js
+├── tests/                  # unit/ and integration/ (real server on a random port)
 ├── docs/                   # Specs, design, security, operations, process, guides → docs/README.md
-├── .github/                # PR + issue templates (CI workflow arrives in M2)
+├── .github/                # CI workflow, CODEOWNERS, Dependabot, PR + issue templates
+├── render.yaml             # Production service as code (Render Blueprint)
 ├── package.json · package-lock.json · tsconfig.json · .gitignore
 └── README.md
 ```
@@ -72,11 +80,11 @@ Target module layout: [docs/03-design/low-level-design.md](docs/03-design/low-le
 |---|---|---|
 | `express` | HTTP server, static files, `/health` | ✅ used |
 | `socket.io` | Real-time events, reconnection, connection state recovery | ✅ used |
-| `zod` | Runtime validation of every incoming event ([why](docs/03-design/validation-zod.md)) | M2 |
-| `helmet` | Security headers + CSP | M2 (to install) |
-| `better-sqlite3` | ~~Message history~~ | ⏸ **to be removed**: no message storage ([ADR-0005](docs/03-design/adr/0005-no-server-side-message-storage.md), D-05) |
+| `zod` | Runtime validation of every incoming event and of the environment ([why](docs/03-design/validation-zod.md)) | ✅ used |
+| `helmet` | Security headers + CSP | ✅ used |
+| `better-sqlite3` | ~~Message history~~ | ❌ removed: no message storage ([ADR-0005](docs/03-design/adr/0005-no-server-side-message-storage.md), D-05) |
 
-**Dev:** `typescript`, `tsx`, `vitest`, `@types/node`, `@types/express`, `@types/better-sqlite3` (removed with D-05), `socket.io-client` (M3, tests).
+**Dev:** `typescript`, `tsx`, `vitest`, `@types/node`, `@types/express`, `socket.io-client` (integration tests).
 Encryption uses the browser's built-in **WebCrypto**, with no crypto library. List installed versions with `npm ls --depth=0`.
 
 ---
@@ -106,8 +114,8 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 |---|---|---|---|
 | M0 Foundations | Scaffold, TypeScript, scripts | — | ✅ |
 | M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
-| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🔜 **next** |
-| M3 1:1 anonymous sessions | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🔜 |
+| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🚧 code complete; deploy pending |
+| M3 1:1 anonymous sessions | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🔜 **next** |
 | M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🔜 |
 | M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
 | M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
