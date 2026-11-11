@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { withHandler } from "../../../src/gateway/handler.js";
+import { HandlerError, withHandler } from "../../../src/gateway/handler.js";
 import { ChatSendSchema } from "../../../src/validation/schemas.js";
 
 const allow = { consume: () => true, retryAfterMs: () => 0 };
@@ -46,6 +46,14 @@ describe("withHandler", () => {
     expect(ack).toHaveBeenCalledWith({ ok: false, error: { code: "INTERNAL" } });
     expect(JSON.stringify(ack.mock.calls)).not.toContain("secret internals");
     expect(onRejected).toHaveBeenCalledWith("INTERNAL", boom);
+  });
+
+  it("acks the code of a thrown HandlerError, without treating it as INTERNAL", async () => {
+    const ack = vi.fn();
+    const onRejected = vi.fn();
+    await withHandler(ChatSendSchema, null, () => { throw new HandlerError("NOT_IN_SESSION"); }, { onRejected })({ text: "hi" }, ack);
+    expect(ack).toHaveBeenCalledWith({ ok: false, error: { code: "NOT_IN_SESSION" } });
+    expect(onRejected).toHaveBeenCalledWith("NOT_IN_SESSION");
   });
 
   it("handles async handlers that reject", async () => {

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ChatSendSchema, ConsentSchema, HandshakeAuthSchema } from "../../../src/validation/schemas.js";
+import {
+  ChatSendSchema,
+  ConsentSchema,
+  HandshakeAuthSchema,
+  ReactionSchema,
+  TypingSchema,
+} from "../../../src/validation/schemas.js";
 
 describe("ChatSendSchema", () => {
   it("accepts a normal message and trims it", () => {
@@ -55,4 +61,40 @@ describe("HandshakeAuthSchema", () => {
     expect(HandshakeAuthSchema.safeParse({ ...valid, extra: 1 }).success).toBe(false);
     expect(HandshakeAuthSchema.safeParse({ ...valid, token: "x".repeat(513) }).success).toBe(false);
   });
+});
+
+describe("ReactionSchema", () => {
+  it.each(["👍", "❤️", "😂", "😮", "😢", "🙏"])("accepts %s", (emoji) => {
+    expect(ReactionSchema.safeParse({ ref: 1, emoji }).success).toBe(true);
+  });
+
+  it("rejects an emoji that is not allowed", () => {
+    expect(ReactionSchema.safeParse({ ref: 1, emoji: "🔥" }).success).toBe(false);
+    expect(ReactionSchema.safeParse({ ref: 1, emoji: "<script>" }).success).toBe(false);
+    expect(ReactionSchema.safeParse({ ref: 1, emoji: "👍👍" }).success).toBe(false);
+  });
+
+  it.each([0, -1, 1.5, "1", null, undefined, 2_000_000])("rejects ref %s", (ref) => {
+    expect(ReactionSchema.safeParse({ ref, emoji: "😂" }).success).toBe(false);
+  });
+
+  it("rejects extra fields and missing fields", () => {
+    expect(ReactionSchema.safeParse({ ref: 1, emoji: "😂", evil: true }).success).toBe(false);
+    expect(ReactionSchema.safeParse({ emoji: "😂" }).success).toBe(false);
+    expect(ReactionSchema.safeParse({ ref: 1 }).success).toBe(false);
+  });
+});
+
+describe("TypingSchema", () => {
+  it("accepts true and false", () => {
+    expect(TypingSchema.safeParse({ isTyping: true }).success).toBe(true);
+    expect(TypingSchema.safeParse({ isTyping: false }).success).toBe(true);
+  });
+
+  it.each([{}, { isTyping: "true" }, { isTyping: 1 }, { isTyping: true, text: "secret" }, null, "typing"])(
+    "rejects %j",
+    (payload) => {
+      expect(TypingSchema.safeParse(payload).success).toBe(false);
+    },
+  );
 });

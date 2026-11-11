@@ -17,7 +17,7 @@ A **session** is one 1:1 conversation between two strangers, from the moment the
 ## 2. Message history: "only while you're in the session"
 | Where | Stored? |
 |---|---|
-| Server memory | ❌ Never: envelopes are relayed and dropped immediately |
+| Server memory | ⚠️ Briefly: relayed envelopes are kept for up to about 100 seconds so that a dropped connection can catch up (see *Network blips* below), then dropped. Never written anywhere |
 | Server disk / database | ❌ There is no database |
 | Server logs | ❌ No content, no ciphertext |
 | Browser `localStorage` / `sessionStorage` / cookies | ❌ Never used for messages |
@@ -26,6 +26,8 @@ A **session** is one 1:1 conversation between two strangers, from the moment the
 **So:** if you're in the session, you can scroll your history. When the session ends, or you refresh or close the tab, it's gone for good, for you, your stranger and us.
 
 **Network blips** (e.g. switching Wi-Fi to mobile data) don't end the session: Socket.IO *connection state recovery* restores the connection within **30 s** and delivers missed envelopes. The page and keys stay in memory, so history survives a blip, but **not** a refresh.
+
+**What that costs:** to replay what a dropped client missed, Socket.IO keeps every relayed event in a memory buffer. Events older than the recovery window (40 s) are removed by a sweep that runs once a minute, so an event can stay in memory for up to about 100 seconds. The buffer is never written to disk or to logs, and it is lost on restart. Until M4 these events are plaintext; from M4 they are ciphertext the server cannot read. The private id a client presents to be restored is a random secret sent only to that client over the encrypted connection, and a restored socket must still pass the normal handshake (fresh connect token, consent, rate limits).
 
 ## 3. Do we use JWT? **No.** Here's why.
 

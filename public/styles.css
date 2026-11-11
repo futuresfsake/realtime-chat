@@ -213,6 +213,10 @@ body {
 }
 
 .typing { min-height: 1.55em; margin: 0; padding: 0 14px; font-size: 12px; }
+.line .reactions { color: var(--accent); text-shadow: none; }
+.partner-status { margin: 0; overflow-wrap: anywhere; }
+.partner-status[data-state="connected"], .partner-status[data-state="typing"] { color: var(--fg); }
+.partner-status[data-state="reconnecting"] { color: var(--accent); }
 
 /* ---------- Prompt ---------- */
 .prompt {
