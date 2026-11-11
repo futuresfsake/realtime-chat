@@ -200,6 +200,8 @@ export function buildServer(deps: ServerDeps) {
   });
 
   // ---------- Events ----------
+  // /start + /next: 10 per minute per address, so people cannot rapidly scan strangers.
+  const searchLimits = new KeyedLimiter(10, 10 / 60, clock);
   const sessions = new SessionManager();
   const matchmaker = new SimpleMatchmaker();
   io.on("connection", (socket) => {
@@ -210,6 +212,7 @@ export function buildServer(deps: ServerDeps) {
       clock,
       sessions,
       matchmaker,
+      searchLimits,
       onDisconnect: (s) => ipSocketCap.remove(s.data.ipHash, s.id),
     });
   });
