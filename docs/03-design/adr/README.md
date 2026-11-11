@@ -14,5 +14,6 @@ An ADR records **one important decision**: context, options, choice, consequence
 | [0008](0008-server-relay-not-webrtc.md) | Relay through the server, not peer-to-peer WebRTC | Accepted |
 | [0009](0009-country-via-ip-lookup.md) | Country from a server-side IP lookup (DB-IP Lite) | Proposed (D-01) |
 | [0010](0010-deploy-early-and-continuously.md) | Deploy early (M2) and continuously; public launch at M8 | Accepted |
+| [0011](0011-websocket-only-transport.md) | WebSocket-only transport so the Origin check can be strict | Accepted |
 
 New ADR? Copy [`../../07-process/templates/adr-template.md`](../../07-process/templates/adr-template.md).
