@@ -5,7 +5,7 @@ const THEMES = ["phosphor", "amber", "ice", "paper"]; // must match styles.css
 const DEFAULT_THEME = "phosphor";
 const THEME_KEY = "rtc.theme"; // same key as js/themes.js
 const PROTOCOL_VERSION = "rc/v1";        // must match src/types/events.ts
-const RULES_VERSION = "2026-11-preview"; // must match src/types/events.ts
+const RULES_VERSION = "2026-11-preview-2"; // must match src/types/events.ts
 const CONSENT_KEY = "rtc.consent";       // sessionStorage: asked again in every new tab/visit
 
 // ---------- DOM references ----------
@@ -17,6 +17,8 @@ const els = {
   conn: $("conn"),
   connText: $("conn-text"),
   user: $("ps1-user"),
+  room: $("ps1-room"),
+  roomName: $("room-name"),
   themes: $("themes"),
   app: $("app"),
   gate: $("gate"),
@@ -41,6 +43,15 @@ const socket = io({
   },
 });
 let me = "guest";
+let partner = null; // set while chatting with someone
+
+function setChatting(myName, partnerName) {
+  me = myName || "guest";
+  partner = partnerName;
+  els.user.textContent = me;
+  els.room.textContent = partnerName || "lobby";
+  els.roomName.textContent = partnerName || "lobby";
+}
 const history = [];
 let historyIndex = 0;
 
@@ -186,13 +197,13 @@ function retryConnect(delayMs) {
 
 // ---------- Socket events ----------
 socket.on("connect", () => {
-  me = socket.id.slice(0, 5);
-  els.user.textContent = me;
+  setChatting("guest", null);
   setConnection("online", "ONLINE");
-  sys(`connected as ${me}`);
+  sys("connected to the server. type /start to meet a stranger");
 });
 
 socket.on("disconnect", (reason) => {
+  setChatting("guest", null);
   setConnection("offline", "OFFLINE");
   err(`connection lost (${reason}) - retrying...`);
 });
@@ -231,6 +242,22 @@ socket.on("connect", () => {
   authRetries = 0;
 });
 
+socket.on("session:matched", ({ myName, partnerName }) => {
+  els.log.replaceChildren(); // a new chat starts empty
+  setChatting(myName, partnerName);
+  sys(`connected to ${partnerName}. you are ${myName}. say hi! (/leave to end the chat)`);
+});
+
+const ENDED_TEXT = {
+  partner_left: "your partner left. type /start to meet someone new",
+  left: "you left the chat. type /start to meet someone new",
+  skipped: "chat ended. type /start to meet someone new",
+};
+socket.on("session:ended", ({ reason }) => {
+  setChatting("guest", null);
+  sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
+});
+
 socket.on("chat:message", (msg) => {
   addLine(
     [[`[${timestamp(msg.sentAt)}] `, "ts"], [`<${msg.from}> `, "who"], [msg.text]],
@@ -244,7 +271,9 @@ const commands = {
     sys("commands:");
     sys("  /help     show this list");
     sys("  /clear    clear the screen");
-    sys("  /whoami   show your id");
+    sys("  /start    find a stranger to chat with");
+    sys("  /leave    leave the chat (or stop searching)");
+    sys("  /whoami   show your random name");
     sys("  /theme    list themes, /theme <name> to switch");
     sys("  up/down   browse your input history");
   },
@@ -252,7 +281,13 @@ const commands = {
     els.log.replaceChildren();
   },
   whoami() {
-    sys(`you are ${me}`);
+    sys(partner ? `you are ${me}, chatting with ${partner}` : "you are not in a chat yet. type /start");
+  },
+  start() {
+    sendCommand("session:start", () => sys("searching for a stranger..."));
+  },
+  leave() {
+    sendCommand("session:leave");
   },
   theme(args) {
     const [name] = args;
@@ -266,6 +301,22 @@ const commands = {
     if (THEMES.includes(lower)) sys(`theme set to ${lower}`);
   },
 };
+
+// /start and /leave go to the server; the answer arrives as an event.
+function sendCommand(event, onOk) {
+  if (!socket.connected) return err("not connected");
+  socket.emit(event, {}, (ack) => {
+    if (!ack) return;
+    if (ack.ok) return onOk?.();
+    if (ack.error.code === "INVALID_STATE") {
+      err(event === "session:start" ? "you are already searching or chatting (/leave first)" : "nothing to leave");
+    } else if (ack.error.code === "RATE_LIMITED") {
+      err("slow down, try again in a moment");
+    } else {
+      err("that did not work - please try again");
+    }
+  });
+}
 
 function runCommand(line) {
   const [rawName = "", ...args] = line.slice(1).split(/\s+/);
@@ -293,6 +344,8 @@ els.form.addEventListener("submit", (event) => {
     if (ack.error.code === "RATE_LIMITED") {
       const seconds = Math.max(1, Math.ceil((ack.error.retryAfterMs || 1000) / 1000));
       err(`slow down - message not sent, try again in ${seconds}s`);
+    } else if (ack.error.code === "NOT_IN_SESSION") {
+      err("you are not chatting with anyone. type /start to meet a stranger");
     } else if (ack.error.code === "VALIDATION") {
       err("message rejected (1 to 500 characters)");
     } else {
