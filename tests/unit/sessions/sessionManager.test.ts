@@ -138,4 +138,67 @@ describe("SessionManager", () => {
       expect(sm.isMember("b", s.id)).toBe(false);
     });
   });
+
+  describe("leave", () => {
+    it("CHATTING -> READY, session ended, partner reported and ENDED", () => {
+      const { sm, s } = paired();
+      expect(sm.leave("a")).toEqual({ ok: true, ended: s, partner: "b", wasSearching: false });
+      expect(sm.getClientState("a")).toBe("READY");
+      expect(sm.getClientState("b")).toBe("ENDED");
+      expect(sm.sessionCount()).toBe(0);
+    });
+    it("SEARCHING -> READY", () => {
+      const sm = setup();
+      sm.startSearching("a");
+      expect(sm.leave("a")).toEqual({ ok: true, ended: null, partner: null, wasSearching: true });
+      expect(sm.getClientState("a")).toBe("READY");
+    });
+    it("ENDED -> READY", () => {
+      const { sm } = paired();
+      sm.leave("a");
+      expect(sm.leave("b").ok).toBe(true);
+      expect(sm.getClientState("b")).toBe("READY");
+    });
+    it("READY -> INVALID_STATE", () => {
+      expect(setup().leave("a")).toEqual({ ok: false, code: "INVALID_STATE" });
+    });
+    it("unknown socket -> INVALID_STATE", () => {
+      expect(setup().leave("zzz")).toEqual({ ok: false, code: "INVALID_STATE" });
+    });
+  });
+
+  describe("next", () => {
+    it("CHATTING -> SEARCHING, session ended, partner reported", () => {
+      const { sm, s } = paired();
+      expect(sm.next("a")).toEqual({ ok: true, ended: s, partner: "b", wasSearching: false });
+      expect(sm.getClientState("a")).toBe("SEARCHING");
+      expect(sm.getClientState("b")).toBe("ENDED");
+    });
+    it("SEARCHING stays SEARCHING", () => {
+      const sm = setup();
+      sm.startSearching("a");
+      expect(sm.next("a")).toMatchObject({ ok: true, ended: null, wasSearching: true });
+      expect(sm.getClientState("a")).toBe("SEARCHING");
+    });
+    it("ENDED -> SEARCHING", () => {
+      const { sm } = paired();
+      sm.leave("a");
+      expect(sm.next("b").ok).toBe(true);
+      expect(sm.getClientState("b")).toBe("SEARCHING");
+    });
+    it("READY -> INVALID_STATE", () => {
+      expect(setup().next("a")).toEqual({ ok: false, code: "INVALID_STATE" });
+    });
+    it("a new name is given in the next session", () => {
+      const sm = new SessionManager();
+      for (const id of ["a", "b", "c"]) sm.registerClient(id);
+      sm.startSearching("a");
+      sm.startSearching("b");
+      sm.createSession("a", "b");
+      expect(sm.next("a").ok).toBe(true);
+      sm.startSearching("c");
+      sm.createSession("a", "c");
+      expect(sm.getName("a")).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
+    });
+  });
 });
