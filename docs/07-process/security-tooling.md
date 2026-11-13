@@ -1,5 +1,7 @@
 # Security Tooling
 
+> **Living document.** First written in the DICT-style review (2026-10-28) and moved here on 2026-11-13. This folder now owns it: update it when the system changes. The original review record is in [10-reviews](../10-reviews/2026-10-28-dict/README.md).
+
 Checked on the developer machine on 2026-10-28.
 
 ## 1. What is installed
@@ -14,7 +16,9 @@ Checked on the developer machine on 2026-10-28.
 | trivy | Dependency and image scan | **Missing** (run via CI action or Docker) |
 | gh CLI | PRs, branch protection | **Missing** (pushing works through git) |
 
-## 2. First real result: `npm audit --package-lock-only`
+## 2. First real result: `npm audit --package-lock-only` (snapshot of 2026-10-28)
+> **Resolved.** On 2026-11-13 `npm audit --omit=dev` reports 0 vulnerabilities, and CI now runs `npm audit`, gitleaks and semgrep on every pull request. The table below is kept as the record of the first run.
+
 3 vulnerabilities: **2 high, 1 moderate**.
 | Package | Severity | Issue | Fix |
 |---|---|---|---|
