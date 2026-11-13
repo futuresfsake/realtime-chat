@@ -90,7 +90,7 @@ describe("computeSafetyCode")
 | File | Action |
 |---|---|
 | `public/js/crypto.js` | Add computeSafetyCode function |
-| `public/js/commands.js` | Add /verify command |
+| `public/client.js` | Add /verify command (built here; there is no `commands.js` yet) |
 | `tests/unit/crypto/safetyCode.test.ts` | Create |
 
 ## Dependencies
