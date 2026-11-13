@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   arrivesWithin,
+  collectTexts,
   command,
   connect,
   dropConnection,
+  keepChannel,
   next,
+  nextText,
   pair,
   recoveryAuth,
   send,
@@ -38,12 +41,13 @@ describe("network drop recovery", () => {
     expect((await connected).state).toBe("connected");
 
     // Both directions still work, with the same names as before.
-    const toA = next<Record<string, any>>(a, "chat:message");
-    expect(await send(b, { text: "back again" })).toEqual({ ok: true });
-    expect((await toA).text).toBe("back again");
-    const toB = next<Record<string, any>>(b, "chat:message");
-    expect(await send(a, { text: "welcome back" })).toEqual({ ok: true });
-    expect((await toB).text).toBe("welcome back");
+    // And the keys both sides already had: nothing is exchanged again.
+    const toA = nextText(a);
+    expect(await send(b, "back again")).toEqual({ ok: true });
+    expect(await toA).toBe("back again");
+    const toB = nextText(b);
+    expect(await send(a, "welcome back")).toEqual({ ok: true });
+    expect(await toB).toBe("welcome back");
   });
 
   it("delivers the messages B missed while it was away", async () => {
@@ -51,19 +55,19 @@ describe("network drop recovery", () => {
     const { a, b } = await pair(server, { b: { reconnectAfterMs: 300 } });
 
     const reconnecting = next(a, "partner:status");
-    const missed: string[] = [];
-    b.on("chat:message", (msg: { text: string }) => missed.push(msg.text));
+    const missed = collectTexts(b);
     const back = next(b, "connect");
     dropConnection(b);
     await reconnecting;
 
-    expect(await send(a, { text: "are you there?" })).toEqual({ ok: true });
-    expect(await send(a, { text: "hello??" })).toEqual({ ok: true });
+    expect(await send(a, "are you there?")).toEqual({ ok: true });
+    expect(await send(a, "hello??")).toEqual({ ok: true });
     expect(missed).toEqual([]); // B is offline right now
 
     await back;
     expect(b.recovered).toBe(true);
-    expect(missed).toEqual(["are you there?", "hello??"]);
+    // Replayed in order, and still readable: B's keys stayed in its memory.
+    await expect.poll(() => missed).toEqual(["are you there?", "hello??"]);
   });
 
   it("ends the chat for A with partner_timeout when B stays away too long", async () => {
@@ -75,10 +79,10 @@ describe("network drop recovery", () => {
     dropConnection(b);
     expect((await reconnecting).state).toBe("reconnecting");
     // During the grace period the chat is still open for A.
-    expect(await send(a, { text: "waiting for you" })).toEqual({ ok: true });
+    expect(await send(a, "waiting for you")).toEqual({ ok: true });
 
     expect((await ended).reason).toBe("partner_timeout");
-    expect(await send(a, { text: "gone?" })).toEqual(NOT_IN_SESSION);
+    expect(await send(a, "gone?")).toEqual(NOT_IN_SESSION);
     expect(await command(a, "session:start")).toEqual({ ok: true }); // A can move on
   });
 
@@ -94,7 +98,7 @@ describe("network drop recovery", () => {
     expect((await endedForA).reason).toBe("partner_timeout");
     expect((await endedForB).reason).toBe("timeout"); // replayed when B returned
     await back;
-    expect(await send(b, { text: "still here?" })).toEqual(NOT_IN_SESSION);
+    expect(await send(b, "still here?")).toEqual(NOT_IN_SESSION);
     expect(await command(b, "session:start")).toEqual({ ok: true });
   });
 
@@ -111,7 +115,7 @@ describe("network drop recovery", () => {
 
     await back;
     expect((await endedForB).reason).toBe("partner_left");
-    expect(await send(b, { text: "hello?" })).toEqual(NOT_IN_SESSION);
+    expect(await send(b, "hello?")).toEqual(NOT_IN_SESSION);
     expect(await command(b, "session:start")).toEqual({ ok: true });
   });
 
@@ -195,9 +199,10 @@ describe("reconnecting before the server noticed the drop", () => {
     expect(again.id).toBe(oldId);
     expect((await connected).state).toBe("connected");
 
-    const toA = next<Record<string, any>>(a, "chat:message");
-    expect(await send(again, { text: "switched to mobile data" })).toEqual({ ok: true });
-    expect((await toA).text).toBe("switched to mobile data");
+    keepChannel(b, again); // the same page, on a new link: its keys are still in memory
+    const toA = nextText(a);
+    expect(await send(again, "switched to mobile data")).toEqual({ ok: true });
+    expect(await toA).toBe("switched to mobile data");
   });
 
   it("ignores an unknown private id and connects normally", async () => {
