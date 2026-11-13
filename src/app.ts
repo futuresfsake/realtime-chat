@@ -228,6 +228,8 @@ export function buildServer(deps: ServerDeps) {
   const sessions = new SessionManager();
   const matchmaker = new SimpleMatchmaker();
   const grace = new GraceTimers();
+  // The same kind of countdown, one per session that is still exchanging keys.
+  const keyDeadlines = new GraceTimers();
   io.on("connection", (socket) => {
     registerHandlers(socket, {
       io,
@@ -238,6 +240,7 @@ export function buildServer(deps: ServerDeps) {
       matchmaker,
       searchLimits,
       grace,
+      keyDeadlines,
       isShuttingDown: () => shuttingDown,
       onDisconnect: (s) => ipSocketCap.remove(s.data.ipHash, s.id),
     });
@@ -257,6 +260,7 @@ export function buildServer(deps: ServerDeps) {
     shuttingDown = true;
     clearInterval(onlineTimer);
     grace.clear();
+    keyDeadlines.clear();
     return new Promise((resolve) => {
       void io.close(() => resolve());
     });
