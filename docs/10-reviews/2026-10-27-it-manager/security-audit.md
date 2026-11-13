@@ -1,5 +1,7 @@
 # Security Audit — IT Manager Review
 
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [security checklist](../../04-security/security-checklist.md), [threat model](../../04-security/threat-model.md).
+
 **Date:** 2026-10-27
 **Scope:** Transport security, cryptographic protocol, abuse prevention, supply chain, static analysis, client-side security
 
