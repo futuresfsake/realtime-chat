@@ -1,5 +1,7 @@
 # Data Privacy & Retention: Product Owner Decisions
 
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [data inventory and retention](../../09-compliance/data-inventory-and-retention.md), [law-enforcement requests](../../09-compliance/law-enforcement-requests.md), [data subject rights](../../09-compliance/data-subject-rights.md).
+
 **Question:** do we make data last, in what database, and for how long?
 **Answer in one line:** *Chat content never lasts. A tiny, encrypted, expiring safety ledger lasts. Everything else is memory-only.*
 
@@ -54,7 +56,7 @@ Options for counsel to decide:
 | Right | Our answer | How it works |
 |---|---|---|
 | Informed | Privacy notice at the age gate | M6 |
-| Access / correction / erasure | Almost nothing is linkable to a person | DPO workflow in [management-capabilities.md](management-capabilities.md); user supplies a report case ID or hash proof |
+| Access / correction / erasure | Almost nothing is linkable to a person | DPO workflow in [management-capabilities.md](../../09-compliance/roles-and-access.md); user supplies a report case ID or hash proof |
 | Object / withdraw | Leave the site; session ends; nothing remains | |
 | Damages / complaint | Contact DPO, then NPC | Contact on the privacy notice |
 
@@ -63,7 +65,7 @@ Options for counsel to decide:
 - Accountability stays with us (RA 10173 Sec 21), whichever region hosts the data.
 
 ## 7. Acceptance criteria
-- [ ] Data inventory in [privacy-and-sessions.md](../04-security/privacy-and-sessions.md) matches the table above
+- [ ] Data inventory in [privacy-and-sessions.md](../../04-security/privacy-and-sessions.md) matches the table above
 - [ ] CI check proves no raw IP / content in logs
 - [ ] Purge job unit-tested with a fake clock
 - [ ] Counsel memo on D-11 filed
