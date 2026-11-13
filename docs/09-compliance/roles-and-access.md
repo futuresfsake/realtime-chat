@@ -1,6 +1,20 @@
-# Management Capabilities (Product Owner Spec)
+# Roles, Access and Management Capabilities
+
+> **Living document.** First written in the DICT-style review (2026-10-28) and moved here on 2026-11-13. This folder now owns it: update it when the system changes. The original review record is in [10-reviews](../10-reviews/2026-10-28-dict/README.md).
 
 What the people running this service must be able to do, and what they must **never** be able to do.
+
+## 0. Accountable people
+Philippine law expects named people, not "the operator". These are decided in D-12.
+
+| Position | Required by | Person | Backup |
+|---|---|---|---|
+| **Data Protection Officer (DPO)** | RA 10173 Sec 21; NPC Advisory 2017-01 | To be named | To be named |
+| **Child-safety officer** | RA 11930 duties on intermediaries | To be named | To be named |
+| **Product owner** | Accepts risks and signs the PIA | Project owner | — |
+| **Legal counsel** (external) | Verifies citations, reviews published documents, handles orders | To be engaged (D-17) | — |
+
+On a one-person team the same person may hold several positions, with two limits: the DPO must be able to act independently on privacy matters, and there must be a **backup who can meet the 72-hour and 48-hour deadlines** if that person is unreachable. The DPO's contact details are published in the privacy notice and `SECURITY.md`.
 
 ## 1. Roles
 | Role | Who | Can | Cannot |
@@ -38,7 +52,7 @@ Rules: least privilege, MFA on every account, no shared accounts, access reviewe
 | Can we identify a user? | Not from stored data; at most a keyed hash that expires. |
 | Can we stop abuse quickly? | Yes: ban by hash, maintenance mode, report escalation. |
 | Can we prove we deleted data? | Yes: purge job output plus retention report. |
-| Can we respond to a court order? | Only for what exists. Procedure in [data-privacy-and-retention.md](data-privacy-and-retention.md) section 4. |
+| Can we respond to a court order? | Only for what exists. Procedure in [law-enforcement-requests.md](law-enforcement-requests.md). |
 
 ## 5. Acceptance criteria
 - [ ] Role matrix enforced in code (tests for each denied action)
