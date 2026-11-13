@@ -1,7 +1,19 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { PROTOCOL_VERSION, RULES_VERSION } from "../../src/types/events.js";
-import { ORIGIN, command, connect, next, pair, send, startServer } from "./helpers.js";
-import type { TestServer } from "./helpers.js";
+import {
+  ORIGIN,
+  arrivesWithin,
+  channelOf,
+  command,
+  connect,
+  exchangeKeys,
+  next,
+  pair,
+  send,
+  sendRaw,
+  startServer,
+} from "./helpers.js";
+import type { Matched, TestServer } from "./helpers.js";
 
 let server: TestServer;
 afterEach(async () => {
@@ -211,53 +223,67 @@ describe("WebSocket handshake", () => {
   });
 });
 
-describe("chat:send", () => {
-  it("delivers a message to the partner with server-made id, time and name", async () => {
+describe("e2e:envelope", () => {
+  it("relays the envelope to the partner unchanged, adding nothing of its own", async () => {
     server = await startServer();
     const { a: alice, b: bob } = await pair(server);
-    const received = next<Record<string, any>>(bob, "chat:message");
+    const received = next<Record<string, any>>(bob, "e2e:envelope");
+    const sealed = await channelOf(alice).seal({ t: "msg", text: "hello bob" });
 
-    expect(await send(alice, { text: "  hello bob  " })).toEqual({ ok: true });
-    const msg = await received;
-    expect(msg.text).toBe("hello bob");
-    expect(msg.from).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
-    expect(msg.sentAt).toBe(server.clock.now());
-    expect(msg.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await sendRaw(alice, sealed)).toEqual({ ok: true });
+    const envelope = await received;
+    // Exactly what was sent: no name, no id, no time, no session id.
+    expect(envelope).toEqual(sealed);
+    expect(Object.keys(envelope).sort()).toEqual(["ct", "seq"]);
+    expect(await channelOf(bob).open(envelope)).toEqual({ t: "msg", text: "hello bob" });
   });
 
   it.each([
     ["a bare string", "hello"],
     ["a number", 42],
     ["null", null],
-    ["missing text", {}],
-    ["non-string text", { text: 42 }],
-    ["empty text", { text: "   " }],
-    ["501 characters", { text: "a".repeat(501) }],
-    ["unknown fields", { text: "hi", evil: true }],
+    ["an empty object", {}],
+    ["a plaintext message", { text: "hello" }],
+    ["a plaintext message next to a valid envelope", { seq: 1, ct: "A".repeat(107), text: "hello" }],
+    ["no ciphertext", { seq: 1 }],
+    ["no number", { ct: "A".repeat(107) }],
+    ["number 0", { seq: 0, ct: "A".repeat(107) }],
+    ["a negative number", { seq: -1, ct: "A".repeat(107) }],
+    ["a fractional number", { seq: 1.5, ct: "A".repeat(107) }],
+    ["a number as a string", { seq: "1", ct: "A".repeat(107) }],
+    ["a number past 2^32 - 1", { seq: 2 ** 32, ct: "A".repeat(107) }],
+    ["empty ciphertext", { seq: 1, ct: "" }],
+    ["ciphertext too short to be real", { seq: 1, ct: "A".repeat(106) }],
+    ["ciphertext over 3,000 characters", { seq: 1, ct: "A".repeat(3001) }],
+    ["ciphertext that is not base64url", { seq: 1, ct: `${"A".repeat(106)}!` }],
+    ["ciphertext with base64 padding", { seq: 1, ct: `${"A".repeat(106)}=` }],
+    ["ciphertext that is an object", { seq: 1, ct: { $gt: "" } }],
   ])("rejects %s with VALIDATION and keeps running", async (_name, payload) => {
     server = await startServer();
-    const { a: socket } = await pair(server);
-    expect(await send(socket, payload)).toEqual({ ok: false, error: { code: "VALIDATION" } });
-    expect(await send(socket, { text: "still alive" })).toEqual({ ok: true });
+    const { a: socket, b: partner } = await pair(server);
+    const relayed = arrivesWithin(partner, "e2e:envelope", 100);
+    expect(await sendRaw(socket, payload)).toEqual({ ok: false, error: { code: "VALIDATION" } });
+    expect(await relayed).toBe(false);
+    expect(await send(socket, "still alive")).toEqual({ ok: true });
   });
 
   it("allows 5 messages in a burst, then says slow down, then recovers", async () => {
     server = await startServer();
     const { a: socket } = await pair(server);
-    for (let i = 0; i < 5; i++) expect(await send(socket, { text: `m${i}` })).toEqual({ ok: true });
-    expect(await send(socket, { text: "m5" })).toEqual({
+    for (let i = 0; i < 5; i++) expect(await send(socket, `m${i}`)).toEqual({ ok: true });
+    expect(await send(socket, "m5")).toEqual({
       ok: false,
       error: { code: "RATE_LIMITED", retryAfterMs: 2000 },
     });
     server.clock.advance(2000);
-    expect(await send(socket, { text: "m6" })).toEqual({ ok: true });
+    expect(await send(socket, "m6")).toEqual({ ok: true });
   });
 
   it("rate limits each socket separately", async () => {
     server = await startServer();
     const { a: noisy, b: quiet } = await pair(server);
-    for (let i = 0; i < 6; i++) await send(noisy, { text: "spam" });
-    expect(await send(quiet, { text: "hi" })).toEqual({ ok: true });
+    for (let i = 0; i < 6; i++) await send(noisy, "spam");
+    expect(await send(quiet, "hi")).toEqual({ ok: true });
   });
 
   it("drops a client that sends more than 4 KB, and keeps serving others", async () => {
@@ -265,21 +291,22 @@ describe("chat:send", () => {
     const { a: big, b: other } = await pair(server);
     const dropped = new Promise<string>((resolve) => big.once("disconnect", resolve));
     const partnerTold = next<Record<string, string>>(other, "partner:status");
-    big.emit("chat:send", { text: "x".repeat(10_000) });
+    big.emit("e2e:envelope", { seq: 1, ct: "A".repeat(10_000) });
     await dropped;
     expect(big.connected).toBe(false);
     // To the server this looks like a dropped link, so the partner is told
     // and the chat is held for the grace period. Others are served as usual.
     expect((await partnerTold).state).toBe("reconnecting");
-    expect(await send(other, { text: "fine" })).toEqual({ ok: true });
+    expect(await send(other, "fine")).toEqual({ ok: true });
   });
 
   it("survives a client that sends no ack callback", async () => {
     server = await startServer();
     const { a: socket } = await pair(server);
-    socket.emit("chat:send", { bad: true });
-    socket.emit("chat:send", { text: "no ack" });
-    expect(await send(socket, { text: "ok" })).toEqual({ ok: true });
+    socket.emit("e2e:envelope", { bad: true });
+    socket.emit("e2e:envelope", await channelOf(socket).seal({ t: "msg", text: "no ack" }));
+    socket.emit("e2e:key", { bad: true });
+    expect(await send(socket, "ok")).toEqual({ ok: true });
   });
 });
 
@@ -289,10 +316,16 @@ describe("privacy of logs", () => {
     const token = await server.token();
     const other = await connect(server);
     const socket = await connect(server, { authOverrides: { token } });
+    const matchedOther = next<Matched>(other, "session:matched");
+    const matchedSocket = next<Matched>(socket, "session:matched");
     await command(other, "session:start");
     await command(socket, "session:start");
-    await send(socket, { text: "my-secret-message-0917" });
-    await send(socket, { nope: "my-secret-message-0917" });
+    await exchangeKeys(other, socket, await matchedOther, await matchedSocket);
+    const sealed = await channelOf(socket).seal({ t: "msg", text: "my-secret-message-0917" });
+    expect(await sendRaw(socket, sealed)).toEqual({ ok: true });
+    await sendRaw(socket, { nope: "my-secret-message-0917" });
+    // Events that no longer exist must not be logged with their payload either.
+    socket.emit("chat:send", { text: "my-secret-message-0917" });
     await connect(server, { origin: "https://evil.example" }).catch(() => {});
     socket.disconnect();
     await expect.poll(() => server.logs.some((line) => line.includes("ws_disconnect"))).toBe(true);
@@ -302,6 +335,12 @@ describe("privacy of logs", () => {
     expect(all).not.toContain("127.0.0.1");
     expect(all).not.toContain("::1");
     expect(all).not.toContain("my-secret-message");
+    // Not the ciphertext either, nor anyone's public key: the logs say that
+    // something happened, never what was in it.
+    expect(all).not.toContain(sealed.ct);
+    expect(all).not.toContain(sealed.ct.slice(0, 24));
+    expect(all).not.toContain(await channelOf(socket).publicKey());
+    expect(all).toContain("session_secured");
     expect(all).not.toContain(token);
     expect(all).not.toMatch(/[0-9a-f]{64}/);
     for (const line of server.logs) {
