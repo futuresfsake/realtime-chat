@@ -1,4 +1,6 @@
 # Legal, Privacy & Compliance Considerations
+
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [09-compliance](../../09-compliance/README.md).
 ## Anonymous End-to-End Encrypted Stranger Chat Platform (Philippines)
 
 > **Status:** Pre-Launch Planning
