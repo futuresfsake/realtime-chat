@@ -1,6 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { arrivesWithin, command, connect, next, pair, send, startServer } from "./helpers.js";
-import type { TestServer } from "./helpers.js";
+import {
+  arrivesWithin,
+  command,
+  connect,
+  exchangeKeys,
+  next,
+  nextPlain,
+  pair,
+  react,
+  send,
+  startServer,
+} from "./helpers.js";
+import type { Matched, TestServer } from "./helpers.js";
 
 let server: TestServer;
 afterEach(async () => {
@@ -10,9 +21,6 @@ afterEach(async () => {
 const NOT_IN_SESSION = { ok: false, error: { code: "NOT_IN_SESSION" } };
 type Info = Record<string, any>;
 
-function react(socket: Parameters<typeof next>[0], payload: unknown): Promise<any> {
-  return socket.timeout(2000).emitWithAck("chat:react", payload);
-}
 function typing(socket: Parameters<typeof next>[0], payload: unknown): Promise<any> {
   return socket.timeout(2000).emitWithAck("typing", payload);
 }
@@ -74,7 +82,7 @@ describe("typing indicator", () => {
     server = await startServer();
     const { a } = await pair(server);
     for (let i = 0; i < 10; i++) await typing(a, { isTyping: true });
-    expect(await send(a, { text: "still can talk" })).toEqual({ ok: true });
+    expect(await send(a, "still can talk")).toEqual({ ok: true });
   });
 
   it("is not replayed to a partner that was offline (a stale 'typing...' would mislead)", async () => {
@@ -94,45 +102,58 @@ describe("typing indicator", () => {
 });
 
 describe("message numbers", () => {
-  it("numbers messages 1, 2, 3 in a session, for both directions, and restarts in a new one", async () => {
+  it("each side numbers its own envelopes 1, 2, 3, and a new chat starts again at 1", async () => {
     server = await startServer();
     const { a, b } = await pair(server);
-    const seen: number[] = [];
-    b.on("chat:message", (m: { seq: number }) => seen.push(m.seq));
-    a.on("chat:message", (m: { seq: number }) => seen.push(m.seq));
+    const fromA: number[] = [];
+    const fromB: number[] = [];
+    b.on("e2e:envelope", (e: { seq: number }) => fromA.push(e.seq));
+    a.on("e2e:envelope", (e: { seq: number }) => fromB.push(e.seq));
 
-    await send(a, { text: "one" });
-    await send(b, { text: "two" });
-    await send(a, { text: "three" });
-    await expect.poll(() => seen.length).toBe(6); // each message reaches both sides
-    expect(new Set(seen)).toEqual(new Set([1, 2, 3]));
+    await send(a, "one");
+    await send(b, "two");
+    await send(a, "three");
+    await expect.poll(() => fromA.length + fromB.length).toBe(3); // each envelope reaches the partner only
+    expect(fromA).toEqual([1, 2]);
+    expect(fromB).toEqual([1]);
 
+    const matchedA = next<Matched>(a, "session:matched");
+    const matchedB = next<Matched>(b, "session:matched");
     await command(a, "session:next");
-    const matched = next(a, "session:matched");
     await command(b, "session:start");
-    await matched;
-    const first = next<Info>(b, "chat:message");
-    await send(a, { text: "fresh start" });
+    await exchangeKeys(a, b, await matchedA, await matchedB);
+    const first = next<Info>(b, "e2e:envelope");
+    await send(a, "fresh start");
     expect((await first).seq).toBe(1);
   });
 });
 
-describe("reactions", () => {
-  it("relays a reaction to both sides with the reactor's name", async () => {
+describe("reactions (encrypted, like messages)", () => {
+  it("reaches the partner, who can read which message it is for", async () => {
     server = await startServer();
     const { a, b } = await pair(server);
-    const msg = next<Info>(b, "chat:message");
-    await send(a, { text: "funny" });
-    const { seq, from: author } = await msg;
+    const envelope = next<Info>(b, "e2e:envelope");
+    await send(a, "funny");
+    const { seq } = await envelope;
 
-    const toA = next<Info>(a, "chat:reaction");
-    const toB = next<Info>(b, "chat:reaction");
-    expect(await react(b, { ref: seq, emoji: "😂" })).toEqual({ ok: true });
-    const [forA, forB] = await Promise.all([toA, toB]);
-    expect(forA).toEqual(forB);
-    expect(forA).toMatchObject({ ref: seq, emoji: "😂" });
-    expect(forA.from).not.toBe(author); // B reacted, so it is B's name
-    expect(forA.from).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
+    const toA = nextPlain(a);
+    const echoed = arrivesWithin(b, "e2e:envelope");
+    expect(await react(b, seq, "😂")).toEqual({ ok: true });
+    expect(await toA).toEqual({ t: "react", ref: seq, emoji: "😂" });
+    expect(await echoed).toBe(false); // the one who reacted shows it locally
+  });
+
+  it("looks exactly like a short message to the server: same event, same fields, same size", async () => {
+    server = await startServer();
+    const { a, b } = await pair(server);
+    const first = next<Info>(b, "e2e:envelope");
+    await send(a, "hi");
+    const message = await first;
+    const second = next<Info>(b, "e2e:envelope");
+    await react(a, 1, "👍");
+    const reaction = await second;
+    expect(Object.keys(reaction)).toEqual(Object.keys(message));
+    expect(reaction.ct).toHaveLength(message.ct.length);
   });
 
   it("never reaches a third client", async () => {
@@ -140,50 +161,31 @@ describe("reactions", () => {
     const { a } = await pair(server);
     const c = await connect(server);
     await command(c, "session:start");
-    const cHears = arrivesWithin(c, "chat:reaction");
-    await react(a, { ref: 1, emoji: "👍" });
+    const cHears = arrivesWithin(c, "e2e:envelope");
+    await react(a, 1, "👍");
     expect(await cHears).toBe(false);
   });
 
-  it.each(["👍", "❤️", "😂", "😮", "😢", "🙏"])("accepts %s", async (emoji) => {
+  it.each(["👍", "❤️", "😂", "😮", "😢", "🙏"])("carries %s", async (emoji) => {
     server = await startServer();
-    const { a } = await pair(server);
-    expect(await react(a, { ref: 1, emoji })).toEqual({ ok: true });
-  });
-
-  it("is refused with NOT_IN_SESSION outside a chat", async () => {
-    server = await startServer();
-    const a = await connect(server);
-    expect(await react(a, { ref: 1, emoji: "👍" })).toEqual(NOT_IN_SESSION);
-    await command(a, "session:start");
-    expect(await react(a, { ref: 1, emoji: "👍" })).toEqual(NOT_IN_SESSION);
+    const { a, b } = await pair(server);
+    const toB = nextPlain(b);
+    expect(await react(a, 1, emoji)).toEqual({ ok: true });
+    expect(await toB).toEqual({ t: "react", ref: 1, emoji });
   });
 
   it("is refused after the chat ended", async () => {
     server = await startServer();
     const { a, b } = await pair(server);
     await command(a, "session:leave");
-    expect(await react(b, { ref: 1, emoji: "👍" })).toEqual(NOT_IN_SESSION);
-  });
-
-  it.each([
-    ["an emoji that is not allowed", { ref: 1, emoji: "🔥" }],
-    ["ref 0", { ref: 0, emoji: "👍" }],
-    ["a fractional ref", { ref: 1.5, emoji: "👍" }],
-    ["extra fields", { ref: 1, emoji: "👍", text: "hi" }],
-    ["no emoji", { ref: 1 }],
-    ["a string", "👍"],
-  ])("rejects %s with VALIDATION", async (_name, payload) => {
-    server = await startServer();
-    const { a } = await pair(server);
-    expect(await react(a, payload)).toEqual({ ok: false, error: { code: "VALIDATION" } });
+    expect(await react(b, 1, "👍")).toEqual(NOT_IN_SESSION);
   });
 
   it("shares the message limit, so reactions cannot flood", async () => {
     server = await startServer();
     const { a } = await pair(server);
-    for (let i = 0; i < 5; i++) expect(await react(a, { ref: 1, emoji: "👍" })).toEqual({ ok: true });
-    const refused = await react(a, { ref: 1, emoji: "👍" });
+    for (let i = 0; i < 5; i++) expect(await react(a, 1, "👍")).toEqual({ ok: true });
+    const refused = await react(a, 1, "👍");
     expect(refused.error.code).toBe("RATE_LIMITED");
   });
 });
