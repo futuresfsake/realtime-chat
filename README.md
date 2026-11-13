@@ -6,7 +6,7 @@ No accounts. No stored messages. Free to use, safe by design.
 > **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
 > 📚 Full documentation: [**docs/**](docs/README.md) · 🗺️ Plan: [**milestones**](docs/01-product/milestones.md)
 
-> ⚠️ **Status: M3 code complete (1:1 sessions), first deploy pending.** Today the app pairs you with **one stranger** at a time behind an 18+ gate, **without** end-to-end encryption yet. The encrypted, interest-matched product is being built milestone by milestone; next is **M4: end-to-end encryption**.
+> ⚠️ **Status: M3 code complete (1:1 sessions), first deploy pending.** Today the app pairs you with **one stranger** at a time behind an 18+ gate, **without** end-to-end encryption yet. The encrypted, interest-matched product is being built milestone by milestone; M4 (end-to-end encryption) is code complete; next is **M5: matchmaking**.
 
 ---
 
@@ -122,7 +122,7 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 | M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
 | **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🚧 code complete; deploy pending |
 | **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🚧 code complete; deploy pending |
-| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🔜 **next** |
+| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🚧 code complete; deploy pending |
 | M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
 | M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
 | M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | 🔜 |
