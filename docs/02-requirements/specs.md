@@ -21,7 +21,7 @@
 |---|---|---|---|
 | FR-10 | Clients generate an ephemeral **ECDH P-256** key pair per session (WebCrypto, private key non-extractable) | Unit (browser) | M4 |
 | FR-11 | Keys: shared secret → **HKDF-SHA-256** → two **AES-GCM-256** keys (one per direction) | Unit | M4 |
-| FR-12 | Each envelope = `{ seq, ct }`. IV = 4-byte direction prefix + 8-byte `seq`; AAD = `sessionId|direction|seq` | Unit | M4 |
+| FR-12 | Each envelope = `{ seq, ct }`. IV = 4 zero bytes + 8-byte `seq` (unique per direction key); AAD = `rc/v1|sessionId|direction|seq` | Unit | M4 |
 | FR-13 | Receivers reject envelopes with `seq` ≤ the last accepted `seq` (replay) or failed authentication (tampering), and end the session after 3 failures | Unit | M4 |
 | FR-14 | No message can be sent before the key exchange completes. There is **no unencrypted fallback** | Integration | M4 |
 | FR-15 | Safety code = SHA-256(sessionId ‖ sorted public keys); the first 20 bytes are split into four 5-byte chunks, each shown as (big-endian integer mod 100000), zero-padded → `48213 99307 17742 03621` | Unit | M4 |
