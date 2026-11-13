@@ -128,7 +128,7 @@ describe("no plaintext path")
 | File | Action |
 |---|---|
 | `public/js/crypto.js` | Create |
-| `public/js/main.js` | Modify — integrate key exchange and envelope encryption |
+| `public/client.js` | Modify — integrate key exchange and envelope encryption (built as `public/js/crypto.js` + `client.js`; there is no `main.js` yet) |
 | `src/gateway/registerHandlers.ts` | Add e2e:key and e2e:envelope handlers; remove chat:send |
 | `src/sessions/sessionManager.ts` | Add keysSeen tracking per session |
 | `src/validation/schemas.ts` | Add E2eKeySchema, E2eEnvelopeSchema |
