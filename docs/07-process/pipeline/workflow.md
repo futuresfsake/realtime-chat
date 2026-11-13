@@ -247,8 +247,8 @@ jobs:
         run: |
           STORY="${{ github.event.inputs.story }}"
           STORY_NUM=$(echo "$STORY" | sed 's/US-//')
-          if ! ls docs/tdd/**/TDD-*-US${STORY_NUM}*.md 2>/dev/null; then
-            if ! ls docs/tdd/**/TDD-*-${STORY}*.md 2>/dev/null; then
+          if ! ls docs/03-design/tdd/**/TDD-*-US${STORY_NUM}*.md 2>/dev/null; then
+            if ! ls docs/03-design/tdd/**/TDD-*-${STORY}*.md 2>/dev/null; then
               echo "::error::No TDD found for ${STORY}"
               exit 1
             fi
