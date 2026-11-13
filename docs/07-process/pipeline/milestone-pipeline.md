@@ -21,9 +21,9 @@ The M-Pipeline governs milestone-level planning, execution, and release. It wrap
 **Purpose:** Sequence stories, identify dependencies, and set the milestone profile.
 
 ### Inputs
-- Milestone definition from [milestones.md](../01-product/milestones.md)
+- Milestone definition from [milestones.md](../../01-product/milestones.md)
 - Story classifications from [story-classification.md](story-classification.md)
-- Open gaps from [GAPS.md](../tdd/GAPS.md)
+- Open gaps from [GAPS.md](../../03-design/tdd/GAPS.md)
 
 ### Planning Checklist
 
@@ -77,7 +77,7 @@ Sequence:
 |---|---|---|---|
 | 1 | Prior milestone completed | All prior milestone stories on main | Yes |
 | 2 | Prior milestone DoD passed | M-DoD report exists for prior milestone | Yes |
-| 3 | All milestone stories have TDDs | Check `docs/tdd/` | Yes |
+| 3 | All milestone stories have TDDs | Check `docs/03-design/tdd/` | Yes |
 | 4 | All milestone gaps resolved | `GAPS.md` entries for this milestone | Yes |
 | 5 | External dependencies available | Packages installable, services reachable | Yes |
 | 6 | Environment ready | Node version, npm ci, typecheck, tests all pass | Yes |
@@ -162,7 +162,7 @@ Stories that touch **different modules** and have **no dependency** can run in p
 |---|---|---|
 | 1 | All milestone stories merged to main | `git log` verification |
 | 2 | All story DoD reports exist and pass | Check `testresults/dod/` |
-| 3 | All milestone exit criteria checked | [milestones.md](../01-product/milestones.md) checklist |
+| 3 | All milestone exit criteria checked | [milestones.md](../../01-product/milestones.md) checklist |
 | 4 | CI green on main | GitHub Actions |
 | 5 | Deployed to Render | Health check passes |
 | 6 | Release smoke test passed | Manual test on live URL (phone + laptop) |
