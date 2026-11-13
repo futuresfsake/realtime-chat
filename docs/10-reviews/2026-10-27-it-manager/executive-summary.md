@@ -1,5 +1,7 @@
 # Executive Summary: IT Manager Production Review
 
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [the reviews index](../README.md).
+
 **System:** realtime-chat — Anonymous, E2EE, one-to-one stranger chat
 **Review Date:** 2026-10-27
 **Current State:** M1 complete (walking skeleton). M2-M8 planned but unimplemented.
