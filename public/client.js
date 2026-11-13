@@ -5,8 +5,14 @@ const THEMES = ["phosphor", "amber", "ice", "paper"]; // must match styles.css
 const DEFAULT_THEME = "phosphor";
 const THEME_KEY = "rtc.theme"; // same key as js/themes.js
 const PROTOCOL_VERSION = "rc/v1";        // must match src/types/events.ts
-const RULES_VERSION = "2026-11-preview-2"; // must match src/types/events.ts
+const RULES_VERSION = "2026-11-preview-3"; // must match src/types/events.ts
 const CONSENT_KEY = "rtc.consent";       // sessionStorage: asked again in every new tab/visit
+const ACK_TIMEOUT_MS = 8000;             // how long to wait for the server to confirm a message
+// Without WebCrypto (very old browser, or a page not served over HTTPS) there
+// is no encryption, and without encryption there is no chat. No fallback.
+const CAN_ENCRYPT = typeof E2EE !== "undefined" && E2EE.isSupported();
+const NO_ENCRYPTION_TEXT =
+  "this browser cannot encrypt messages here (it needs a current browser and an https:// address), so chatting is switched off";
 
 // ---------- DOM references ----------
 const $ = (id) => document.getElementById(id);
@@ -21,6 +27,8 @@ const els = {
   roomName: $("room-name"),
   typing: $("typing"),
   partnerStatus: $("partner-status"),
+  e2eStatus: $("e2e-status"),
+  e2eTop: $("conn-e2e"),
   onlineTop: $("conn-online"),
   onlineSide: $("online-count"),
   themes: $("themes"),
@@ -53,6 +61,13 @@ let partner = null; // set while chatting with someone
 const store = SessionStore.create();
 let partnerState = "none"; // none | connected | typing | reconnecting
 
+// The encryption of the current chat: this chat's keys and message counters
+// (js/crypto.js). In memory only, and forgotten when the chat ends.
+let channel = null;
+// Set when this page itself ends a chat because its encryption failed, so
+// the reason can be shown once the server confirms the chat is over.
+let endNote = null;
+
 function setChatting(myName, partnerName) {
   me = myName || "guest";
   partner = partnerName;
@@ -60,6 +75,20 @@ function setChatting(myName, partnerName) {
   els.room.textContent = partnerName || "lobby";
   els.roomName.textContent = partnerName || "lobby";
   setPartnerState(partnerName ? "connected" : "none");
+  if (!partnerName) setSecurity("none");
+}
+
+// none: not chatting. securing: keys are being exchanged, nothing can be sent
+// yet. secured: messages are end-to-end encrypted.
+function setSecurity(state) {
+  els.e2eStatus.dataset.state = state;
+  els.e2eStatus.textContent = { none: "", securing: "… securing the chat", secured: "🔒 end-to-end encrypted" }[state];
+  els.e2eTop.hidden = state !== "secured"; // the sidebar is hidden on phones; the top bar is not
+}
+
+function closeChannel() {
+  if (channel) channel.close();
+  channel = null;
 }
 
 // Sidebar: one line about the partner. ● connected, ✎ typing, ⟳ reconnecting.
@@ -237,12 +266,15 @@ function retryConnect(delayMs) {
 socket.on("connect", () => {
   setConnection("online", "ONLINE");
   if (socket.recovered && partner) {
+    // The keys never left this page's memory, so the chat is still encrypted.
     sys(`reconnected. your chat with ${partner} continues`);
     return;
   }
   if (partner) err("the connection was lost for too long, so that chat has ended");
+  closeChannel();
   setChatting("guest", null);
-  sys("connected to the server. type /start to meet a stranger");
+  if (CAN_ENCRYPT) sys("connected to the server. type /start to meet a stranger");
+  else err(NO_ENCRYPTION_TEXT);
 });
 
 socket.on("disconnect", (reason) => {
@@ -299,12 +331,117 @@ socket.on("connect", () => {
   authRetries = 0;
 });
 
-socket.on("session:matched", ({ myName, partnerName }) => {
+socket.on("session:matched", ({ sessionId, myName, partnerName, role }) => {
   wipeHistory(); // a new chat starts empty
   stopTyping();
+  closeChannel();
+  endNote = null;
   setChatting(myName, partnerName);
-  sys(`connected to ${partnerName}. you are ${myName}. say hi! (/leave to end the chat)`);
+  setSecurity("securing");
+  sys(`connected to ${partnerName}. you are ${myName}. securing the chat...`);
+  startKeyExchange(sessionId, role);
 });
+
+// ---------- End-to-end encryption ----------
+// Every chat gets fresh keys: make a key pair, send the public half, and wait
+// for the partner's. Nothing can be said until both halves have crossed.
+// `mine` guards every step: if the chat ends (or a new one starts) while a
+// step was waiting, the step notices and does nothing.
+async function startKeyExchange(sessionId, role) {
+  let mine = null;
+  try {
+    mine = channel = E2EE.createChannel({ sessionId, role, allowedReactions: store.ALLOWED_REACTIONS });
+    const publicKey = await mine.publicKey();
+    if (channel !== mine) return;
+    socket.emit("e2e:key", { publicKey }, (ack) => {
+      if (channel === mine && ack && !ack.ok) secureChannelFailed();
+    });
+  } catch {
+    if (mine === null || channel === mine) secureChannelFailed();
+  }
+}
+
+socket.on("e2e:key", async ({ publicKey }) => {
+  const mine = channel;
+  if (!mine) return;
+  try {
+    // Checks the key and derives this chat's message keys. A bad key, our own
+    // key sent back, or a second key for the same chat all throw.
+    await mine.receiveKey(publicKey);
+  } catch {
+    if (channel === mine) secureChannelFailed();
+    return;
+  }
+  if (channel !== mine) return;
+  setSecurity("secured");
+  sys("🔒 end-to-end encrypted: only the two of you can read this chat. say hi!");
+  sys("/verify shows a code to check that nobody is in the middle. /leave ends the chat");
+});
+
+// The encryption could not be set up, or too many messages failed their
+// check. The chat ends here: there is no unencrypted way to carry on.
+function secureChannelFailed() {
+  closeChannel();
+  setSecurity("none");
+  endNote = "secure channel error: this chat could not be kept private, so it was ended. nothing was sent unencrypted";
+  err(endNote);
+  socket.emit("session:leave", {});
+}
+
+socket.on("e2e:envelope", async (envelope) => {
+  const mine = channel;
+  if (!mine) return;
+  let plain;
+  try {
+    plain = await mine.open(envelope); // throws on tampering, replay, or anything that is not a message
+  } catch (error) {
+    if (channel !== mine || error.code === "CLOSED") return;
+    if (error.fatal) return secureChannelFailed();
+    return err("a message failed its security check and was dropped");
+  }
+  if (channel !== mine) return;
+  if (plain.t === "msg") {
+    showMessage({ seq: envelope.seq, from: partner, text: plain.text, sentAt: Date.now() }, false);
+  } else {
+    // A reaction always points at a message of the one who receives it.
+    showReaction(store.messageId(plain.ref, true), plain.emoji, partner);
+  }
+});
+
+// Encrypts one message or reaction and hands the envelope to the server.
+// onSent runs once the server has passed it on. `what` names it in errors.
+function sendSecure(plain, what, onSent) {
+  const mine = channel;
+  if (!socket.connected) return err(`not connected - ${what} not sent`);
+  if (!partner || !mine) return err("you are not chatting with anyone. type /start to meet a stranger");
+  if (!mine.ready) return err(`the chat is still being secured - ${what} not sent. try again in a moment`);
+  mine.seal(plain).then(
+    (envelope) => {
+      if (channel !== mine) return; // the chat ended while encrypting
+      socket.timeout(ACK_TIMEOUT_MS).emit("e2e:envelope", envelope, (timedOut, ack) => {
+        if (channel !== mine) return;
+        if (timedOut) return err(`no answer from the server - your ${what} may not have arrived`);
+        if (ack.ok) return onSent(envelope.seq);
+        if (ack.error.code === "RATE_LIMITED") {
+          const seconds = Math.max(1, Math.ceil((ack.error.retryAfterMs || 1000) / 1000));
+          err(`slow down - ${what} not sent, try again in ${seconds}s`);
+        } else if (ack.error.code === "NOT_IN_SESSION") {
+          err("you are not chatting with anyone. type /start to meet a stranger");
+        } else if (ack.error.code === "INVALID_STATE") {
+          err(`the chat is still being secured - ${what} not sent. try again in a moment`);
+        } else {
+          err(`${what} not sent - please try again`);
+        }
+      });
+    },
+    (error) => {
+      if (channel !== mine) return;
+      if (error.code === "TOO_LONG") err(`${what} too long (500 characters at most) - not sent`);
+      else if (error.code === "BAD_MESSAGE") err(`${what} rejected (1 to 500 characters)`);
+      else secureChannelFailed();
+    }
+  );
+}
 
 const ENDED_TEXT = {
   partner_left: "your partner left. type /start to meet someone new",
@@ -312,12 +449,21 @@ const ENDED_TEXT = {
   skipped: "chat ended. looking for someone new...",
   partner_timeout: "your partner did not come back. type /start to meet someone new",
   timeout: "you were offline for too long, so that chat has ended. type /start to meet someone new",
+  crypto_timeout:
+    "the chat could not be secured within 10 seconds, so it was ended before anything was said. type /start to try again",
 };
 socket.on("session:ended", ({ reason }) => {
   wipeHistory(); // the chat is over: nothing of it is kept
   stopTyping();
+  closeChannel(); // and neither are its keys
   setChatting("guest", null);
-  sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
+  if (endNote && reason === "left") {
+    err(endNote);
+    sys("type /start to meet someone new");
+  } else {
+    sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
+  }
+  endNote = null;
 });
 
 const STATUS_TEXT = {
@@ -339,22 +485,28 @@ socket.on("stats:online", ({ count }) => {
   els.onlineSide.textContent = `(${n})`;
 });
 
-socket.on("chat:message", (msg) => {
-  const mine = msg.from === me;
-  store.addMessage(msg, mine);
+// msg: { seq, from, text, sentAt }. Times are this browser's clock: when my
+// message was accepted, or when theirs arrived. The server adds nothing.
+function showMessage(msg, mine) {
+  const id = store.addMessage(msg, mine);
   const li = addLine(
     [[`[${timestamp(msg.sentAt)}] `, "ts"], [`<${msg.from}> `, "who"], [msg.text]],
     mine ? "self" : ""
   );
-  li.dataset.seq = String(msg.seq);
+  li.dataset.msg = id;
   // Their message arrived, so they are not "typing" any more.
   if (!mine && partnerState === "typing") setPartnerState("connected");
-});
+}
 
 // ---------- Reactions ----------
+function showReaction(id, emoji, from) {
+  const reactions = store.addReaction(id, emoji, from);
+  if (reactions) renderReactions(id, reactions); // unknown message or repeat: ignored
+}
+
 // Shows "😂 2  👍" at the end of the message that was reacted to.
-function renderReactions(ref, reactions) {
-  const li = els.log.querySelector(`li[data-seq="${ref}"]`);
+function renderReactions(id, reactions) {
+  const li = [...els.log.children].find((line) => line.dataset.msg === id);
   if (!li) return; // scrolled off the screen
   let span = li.querySelector(".reactions");
   if (!span) {
@@ -367,11 +519,6 @@ function renderReactions(ref, reactions) {
   span.textContent = ` ${[...counts].map(([emoji, n]) => (n > 1 ? `${emoji}×${n}` : emoji)).join(" ")}`;
 }
 
-socket.on("chat:reaction", ({ ref, emoji, from }) => {
-  const reactions = store.addReaction(ref, emoji, from);
-  if (reactions) renderReactions(ref, reactions); // unknown message or repeat: ignored
-});
-
 // ---------- Local slash commands (never sent to the server) ----------
 const commands = {
   help() {
@@ -380,6 +527,7 @@ const commands = {
     sys("  /clear    clear the screen");
     sys("  /start    find a stranger to chat with");
     sys("  /react    react to their last message: /react 😂  (👍 ❤️ 😂 😮 😢 🙏)");
+    sys("  /verify   show this chat's safety code, to check nobody is in the middle");
     sys("  /next     skip to a new stranger");
     sys("  /leave    leave the chat (or stop searching)");
     sys("  /whoami   show your random name");
@@ -397,19 +545,37 @@ const commands = {
     if (!partner) return err("you are not chatting with anyone. type /start to meet a stranger");
     const ref = store.lastPartnerSeq();
     if (ref === null) return err("nothing to react to yet: your partner has not said anything");
-    socket.emit("chat:react", { ref, emoji: match }, (ack) => {
-      if (!ack || ack.ok) return;
-      if (ack.error.code === "RATE_LIMITED") err("slow down - reaction not sent");
-      else err("reaction not sent - please try again");
-    });
+    // Encrypted like a message: the server cannot tell the two apart.
+    sendSecure({ t: "react", ref, emoji: match }, "reaction", () =>
+      showReaction(store.messageId(ref, false), match, me)
+    );
+  },
+  // The safety code is made from both public keys. If the server (or anyone
+  // on the way) swapped a key, the two sides see different codes.
+  verify() {
+    const code = channel && channel.ready ? channel.safetyCode : null;
+    if (!code) {
+      return err(
+        partner
+          ? "the chat is still being secured. try /verify again in a moment"
+          : "you are not in a chat. /verify works while you are chatting"
+      );
+    }
+    sys(`safety code: ${code}`);
+    sys("your partner's /verify shows the same code, unless someone swapped the encryption keys on the way.");
+    sys("compare the codes OUTSIDE this chat (a call, another app). a code sent in this chat proves nothing:");
+    sys("someone in the middle could rewrite it. with no other way to reach them, you cannot fully rule that out.");
+    sys("if the codes differ, someone may be reading along: /leave and share nothing private.");
   },
   whoami() {
     sys(partner ? `you are ${me}, chatting with ${partner}` : "you are not in a chat yet. type /start");
   },
   start() {
+    if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
     sendCommand("session:start", () => sys("searching for a stranger..."));
   },
   next() {
+    if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
     sendCommand("session:next");
   },
   leave() {
@@ -501,20 +667,12 @@ els.form.addEventListener("submit", (event) => {
   els.input.value = "";
 
   if (text.startsWith("/")) return runCommand(text);
-  if (!socket.connected) return err("not connected - message not sent");
-  socket.emit("chat:send", { text }, (ack) => {
-    if (!ack || ack.ok) return;
-    if (ack.error.code === "RATE_LIMITED") {
-      const seconds = Math.max(1, Math.ceil((ack.error.retryAfterMs || 1000) / 1000));
-      err(`slow down - message not sent, try again in ${seconds}s`);
-    } else if (ack.error.code === "NOT_IN_SESSION") {
-      err("you are not chatting with anyone. type /start to meet a stranger");
-    } else if (ack.error.code === "VALIDATION") {
-      err("message rejected (1 to 500 characters)");
-    } else {
-      err("message not sent - please try again");
-    }
-  });
+  // Encrypted here, in the browser. My own line appears once the server has
+  // passed the envelope on, so what I see is what was really sent.
+  const name = me;
+  sendSecure({ t: "msg", text }, "message", (seq) =>
+    showMessage({ seq, from: name, text, sentAt: Date.now() }, true)
+  );
 });
 
 els.input.addEventListener("keydown", (event) => {
@@ -539,7 +697,7 @@ document.addEventListener("click", (event) => {
 
 // ---------- Boot sequence ----------
 renderThemePicker();
-sys("REALTIME-CHAT v0.3 // tty1");
+sys("REALTIME-CHAT v0.4 // tty1");
 sys("type /help for commands");
 if (hasConsent()) {
   sys("establishing websocket link...");
