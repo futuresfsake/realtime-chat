@@ -68,16 +68,16 @@ Full classification: [story-classification.md](story-classification.md)
 
 | This pipeline document | Extends / replaces |
 |---|---|
-| story-lifecycle.md | Extends [TDD-M0-S05](../tdd/M0-foundations/TDD-M0-S05-development-pipeline.md) §4 with IT Manager gates |
+| story-lifecycle.md | Extends [TDD-M0-S05](../../03-design/tdd/M0-foundations/TDD-M0-S05-development-pipeline.md) §4 with IT Manager gates |
 | milestone-pipeline.md | New — milestone-level orchestration |
 | hotfix-pipeline.md | New — emergency procedures |
 | story-classification.md | New — security-driven gating |
 | definition-of-ready.md | Formalizes TDD-M0-S05 §4 Phase 2 |
-| definition-of-done.md | Formalizes TDD-M0-S05 §4 Phase 9 + [user-stories.md](../01-product/user-stories.md) DoD |
-| merge-strategy.md | Extends [ci-cd.md](../07-process/ci-cd.md) with gating rules |
+| definition-of-done.md | Formalizes TDD-M0-S05 §4 Phase 9 + [user-stories.md](../../01-product/user-stories.md) DoD |
+| merge-strategy.md | Extends [ci-cd.md](../ci-cd.md) with gating rules |
 | agent-definitions.md | Extends TDD-M0-S05 §2 with IT Manager agent roles |
 | skill-plan.md | New — agent capability planning |
-| workflow.md | Extends [ci-cd.md](../07-process/ci-cd.md) with full workflow definitions |
+| workflow.md | Extends [ci-cd.md](../ci-cd.md) with full workflow definitions |
 
 ## Principles
 
