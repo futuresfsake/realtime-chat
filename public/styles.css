@@ -217,6 +217,9 @@ body {
 .partner-status { margin: 0; overflow-wrap: anywhere; }
 .partner-status[data-state="connected"], .partner-status[data-state="typing"] { color: var(--fg); }
 .partner-status[data-state="reconnecting"] { color: var(--accent); }
+.e2e-status { margin: 4px 0 0; overflow-wrap: anywhere; }
+.e2e-status[data-state="secured"] { color: var(--fg); }
+.e2e-status[data-state="securing"] { color: var(--accent); }
 
 /* ---------- Prompt ---------- */
 .prompt {
