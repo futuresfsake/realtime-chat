@@ -194,7 +194,7 @@ realtime-chat/
  │  $ npx tsx tools/check-dor.ts --story=US-21                            │
  │                                                                         │
  │  Automated checks:                                                      │
- │   ✅ TDD exists: docs/tdd/**/TDD-*-US21-*.md                           │
+ │   ✅ TDD exists: docs/03-design/tdd/**/TDD-*-US21-*.md                           │
  │   ✅ Work plan exists: docs/plans/US-21.md                              │
  │   ✅ All dependency stories merged to main                              │
  │   ✅ Gaps in GAPS.md for this story resolved or accepted                │
@@ -455,7 +455,7 @@ Run `npx tsx tools/check-dor.ts --story=US-NN` before starting.
 Run `npx tsx tools/check-dod.ts --story=US-NN` before merging.
 
 ## Key Files
-- docs/tdd/ — Technical Design Documents per story
+- docs/03-design/tdd/ — Technical Design Documents per story
 - docs/01-product/user-stories.md — Acceptance criteria
 - docs/04-security/threat-model.md — Security threats
 - GAPS.md — Open decisions needing PO confirmation
@@ -646,7 +646,7 @@ function checkDor(story: string): DorResult {
   const checks: DorResult["checks"] = {};
 
   // TDD exists
-  const tddPattern = `docs/tdd/**/TDD-*-${story}*.md`;
+  const tddPattern = `docs/03-design/tdd/**/TDD-*-${story}*.md`;
   checks.tddExists = { status: existsSync(tddPattern) ? "pass" : "fail" };
 
   // npm ci
