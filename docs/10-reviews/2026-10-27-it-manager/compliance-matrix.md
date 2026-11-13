@@ -1,5 +1,7 @@
 # Regulatory Compliance Matrix — IT Manager Review
 
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [compliance matrix](../../09-compliance/compliance-matrix.md), [regulatory register](../../09-compliance/regulatory-register.md).
+
 **Date:** 2026-10-27
 **Jurisdiction:** Philippines (primary), with global audience considerations
 
