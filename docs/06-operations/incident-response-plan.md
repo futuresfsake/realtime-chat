@@ -1,4 +1,6 @@
-# Incident Response Plan — IT Manager Review
+# Incident Response Plan
+
+> **Living document.** First written in the IT Manager production review (2026-10-27) and moved here on 2026-11-13. This folder now owns it: update it when the system changes. The original review record is in [10-reviews](../10-reviews/2026-10-27-it-manager/README.md).
 
 **Date:** 2026-10-27
 **Owner:** Platform Operator (DPO)
@@ -68,49 +70,20 @@
 
 ## 3. Special Procedures
 
-### 3.1 Data Breach Procedure (RA 10173)
+### 3.1 Personal data breach (RA 10173)
+The authoritative procedure, including the 72-hour timeline and the test for whether notification is mandatory, is [09-compliance/breach-notification.md](../09-compliance/breach-notification.md).
 
-```
- DISCOVER → ASSESS → CONTAIN → NOTIFY NPC → NOTIFY SUBJECTS → REVIEW
-              │                    │               │
-              ▼                    ▼               ▼
-         Is personal          Within 72h       If sensitive
-         data affected?       of discovery     personal info
-```
+In short: record the time of discovery, tell the DPO, contain, assess, and notify the National Privacy Commission and affected users **within 72 hours** of knowing or reasonably believing a notifiable breach happened. Every breach is logged, notifiable or not.
 
-1. **Assess:** What data was exposed? Is it personal information under RA 10173?
-   - For this platform: IP hashes (pseudonymized PII), behavioral data, report data
-   - Message content is E2EE and server never has it — not applicable
-2. **Notify NPC:** Within 72 hours of discovery (NPC Circular 16-03)
-   - NPC breach notification form
-   - Description of breach, data affected, number of data subjects
-   - Measures taken to contain and remediate
-3. **Notify data subjects:** If the breach involves sensitive personal information or is likely to cause harm
-4. **Document:** Maintain a breach log even if no notification required
+### 3.2 Child safety (RA 11930)
+The authoritative procedure is [09-compliance/child-protection-and-online-safety.md](../09-compliance/child-protection-and-online-safety.md).
 
-### 3.2 Child Safety Procedure (RA 11930)
+In short: a `minor` report is blocked from matching and put on legal hold at once, reviewed by the child-safety officer within 24 hours, and reported to the PNP Women and Children Protection Center or the NBI within the legal deadline. Staff never ask for the content, never contact the reported user, and never investigate on their own.
 
-When a `minor` report is received or moderator identifies child exploitation risk:
+### 3.3 Law-enforcement request (RA 10175)
+The authoritative procedure is [09-compliance/law-enforcement-requests.md](../09-compliance/law-enforcement-requests.md).
 
-1. **Immediate:** Flag for priority human review (automated)
-2. **Assess:** Review aggregated behavioral data (not message content — E2EE)
-3. **Preserve:** Retain all available metadata (IP hash, timestamps, session ID, report details) for up to 90 days
-4. **Report to authorities:**
-   - Philippine National Police Anti-Cybercrime Group (PNP-ACG)
-   - National Bureau of Investigation Cybercrime Division (NBI-CCD)
-   - Inter-Agency Council Against Trafficking (IACAT) if trafficking suspected
-5. **Cooperate:** Provide preserved metadata on lawful request
-6. **Document:** Record all actions taken, decisions made, and authority contacted
-7. **Limitation:** Plainly disclose to authorities that message content is E2EE and not available
-
-### 3.3 Law Enforcement Request (RA 10175)
-
-1. **Verify:** Confirm the request is from a legitimate authority with valid legal basis
-2. **Scope:** Identify what data is requested and what data exists
-3. **Comply:** Provide available data (metadata only — no message content)
-4. **Disclose limitation:** E2EE means message content is unavailable
-5. **Document:** Log the request, response, and legal basis
-6. **Legal counsel:** Consult Philippine lawyer for any ambiguous request
+In short: every request goes to the DPO; preserve first, verify, call counsel, disclose only what a valid order names and only what exists. Message content is never available.
 
 ## 4. Communication Templates
 
