@@ -1,5 +1,7 @@
 # Data Governance Requirements — IT Manager Review
 
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [data inventory and retention](../../09-compliance/data-inventory-and-retention.md), [breach notification](../../09-compliance/breach-notification.md).
+
 **Date:** 2026-10-27
 
 ---
