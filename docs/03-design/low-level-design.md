@@ -74,19 +74,19 @@ public/
 ### Client → Server
 | Event | Payload | Ack data | Allowed state |
 |---|---|---|---|
-| `session:start` | `{ consent:{adult:true, rulesVersion:string}, interests:string[], scope:"local"\|"world" }` | `{ status:"searching" }` | READY |
+| `session:start` | `{}` (consent is checked at the handshake) | — | READY |
 | `session:next` | `{}` | — | SEARCHING, CHATTING, ENDED |
 | `session:leave` | `{}` | — | SEARCHING, CHATTING, ENDED |
 | `session:report` | `{ reason: ReportReason }` | — | CHATTING |
-| `e2e:key` | `{ publicKey: base64url(65 bytes) }` | — | CHATTING (once) |
-| `e2e:envelope` | `{ seq:number, ct:string }` | — | CHATTING (after keys) |
+| `e2e:key` | `{ publicKey: base64url(65 bytes) }` (87 chars) | — | CHATTING (once per side) |
+| `e2e:envelope` | `{ seq:number, ct:string }` (ct 107–3000 chars) | — | CHATTING, only after both keys crossed (else `INVALID_STATE`) |
 | `typing` | `{ isTyping:boolean }` | — | CHATTING |
 
 ### Server → Client
 | Event | Payload |
 |---|---|
 | `session:matched` | `{ sessionId, myName, partnerName, sharedInterests:string[], role:"initiator"\|"responder" }` |
-| `session:ended` | `{ reason:"partner_left"\|"partner_timeout"\|"reported"\|"protocol_error" }` |
+| `session:ended` | `{ reason:"left"\|"partner_left"\|"skipped"\|"timeout"\|"partner_timeout"\|"crypto_timeout" }` |
 | `partner:status` | `{ state:"connected"\|"reconnecting"\|"typing"\|"idle" }` |
 | `e2e:key` / `e2e:envelope` | relayed unchanged from the partner |
 | `stats:online` | `{ count:number }` |
@@ -141,6 +141,7 @@ if tokens ≥ 1: tokens -= 1 → ALLOW  else → REJECT (retryAfterMs = (1 − t
 | Bucket | Capacity | Refill | Scope |
 |---|---|---|---|
 | envelopes | 5 | 0.5/s | per socket |
+| e2e:key | 10 | 10/min | per socket |
 | typing | 10 | 2/s | per socket |
 | start/next | 10 | 10/min | per IP hash |
 | reports | 3 | 3/h | per IP hash |
