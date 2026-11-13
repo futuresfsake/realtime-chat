@@ -1,12 +1,14 @@
 # Deployment Security Checklist
 
-Applies to the Render (Singapore) deployment. A release is blocked until every **Must** is checked. Evidence goes in `testresults/dod/`.
+> **Living document.** First written in the DICT-style review (2026-10-28) and moved here on 2026-11-13. This folder now owns it: update it when the system changes. The original review record is in [10-reviews](../10-reviews/2026-10-28-dict/README.md).
+
+Applies to the Render (Singapore) deployment. The standard these checks enforce is [09-compliance/ict-deployment-standards.md](../09-compliance/ict-deployment-standards.md). A release is blocked until every **Must** is checked. Evidence goes in `testresults/dod/`.
 
 ## 1. Pre-deploy gates
 | # | Control | Level | How to verify |
 |---|---|---|---|
-| D1 | Current code is **not** public: it has no origin check, rate limit, headers or per-session isolation (global broadcast) | Must | M2 and M3 exit criteria pass first |
-| D2 | `npm audit --omit=dev` shows no high/critical | Must | CI job; currently 2 high (zod), see [tooling.md](tooling.md) |
+| D1 | Origin check, rate limits, security headers and per-session isolation are in place (M2 and M3 exit criteria). Until E2EE ships (M4) the deployment keeps the preview banner and is **not announced** | Must | M2 and M3 exit criteria; `PREVIEW_BANNER=true` |
+| D2 | `npm audit --omit=dev` shows no high/critical | Must | CI job (0 vulnerabilities on 2026-11-13) |
 | D3 | Secret scan clean (no keys in history) | Must | gitleaks in CI and pre-commit |
 | D4 | Static analysis clean | Must | semgrep / CodeQL in CI |
 | D5 | Dependencies pinned by lockfile; `npm ci` only | Must | CI |
@@ -35,12 +37,12 @@ Applies to the Render (Singapore) deployment. A release is blocked until every *
 - Run as non-root; read-only filesystem where possible; memory ceiling set (`--max-old-space-size=400`).
 - `/health` for the platform probe; deep metrics not publicly exposed in detail.
 - Graceful shutdown on SIGTERM (already in `src/index.ts`).
-- Single instance until a shared store exists. The session ticket design is in [scaling.md](../06-operations/scaling.md).
+- Single instance until a shared store exists. The session ticket design is in [scaling.md](scaling.md).
 - Free-tier cold starts: show a loading state; do not treat cold start as an outage.
 
 ## 5. Monitoring and response
 - Uptime monitor on `/health`; alert to a named person, not a shared inbox.
-- Incident plan: [incident-response-plan.md](../09-it-review/incident-response-plan.md). Breach clock: **NPC and affected persons within 72 hours** of knowledge of a notifiable breach.
+- Incident plan: [incident-response-plan.md](incident-response-plan.md). Breach clock: **NPC and affected persons within 72 hours** of knowledge of a notifiable breach ([procedure](../09-compliance/breach-notification.md)).
 - Child-safety (`minor`) reports escalate immediately to the designated officer.
 - Rollback: redeploy the previous green build; rehearse once before launch (M9).
 
