@@ -33,12 +33,12 @@
 | T-04 | Spoofing | Cross-Site WebSocket Hijacking | Origin allowlist | 🔜 M2 |
 | T-05 | Tampering / EoP | XSS via message text, which also steals E2EE keys | `textContent` only; strict CSP (no `unsafe-inline`) | ✅ textContent / 🔜 CSP M2 |
 | T-06 | Tampering | Clickjacking | CSP `frame-ancestors 'none'` | 🔜 M2 |
-| T-07 | Info disclosure | Server, logs or host read message content | E2EE; no storage; no content logging | 🔜 M4 |
-| T-08 | Spoofing | Active MITM swaps public keys during exchange | Safety code via `/verify` (compare out-of-band) | 🔜 M4 / ⚠️ residual |
+| T-07 | Info disclosure | Server, logs or host read message content | E2EE; no storage; no content logging | ✅ M4 |
+| T-08 | Spoofing | Active MITM swaps public keys during exchange | Safety code via `/verify` (compare out-of-band) | ✅ M4 / ⚠️ residual |
 | T-09 | Tampering | Malicious or compromised JavaScript delivered by the server | CSP, no third-party scripts, open source, PR-only deploys, published hashes | ⚠️ accepted residual |
-| T-10 | Tampering | Replay, reorder or cross-session splicing of envelopes | Strictly increasing `seq`; AAD binds sessionId + direction + seq | 🔜 M4 |
-| T-11 | Info disclosure | AES-GCM IV reuse | Per-direction keys; counter-based IVs | 🔜 M4 |
-| T-12 | Info disclosure | Message length reveals content | Pad to 64-byte buckets | 🔜 M4 / ⚠️ partial |
+| T-10 | Tampering | Replay, reorder or cross-session splicing of envelopes | Strictly increasing `seq`; AAD binds sessionId + direction + seq | ✅ M4 |
+| T-11 | Info disclosure | AES-GCM IV reuse | Per-direction keys; counter-based IVs | ✅ M4 |
+| T-12 | Info disclosure | Message length reveals content | Pad to 64-byte buckets | ✅ M4 / ⚠️ partial |
 | T-13 | Spoofing | Joining someone else's session with a forged sessionId | Server checks session membership on every event | ✅ M3 |
 | T-14 | Info disclosure | Partner learns your IP | Server relay, no WebRTC | ✅ by design |
 | T-15 | Info disclosure | Our logs de-anonymize users | No raw IPs; daily-salted HMAC; no content | 🔜 M2/M7 |
@@ -51,7 +51,7 @@
 | T-22 | Info disclosure | Secrets committed to the repo | No secrets needed; `.env` ignored; GitHub secret scanning | ✅ |
 | T-23 | Info disclosure | Error messages leak internals | Clients get error codes only | 🔜 M2 |
 | T-24 | DoS | Free-tier quota exhaustion (hours/bandwidth) | Rate limits; monitor usage; alerts | 🔜 M7 |
-| T-25 | Downgrade | Forcing an unencrypted session | No plaintext path exists; envelope-only protocol | 🔜 M4 |
+| T-25 | Downgrade | Forcing an unencrypted session | No plaintext path exists; envelope-only protocol | ✅ M4 |
 | T-26 | Safety | Gender-based online sexual harassment (RA 11313) | Dedicated report categories (`harassment`, `sexual`), content filters for slurs and explicit solicitation, automated ban on threshold, human moderator escalation | 🔜 M6/M7 |
 | T-27 | Safety | Platform used for child exploitation or grooming (RA 11930) | 18+ gate, text-only (no media), `minor` report with immediate escalation, no persistent contact, no user-chosen names, law enforcement reporting procedures | 🔜 M6/M7 |
 | T-28 | Compliance | Failure to comply with Data Privacy Act (RA 10173) | Data minimization, privacy notice, data inventory, retention policy, NPC breach notification procedure | 🔜 M7/M8 |
@@ -68,7 +68,7 @@
 | T-34 | Info disclosure | Structured logs accidentally contain raw IP addresses | CI semgrep rule fails build on `console.*` with raw IP patterns; log audit | 🔜 M2 |
 | T-35 | DoS | Unbounded in-memory maps (bans, sessions, pools) exhaust 512MB instance | `maxSize` on all TtlMap instances; memory ceiling `--max-old-space-size=400` | 🔜 M2 |
 | T-36 | Tampering | Client-side content filters bypassed by modified client | Accepted risk (E2EE limitation); behavioral monitoring detects abuse patterns | ⚠️ accepted |
-| T-37 | DoS | Key exchange hangs indefinitely if one client never sends public key | 10s key exchange timeout; session ends with CRYPTO_TIMEOUT | 🔜 M4 |
+| T-37 | DoS | Key exchange hangs indefinitely if one client never sends public key | 10s key exchange timeout; session ends with CRYPTO_TIMEOUT | ✅ M4 |
 | T-38 | Compliance | Breach notification not sent within 72 hours (RA 10173) | Documented procedure with NPC template; tested via tabletop exercise | 🔜 M7/M8 |
 | T-39 | Safety | `minor` report not escalated promptly (RA 11930) | Immediate email alert on `minor` report; documented PNP-ACG/NBI-CCD procedure | 🔜 M7 |
 | T-40 | DoS | Render free tier quota exhaustion suspends service | Monitor usage; alert at 80% quota; documented cost triggers in scaling.md | 🔜 M7 |
