@@ -1,4 +1,6 @@
-# Monitoring & Observability Requirements — IT Manager Review
+# Monitoring & Observability
+
+> **Living document.** First written in the IT Manager production review (2026-10-27) and moved here on 2026-11-13. This folder now owns it: update it when the system changes. The original review record is in [10-reviews](../10-reviews/2026-10-27-it-manager/README.md).
 
 **Date:** 2026-10-27
 
