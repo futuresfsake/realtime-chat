@@ -22,7 +22,7 @@ The script runs all automated checks and produces a JSON report at `testresults/
 
 | ID | Category | Check | Automated | Fail Action |
 |---|---|---|---|---|
-| DoR-01 | **Planning** | TDD exists: `docs/tdd/**/TDD-*-USNN*.md` | Yes | Story cannot start |
+| DoR-01 | **Planning** | TDD exists: `docs/03-design/tdd/**/TDD-*-USNN*.md` | Yes | Story cannot start |
 | DoR-02 | **Planning** | Acceptance criteria defined with Given/When/Then | Yes (parse) | Story cannot start |
 | DoR-03 | **Planning** | Work plan exists: `docs/plans/US-NN.md` | Yes | Create plan first |
 | DoR-04 | **Dependencies** | All prerequisite stories merged to main | Yes (git log) | Wait for prerequisites |
@@ -63,7 +63,7 @@ The script runs all automated checks and produces a JSON report at `testresults/
   "pipeline": "GATED",
   "timestamp": "2026-10-28T10:00:00Z",
   "checks": {
-    "DoR-01": { "status": "pass", "detail": "docs/tdd/M2-hardening/TDD-M2-US32-connection-auth.md" },
+    "DoR-01": { "status": "pass", "detail": "docs/03-design/tdd/M2-hardening/TDD-M2-US32-connection-auth.md" },
     "DoR-02": { "status": "pass", "detail": "4 acceptance criteria found" },
     "DoR-03": { "status": "pass", "detail": "docs/plans/US-32.md" },
     "DoR-04": { "status": "pass", "detail": "US-21 merged (abc1234)" },
