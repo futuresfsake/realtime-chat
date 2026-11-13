@@ -1,12 +1,14 @@
 # Compliance Crosswalk and Corrections
 
+> **Archived record. Do not update.** Kept as evidence of what was found or proposed on its date; it may contain statements that were later corrected. Current guidance: [regulatory register](../../09-compliance/regulatory-register.md), [compliance matrix](../../09-compliance/compliance-matrix.md).
+
 > Citations are from the reviewer's knowledge and **must be verified by counsel**. Where unsure, the row says so.
 
 ## 1. Crosswalk
 | Source | Expectation | Where we meet it | Status |
 |---|---|---|---|
 | RA 10173 (Data Privacy Act of 2012) | Transparency, legitimate purpose, proportionality; security measures; breach notice | [data-privacy-and-retention.md](data-privacy-and-retention.md), M6 notice | Planned |
-| NPC Circular 16-03 | Breach notification within 72 hours | [incident-response-plan.md](../09-it-review/incident-response-plan.md); breach register in M8 | Gap CG-02 |
+| NPC Circular 16-03 | Breach notification within 72 hours | [incident-response-plan.md](../../06-operations/incident-response-plan.md); breach register in M8 | Gap CG-02 |
 | NPC registration of DPO and processing systems | Register where thresholds apply (verify current NPC circular) | Counsel to confirm threshold | Open |
 | Privacy Impact Assessment | Required for high-risk processing; follow current NPC guidance (verify which advisory applies) | PIA drafted at M6, signed at M8 | Gap CG-05 |
 | RA 10175 Sec 13 | 6-month preservation of traffic data; content on order | D-11 | **Decision needed** |
