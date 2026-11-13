@@ -16,6 +16,12 @@ interface ClientRecord {
   name: string | null; // only while chatting; never kept beyond the session
 }
 
+// Each side sends its public key once per session. "complete" is true when
+// this key was the second one: from then on envelopes may be relayed.
+export type KeyResult =
+  | { ok: true; sessionId: string; partner: string; complete: boolean }
+  | { ok: false; code: "NOT_IN_SESSION" | "INVALID_STATE" };
+
 export type LeaveResult =
   | { ok: true; ended: Session | null; partner: string | null; wasSearching: boolean }
   | { ok: false; code: "INVALID_STATE" };
@@ -31,8 +37,9 @@ export interface SessionManagerOptions {
 export class SessionManager {
   private readonly clients = new Map<string, ClientRecord>();
   private readonly sessions = new Map<string, Session>();
-  // How many messages each session has relayed. A number only: never content.
-  private readonly messageCounts = new Map<string, number>();
+  // Which participants of each session have sent their public key. Socket
+  // ids only: the keys themselves are relayed and never kept.
+  private readonly keysSeen = new Map<string, Set<string>>();
   private readonly newId: () => string;
   private readonly rng: () => number;
 
@@ -120,14 +127,33 @@ export class SessionManager {
     return session.a === socketId ? session.b : session.a;
   }
 
-  // The number for the next message of this client's session (1, 2, 3...),
-  // or null if the client is not in a session.
-  nextSeq(socketId: string): number | null {
+  // Notes that this client sent its public key for its current session. One
+  // key per side per session: a second one is refused, so keys cannot be
+  // swapped in the middle of a chat.
+  recordKey(socketId: string): KeyResult {
     const sessionId = this.getSessionId(socketId);
-    if (!sessionId || !this.sessions.has(sessionId)) return null;
-    const seq = (this.messageCounts.get(sessionId) ?? 0) + 1;
-    this.messageCounts.set(sessionId, seq);
-    return seq;
+    const partner = this.getPartner(socketId);
+    if (!sessionId || !partner) return { ok: false, code: "NOT_IN_SESSION" };
+    const seen = this.keysSeen.get(sessionId) ?? new Set<string>();
+    if (seen.has(socketId)) return { ok: false, code: "INVALID_STATE" };
+    seen.add(socketId);
+    this.keysSeen.set(sessionId, seen);
+    return { ok: true, sessionId, partner, complete: seen.size === 2 };
+  }
+
+  // True once both sides of this client's session have sent their key. Until
+  // then nothing else is relayed between them.
+  isSecured(socketId: string): boolean {
+    const sessionId = this.getSessionId(socketId);
+    return sessionId !== null && this.keysSeen.get(sessionId)?.size === 2;
+  }
+
+  // Key exchange deadline: ends the session only if it still exists and its
+  // keys are still incomplete. Returns the ended session, or null if there
+  // was nothing to do (already secured, or already over).
+  endIfNotSecured(sessionId: string): Session | null {
+    if (!this.sessions.has(sessionId) || this.keysSeen.get(sessionId)?.size === 2) return null;
+    return this.endSession(sessionId);
   }
 
   // O(1). The only check that decides who may act on a session.
@@ -141,7 +167,7 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
     this.sessions.delete(sessionId);
-    this.messageCounts.delete(sessionId);
+    this.keysSeen.delete(sessionId);
     for (const id of [session.a, session.b]) {
       const client = this.clients.get(id);
       if (client) {
