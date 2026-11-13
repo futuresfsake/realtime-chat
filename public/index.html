@@ -8,6 +8,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <script src="/js/themes.js"></script>
   <script src="/js/sessionStore.js"></script>
+  <script src="/js/crypto.js"></script>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -22,8 +23,9 @@
 
       <h2>THIS IS A PREVIEW</h2>
       <ul>
-        <li>You are paired with <strong>one stranger</strong> at a time. They can read everything you send.</li>
-        <li>Messages are <strong>not end-to-end encrypted yet</strong>. They pass through our server, which relays them and does not store them.</li>
+        <li>You are paired with <strong>one stranger</strong> at a time. They can read everything you send, and they can save or share it.</li>
+        <li>Messages and reactions are <strong>end-to-end encrypted</strong>: they are locked in your browser and only your partner's browser can unlock them. Our server passes them on but cannot read them.</li>
+        <li>This encryption has <strong>not been checked by an outside expert yet</strong>, and it depends on this page reaching you unmodified from our server. Do not write anything here that you could not afford to have exposed.</li>
         <li>Do not share your name, phone number, address, school, workplace or social media accounts.</li>
       </ul>
 
@@ -39,7 +41,8 @@
       <ul>
         <li>No accounts, no cookies, no analytics, no ads.</li>
         <li>Your IP address is used for a moment to limit abuse. We keep only a scrambled (hashed) form of it, in memory, for up to 24 hours. It is never written to our logs.</li>
-        <li>Messages are relayed, kept in the server's memory for up to two minutes so that a dropped connection can catch up, and then gone. Nothing is written to disk and we keep no chat history.</li>
+        <li>Encrypted messages are passed on, kept in the server's memory (still encrypted) for up to two minutes so that a dropped connection can catch up, and then gone. Nothing is written to disk and we keep no chat history.</li>
+        <li>We cannot see what is said. We can still see that two connections are chatting, when, and roughly how much is sent. The "is typing" signal is not encrypted; it contains no text.</li>
         <li>The server is hosted by Render in Singapore.</li>
         <li>Your theme and this acknowledgement are saved only in your own browser.</li>
       </ul>
@@ -55,10 +58,10 @@
   <div class="crt" id="app">
     <p id="preview-banner" class="preview-banner" hidden>PREVIEW: not launched yet. Things may break or reset at any time.</p>
     <header class="bar">
-      <span class="brand">REALTIME-CHAT <span class="dim">v0.3</span></span>
+      <span class="brand">REALTIME-CHAT <span class="dim">v0.4</span></span>
       <span class="bar-mid dim">tty1 · chat #<span id="room-name">lobby</span></span>
       <span class="conn" id="conn" data-state="connecting">
-        <span class="led"></span><span id="conn-text">CONNECTING</span><span id="conn-online" class="dim"></span>
+        <span class="led"></span><span id="conn-text">CONNECTING</span><span id="conn-online" class="dim"></span><span id="conn-e2e" role="img" aria-label="end-to-end encrypted" hidden> · 🔒</span>
       </span>
     </header>
 
@@ -67,6 +70,7 @@
         <section>
           <h2>// PARTNER</h2>
           <p id="partner-status" class="partner-status dim" data-state="none" aria-live="polite">no one yet. type /start</p>
+          <p id="e2e-status" class="e2e-status dim" data-state="none" aria-live="polite"></p>
         </section>
         <section>
           <h2>// ONLINE <span id="online-count" class="dim">(0)</span></h2>
