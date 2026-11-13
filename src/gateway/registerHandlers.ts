@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import type { Config } from "../config.js";
 import type { Clock } from "../lib/clock.js";
@@ -9,15 +8,13 @@ import { KeyedLimiter, TokenBucket } from "../security/tokenBucket.js";
 import type { GraceTimers } from "../sessions/reconnectGrace.js";
 import type { LeaveResult, SessionManager } from "../sessions/sessionManager.js";
 import type {
-  ChatMessage,
-  ChatReaction,
   ClientToServerEvents,
   ErrorCode,
   ServerToClientEvents,
   SessionEndReason,
   SocketData,
 } from "../types/events.js";
-import { ChatSendSchema, EmptySchema, ReactionSchema, TypingSchema } from "../validation/schemas.js";
+import { E2eEnvelopeSchema, E2eKeySchema, EmptySchema, TypingSchema } from "../validation/schemas.js";
 import { HandlerError, withHandler } from "./handler.js";
 
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -32,6 +29,7 @@ export interface HandlerDeps {
   matchmaker: SimpleMatchmaker;
   searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
   grace: GraceTimers; // countdowns for chats whose socket dropped
+  keyDeadlines: GraceTimers; // countdowns for chats still exchanging keys, by session id
   isShuttingDown: () => boolean;
   onDisconnect: (socket: ChatSocket) => void; // e.g. release the per-IP socket slot
 }
@@ -51,7 +49,7 @@ const RECOVERABLE_REASONS: ReadonlySet<string> = new Set([
 // Wires every per-connection event. Session rules live in SessionManager; this
 // file only translates between sockets and those rules.
 export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
-  const { io, config, logger, clock, sessions, matchmaker, searchLimits, grace } = deps;
+  const { io, config, logger, clock, sessions, matchmaker, searchLimits, grace, keyDeadlines } = deps;
   const { correlationId, ipHash } = socket.data;
   const socketId = socket.id;
 
@@ -75,6 +73,9 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   const messageBucket = new TokenBucket(config.messageBurstCapacity, config.messageRefillPerSec, clock);
   // Typing signals are tiny and frequent: 10 in a burst, then 2 per second.
   const typingBucket = new TokenBucket(10, 2, clock);
+  // One public key per chat is all a client ever needs, and chats are limited
+  // to 10 a minute: the same pace here keeps a flood of keys out of the logs.
+  const keyBucket = new TokenBucket(10, 10 / 60, clock);
   // /start and /next share one limit per network address (hashed), across all its sockets.
   const searchLimiter = {
     consume: () => searchLimits.consume(ipHash),
@@ -96,9 +97,34 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     const session = sessions.createSession(pair[0], pair[1]);
     const nameA = sessions.getName(session.a)!;
     const nameB = sessions.getName(session.b)!;
-    io.to(session.a).emit("session:matched", { sessionId: session.id, myName: nameA, partnerName: nameB });
-    io.to(session.b).emit("session:matched", { sessionId: session.id, myName: nameB, partnerName: nameA });
+    // The roles only fix the order of the two keys in the key derivation.
+    io.to(session.a).emit("session:matched", {
+      sessionId: session.id,
+      myName: nameA,
+      partnerName: nameB,
+      role: "initiator",
+    });
+    io.to(session.b).emit("session:matched", {
+      sessionId: session.id,
+      myName: nameB,
+      partnerName: nameA,
+      role: "responder",
+    });
     logger.info("session_start", { correlationId, data: { activeSessions: sessions.sessionCount() } });
+
+    // The chat is not usable until both public keys have crossed. If that
+    // does not happen in time (a browser that cannot do it, a dropped link),
+    // end it for both instead of leaving them waiting (US-37).
+    keyDeadlines.hold(session.id, config.keyExchangeTimeoutMs, () => {
+      const ended = sessions.endIfNotSecured(session.id);
+      if (!ended) return; // secured in time, or already over
+      io.to(ended.a).emit("session:ended", { reason: "crypto_timeout" });
+      io.to(ended.b).emit("session:ended", { reason: "crypto_timeout" });
+      logger.warn("session_end", {
+        correlationId,
+        data: { reason: "crypto_timeout", activeSessions: sessions.sessionCount() },
+      });
+    });
   }
 
   function announceEnd(result: Extract<LeaveResult, { ok: true }>, mine: SessionEndReason): void {
@@ -156,49 +182,43 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     ),
   );
 
+  // Step 1 of a chat: each side sends one public key, relayed to the partner.
+  // Public keys are not secret; what matters is that the server relays them
+  // unchanged, which the two people can check with /verify.
   socket.on(
-    "chat:send",
+    "e2e:key",
     withHandler(
-      ChatSendSchema,
-      messageBucket,
-      ({ text, sessionId }) => {
-        const mySessionId = sessions.getSessionId(socket.id);
-        const partnerId = sessions.getPartner(socket.id);
-        // A forged or stale session id is refused even if the sender is chatting elsewhere.
-        if (!mySessionId || !partnerId) throw new HandlerError("NOT_IN_SESSION");
-        if (sessionId !== undefined && (sessionId !== mySessionId || !sessions.isMember(socket.id, sessionId))) {
-          throw new HandlerError("NOT_IN_SESSION");
+      E2eKeySchema,
+      keyBucket,
+      ({ publicKey }) => {
+        const result = sessions.recordKey(socketId);
+        if (!result.ok) throw new HandlerError(result.code);
+        io.to(result.partner).emit("e2e:key", { publicKey });
+        if (result.complete) {
+          keyDeadlines.cancel(result.sessionId);
+          logger.info("session_secured", { correlationId, data: { activeSessions: sessions.sessionCount() } });
         }
-        const msg: ChatMessage = {
-          id: randomUUID(),
-          seq: sessions.nextSeq(socket.id)!,
-          from: sessions.getName(socket.id)!,
-          text,
-          sentAt: clock.now(), // server time, not client time
-        };
-        socket.emit("chat:message", msg); // echo, so the sender sees what the partner sees
-        io.to(partnerId).emit("chat:message", msg);
       },
-      hooks("chat:send"),
+      hooks("e2e:key"),
     ),
   );
 
-  // A reaction to a message of this chat. Both sides are told, like a
-  // message. Shares the message limit, so reactions cannot be used to flood.
+  // Everything people say: messages and reactions alike, as ciphertext the
+  // server cannot read. It goes to the partner and nowhere else: not back to
+  // the sender, not into a log, not into any list. Refused until both keys
+  // have crossed, so nothing can be said on a chat that is not encrypted.
   socket.on(
-    "chat:react",
+    "e2e:envelope",
     withHandler(
-      ReactionSchema,
+      E2eEnvelopeSchema,
       messageBucket,
-      ({ ref, emoji }) => {
+      ({ seq, ct }) => {
         const partnerId = sessions.getPartner(socketId);
-        const name = sessions.getName(socketId);
-        if (!partnerId || !name) throw new HandlerError("NOT_IN_SESSION");
-        const reaction: ChatReaction = { ref, emoji, from: name };
-        socket.emit("chat:reaction", reaction);
-        io.to(partnerId).emit("chat:reaction", reaction);
+        if (!partnerId) throw new HandlerError("NOT_IN_SESSION");
+        if (!sessions.isSecured(socketId)) throw new HandlerError("INVALID_STATE");
+        io.to(partnerId).emit("e2e:envelope", { seq, ct });
       },
-      hooks("chat:react"),
+      hooks("e2e:envelope"),
     ),
   );
 
