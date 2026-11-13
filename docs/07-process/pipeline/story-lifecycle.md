@@ -33,7 +33,7 @@ The S-Pipeline is the per-story development lifecycle. Every story — whether i
 
 | # | Check | How | Blocks |
 |---|---|---|---|
-| 1 | TDD exists for this story | `docs/tdd/**/TDD-*-USNN*.md` exists | Yes |
+| 1 | TDD exists for this story | `docs/03-design/tdd/**/TDD-*-USNN*.md` exists | Yes |
 | 2 | Acceptance criteria defined | Story in `user-stories.md` has Given/When/Then | Yes |
 | 3 | No unresolved CRITICAL gaps | `GAPS.md` entries for this story are ✅ or 🔄 | Yes |
 | 4 | Dependencies merged | All prerequisite stories are on `main` | Yes |
