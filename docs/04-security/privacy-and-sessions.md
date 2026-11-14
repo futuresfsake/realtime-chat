@@ -63,20 +63,9 @@ Logged-in users with accounts, multiple backend services that must trust the sam
 | Sessions can't be linked to each other by us | Web E2EE relies on the JavaScript we serve (see e2ee.md §7) |
 
 ## 5. Data inventory: everything we touch
-| Data | Why we need it | Where | Retention | Shared with |
-|---|---|---|---|---|
-| IP address | Connection, rate limits, country lookup | Process memory (transient) | Discarded after lookup/hash; never logged | Render (platform level) |
-| IP hash (HMAC, daily salt) | Per-IP limits, bans, no-rematch | Memory | ≤ 24 h; unlinkable once the salt rotates | No one |
-| Country code | Country matching | Memory | While connected | Partner? **No**, only used for matching |
-| Interests | Matching | Memory | While searching; shared interests are shown to the matched partner | Partner (only the shared ones) |
-| Random name | Display | Memory | One session | Partner |
-| Public keys | Key exchange | Memory | One session | Partner (relayed) |
-| Ciphertext envelopes | Relay | Memory, milliseconds | Not retained | Partner (relayed) |
-| Message plaintext | — | **Only in the two browsers** | One session | — |
-| Reports (reason + IP hash) | Temporary bans | Memory | ≤ 24 h | No one |
-| Theme preference | UI | Browser `localStorage` | Until cleared by the user | No one |
-| Age/rules consent | Gate | Browser `sessionStorage` | Until the tab closes | No one |
-| Aggregate counters | Monitoring | Logs | Per Render's log retention | Render |
+The inventory is kept in one place: [09-compliance/data-inventory-and-retention.md](../09-compliance/data-inventory-and-retention.md). It lists every item, its purpose, lawful basis, location, retention and who else sees it, for today's code and for each later milestone.
+
+A PR that adds a field, a log line or a vendor updates that file.
 
 ## 6. Logging policy
 - ✅ Log: event types, error codes, counts, durations, `ipHash` prefix (first 8 chars) for abuse investigation
@@ -90,40 +79,19 @@ Logged-in users with accounts, multiple backend services that must trust the sam
 | GitHub | Our source code only |
 
 ## 8. Data retention policy
+Retention periods are in the [data inventory](../09-compliance/data-inventory-and-retention.md). They are provisional until decision D-11 (six-month preservation) is made.
 
-| Data | Retention | Deletion method |
-|---|---|---|
-| Messages | Never stored | N/A |
-| Encryption keys | Session memory only | Garbage collected when session ends |
-| Session ID | Session memory only | Removed from memory on session end |
-| IP address | Milliseconds | Discarded immediately after hash/country lookup |
-| IP hash | 24 hours max | Daily salt rotation makes old hashes unlinkable |
-| Abuse reports | 30 days | Purged from logs after retention period |
-| Operational logs | 7-30 days | Purged per Render log retention policy |
-| Theme preference | Until user clears | Browser localStorage, never sent to server |
-| Age/rules consent | Until tab closes | Browser sessionStorage only |
+## 9. Legal compliance
+Our legal duties and how we meet them are in [09-compliance](../09-compliance/README.md):
 
-This retention policy supports the Data Privacy Act's proportionality principle: data is kept only as long as necessary for the purpose it was collected.
-
-## 9. Legal compliance *(not legal advice)*
-
-### Data Privacy Act of 2012 (RA 10173)
-We operate from the Philippines, where RA 10173 applies. The platform's data minimization approach is the strongest compliance position. Key obligations:
-
-- **Privacy notice:** Must be published before launch (M8) explaining what data we collect and why
-- **Data Protection Officer:** Designate an interim DPO (the operator)
-- **Processing records:** Maintain the data inventory above as our record of processing activities
-- **Breach notification:** If a breach involving personal data occurs, notify the NPC and affected individuals within 72 hours
-- **Data subject rights:** Users have rights to access, correct, and erase their data under RA 10173; our data minimization means there is almost nothing to access or erase
-
-### Cybercrime Prevention Act (RA 10175)
-The platform must implement reasonable security measures and cooperate with law enforcement on valid court orders. Our security architecture (E2EE, input validation, rate limiting, HTTPS) fulfills the technical security obligations.
-
-### Safe Spaces Act (RA 11313)
-User reporting mechanisms for harassment and sexual content address the platform's obligations under Section 12 regarding gender-based online sexual harassment.
-
-### Anti-OSAEC Law (RA 11930)
-The `minor` report category with immediate escalation, 18+ gate, and text-only design address child safety obligations. Any confirmed child exploitation must be reported to authorities.
+| Topic | Document |
+|---|---|
+| Which laws apply | [regulatory-register.md](../09-compliance/regulatory-register.md) |
+| Status of each obligation | [compliance-matrix.md](../09-compliance/compliance-matrix.md) |
+| Privacy risks | [privacy-impact-assessment.md](../09-compliance/privacy-impact-assessment.md) |
+| User rights | [data-subject-rights.md](../09-compliance/data-subject-rights.md) |
+| Breaches | [breach-notification.md](../09-compliance/breach-notification.md) |
+| Court and police requests | [law-enforcement-requests.md](../09-compliance/law-enforcement-requests.md) |
 
 ### International
 A global audience may bring in other laws (GDPR for EU users, various US state privacy laws). Our data minimization approach simplifies compliance across jurisdictions. **Have the privacy notice and terms reviewed by a qualified Philippine lawyer before launch (M8).**

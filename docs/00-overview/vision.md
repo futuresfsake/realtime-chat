@@ -65,4 +65,4 @@ See `04-security/trust-and-safety.md` for detailed controls.
 ## Lessons from history
 Anonymous stranger chat has a known failure mode: **Omegle** (2009–2023) shut down after years of abuse and child-safety problems. We take that seriously. Adult-only access, reporting, rate limits, no media, automated monitoring, human moderator oversight, and clear rules are **launch requirements**, not extras (see `04-security/trust-and-safety.md`).
 
-Philippine law reinforces this: the Safe Spaces Act (RA 11313) requires mechanisms against gender-based online harassment, and the Anti-OSAEC Law (RA 11930) makes child safety controls a legal obligation.
+Philippine law reinforces this: the Anti-OSAEC Law (RA 11930) puts child-safety duties on platforms like ours, and the Safe Spaces Act (RA 11313) makes gender-based online sexual harassment a crime. See [09-compliance](../09-compliance/README.md).

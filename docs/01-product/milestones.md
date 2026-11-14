@@ -53,11 +53,11 @@ Every milestone and story flows through the IT Manager production pipeline:
 
 | Pipeline | Scope | Documentation |
 |---|---|---|
-| **M-Pipeline** | Milestone lifecycle: Plan → M-DoR → Stories → M-DoD → Release | [milestone-pipeline.md](../10-pipeline/milestone-pipeline.md) |
-| **S-Pipeline** | Story lifecycle: DoR → Build → DoD → Merge | [story-lifecycle.md](../10-pipeline/story-lifecycle.md) |
-| **H-Pipeline** | Hotfix fast-track: Triage → H-DoR → Fix → H-DoD → Deploy | [hotfix-pipeline.md](../10-pipeline/hotfix-pipeline.md) |
+| **M-Pipeline** | Milestone lifecycle: Plan → M-DoR → Stories → M-DoD → Release | [milestone-pipeline.md](../07-process/pipeline/milestone-pipeline.md) |
+| **S-Pipeline** | Story lifecycle: DoR → Build → DoD → Merge | [story-lifecycle.md](../07-process/pipeline/story-lifecycle.md) |
+| **H-Pipeline** | Hotfix fast-track: Triage → H-DoR → Fix → H-DoD → Deploy | [hotfix-pipeline.md](../07-process/pipeline/hotfix-pipeline.md) |
 
-Stories are classified as **GATED** (CRITICAL/HIGH: manual review required) or **CONTINUOUS** (MEDIUM/LOW: automated gates only). See [story-classification.md](../10-pipeline/story-classification.md) for the full classification of all 50 stories.
+Stories are classified as **GATED** (CRITICAL/HIGH: manual review required) or **CONTINUOUS** (MEDIUM/LOW: automated gates only). See [story-classification.md](../07-process/pipeline/story-classification.md) for the full classification of all 50 stories.
 
 **Pipeline rules:**
 - Per-file commits, per-file pushes — always
@@ -65,7 +65,7 @@ Stories are classified as **GATED** (CRITICAL/HIGH: manual review required) or *
 - No story merges without DoD pass
 - DoD audits 7 angles: code, security, testing, docs, UX, compliance, evidence
 
-**DICT security gates:** each milestone also has privacy/security release gates, see [11-dict-review/milestones.md](../11-dict-review/milestones.md).
+**Compliance gates:** each milestone also has privacy and security release gates, see [09-compliance/compliance-gates.md](../09-compliance/compliance-gates.md).
 
 ## Milestone Definition of Done (applies to every milestone)
 1. ✅ All the milestone's stories meet the **story DoD** ([user-stories.md](user-stories.md#definition-of-done-for-every-story))

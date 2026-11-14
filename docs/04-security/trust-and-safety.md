@@ -5,7 +5,7 @@ Security protects the **system** from attackers. Trust & Safety protects **users
 ## 1. Why this matters
 - **Omegle (2009–2023)** connected anonymous strangers and shut down after sustained abuse, including harm to minors. Our product has the same shape, so these controls are **launch requirements**.
 - E2EE means **we can't read message content after encryption**. Safety must come from design (limits, gates, reporting, friction for abusers), automated behavioral monitoring, and human moderator oversight of abuse patterns.
-- **Philippine law requires it:** the Safe Spaces Act (RA 11313) mandates mechanisms against gender-based online harassment, the Anti-OSAEC Law (RA 11930) requires child safety controls, and the Cybercrime Prevention Act (RA 10175) expects reasonable security measures.
+- **Philippine law is involved:** the Anti-OSAEC Law (RA 11930) puts child-safety duties on internet intermediaries, the Safe Spaces Act (RA 11313) makes gender-based online sexual harassment a crime, and the Cybercrime Prevention Act (RA 10175) makes us a service provider with preservation and disclosure duties. The duties and procedures are in [09-compliance/child-protection-and-online-safety.md](../09-compliance/child-protection-and-online-safety.md).
 
 ## 2. Risks
 | Risk | Who's harmed | Likelihood |
@@ -96,15 +96,7 @@ Moderators must be trained on:
 5. No spam, scams, or advertising.
 6. Be kind. You can always `/next`.
 
-## 8. Legal compliance *(not legal advice)*
-
-The platform operates from the Philippines and must comply with the following statutes:
-
-| Law | Key obligation for this platform |
-|---|---|
-| **Data Privacy Act (RA 10173)** | Minimize data collection, publish privacy notice, appoint DPO, breach notification |
-| **Cybercrime Prevention Act (RA 10175)** | Implement security measures, cooperate with law enforcement, preserve data on valid legal orders |
-| **Anti-OSAEC Law (RA 11930)** | Prevent child exploitation, report CSAEM to authorities, implement child safety controls |
-| **Safe Spaces Act (RA 11313)** | Provide mechanisms to report gender-based harassment, take action on reports, don't facilitate harassment |
+## 8. Legal compliance
+This document describes the controls. The legal duties they serve, the deadlines and the step-by-step procedures are in [09-compliance](../09-compliance/README.md), in particular [child-protection-and-online-safety.md](../09-compliance/child-protection-and-online-safety.md) and [law-enforcement-requests.md](../09-compliance/law-enforcement-requests.md).
 
 With a global audience, additional laws may apply (GDPR for EU users, COPPA considerations for US). **Before M8, have the rules, the age gate, and the privacy notice reviewed by a qualified Philippine lawyer.**

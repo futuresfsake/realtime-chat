@@ -3,3 +3,4 @@
 | File | What it contains |
 |---|---|
 | [testing-strategy.md](testing-strategy.md) | Test pyramid, what we test per module, tools, coverage goals, CI integration, release smoke test |
+| [testing-requirements.md](testing-requirements.md) | Test categories still required before production (security, load, recovery, accessibility) and their status |

@@ -18,7 +18,7 @@ No accounts. No stored messages. Free to use, safe by design.
 4. Chat with **end-to-end encryption**: the server only relays ciphertext it can't read
 5. `/next` to meet someone new, `/report` to report abuse. When a chat ends, its messages are **gone forever**
 
-**Safety:** automated behavioral monitoring detects abuse patterns; content filters catch harmful messages before encryption; human moderators review aggregated reports and handle escalations; all designed to comply with Philippine law (Data Privacy Act, Cybercrime Prevention Act, Safe Spaces Act, Anti-OSAEC Law).
+**Safety:** automated behavioral monitoring detects abuse patterns; content filters catch harmful messages before encryption; human moderators review aggregated reports and handle escalations; all designed around Philippine law (Data Privacy Act, Cybercrime Prevention Act, Safe Spaces Act, Anti-OSAEC Law). What each law requires and where we stand: [docs/09-compliance](docs/09-compliance/README.md).
 
 **Never:** accounts, passwords, user-chosen names, group chats, file/image uploads, stored history.
 
@@ -70,7 +70,7 @@ realtime-chat/
 │   ├── index.html · styles.css · client.js · favicon.svg
 │   └── js/themes.js · js/sessionStore.js   # theme; in-memory chat history + reactions
 ├── tests/                  # unit/ and integration/ (real server on a random port)
-├── docs/                   # Specs, design, security, operations, process, guides → docs/README.md
+├── docs/                   # Specs, design, security, operations, process, compliance → docs/README.md
 ├── .github/                # CI workflow, CODEOWNERS, Dependabot, PR + issue templates
 ├── render.yaml             # Production service as code (Render Blueprint)
 ├── package.json · package-lock.json · tsconfig.json · .gitignore
@@ -121,8 +121,8 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 | M0 Foundations | Scaffold, TypeScript, scripts | — | ✅ |
 | M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
 | **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🚧 code complete; deploy pending |
-| M3 1:1 anonymous sessions | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🔜 **next** |
-| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🔜 |
+| **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🚧 code complete; deploy pending |
+| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🔜 **next** |
 | M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
 | M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
 | M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | 🔜 |
@@ -144,14 +144,14 @@ Multi-language UI · multi-instance scaling with Redis · more regions · instal
 | [00-overview](docs/00-overview/README.md) | Vision, goals, non-goals, open decisions |
 | [01-product](docs/01-product/README.md) | Milestones, user stories, features, slash commands |
 | [02-requirements](docs/02-requirements/README.md) | Functional + non-functional requirements, limits |
-| [03-design](docs/03-design/README.md) | HLD, LLD, matchmaking, zod validation, ADRs |
+| [03-design](docs/03-design/README.md) | HLD, LLD, matchmaking, zod validation, API versioning, ADRs, per-story technical designs (TDDs) |
 | [04-security](docs/04-security/README.md) | E2EE, privacy & sessions (incl. why no JWT), trust & safety, automated monitoring, human moderation, threat model, checklist |
-| [05-quality](docs/05-quality/README.md) | Testing strategy |
-| [06-operations](docs/06-operations/README.md) | Render, deployment, health checks, scaling, runbook |
-| [07-process](docs/07-process/README.md) | Workflows, Definition of Done, CI/CD, automation, templates |
+| [05-quality](docs/05-quality/README.md) | Testing strategy, testing requirements |
+| [06-operations](docs/06-operations/README.md) | Render, deployment, deployment security, health checks, monitoring, incident response, disaster recovery, scaling, runbook |
+| [07-process](docs/07-process/README.md) | Workflows, CI/CD, automation, security tooling, templates, and the full story [pipeline](docs/07-process/pipeline/README.md) (DoR/DoD, classification, hotfixes) |
 | [08-guides](docs/08-guides/README.md) | Local development |
-| [09-it-review](docs/09-it-review/README.md) | IT Manager production readiness review (47 findings, 12 documents) |
-| [10-pipeline](docs/10-pipeline/README.md) | Production pipeline: M/S/H pipelines, DoR/DoD, story classification, agents, skills, workflows |
+| [09-compliance](docs/09-compliance/README.md) | **Philippine law, data privacy and ICT deployment:** regulatory register, compliance matrix, data inventory, privacy impact assessment, breach, police-request and child-safety procedures |
+| [10-reviews](docs/10-reviews/README.md) | Archive of past reviews (legal brief, IT manager, DICT-style). Not current guidance |
 | [GLOSSARY](docs/GLOSSARY.md) | Every term and acronym |
 
 ---

@@ -43,6 +43,25 @@
 | **RA 11930** | Anti-OSAEC & CSAEM Act: Philippine law addressing online sexual abuse and exploitation of children and child sexual abuse materials |
 | **NPC** | National Privacy Commission: the Philippine government body that enforces the Data Privacy Act (RA 10173) |
 | **DPO** | Data Protection Officer: the person designated to oversee data privacy compliance within an organization |
+| **PIC / PIP** | Personal Information Controller (decides why and how personal data is processed: us) / Personal Information Processor (processes it on the controller's instructions: our hosting provider) |
+| **Personal information** | Any information from which a person's identity is apparent or can reasonably be worked out, alone or combined with other information. An IP address, and a keyed hash of one while it is still linkable, count |
+| **PIA** | Privacy Impact Assessment: a structured look at what personal data a system touches, the risks to people, and whether the controls are enough |
+| **Record of processing** | The list of what personal data we process, why, where and for how long. Ours is `09-compliance/data-inventory-and-retention.md` |
+| **Lawful basis** | The legal ground for a processing purpose under RA 10173 (for example consent, or legitimate interest) |
+| **Data subject** | The person the personal data is about. Here: a user |
+| **Personal data breach** | A loss of confidentiality, integrity or availability of personal data. May require notice to the NPC within 72 hours |
+| **Service provider** | Under RA 10175: anyone who gives users the ability to communicate through a computer system. That includes us |
+| **Traffic data** | Data about a communication other than its content: origin, destination, time, duration |
+| **Preservation order** | A lawful instruction to keep specified data from being deleted |
+| **Legal hold** | Our switch that stops the purge job deleting named records while the law requires us to keep them |
+| **Safety ledger** | The small proposed database for report cases, bans, legal holds and the admin audit log (decision D-10). Never holds content or raw IPs |
+| **DICT** | Department of Information and Communications Technology: sets Philippine ICT and cybersecurity policy |
+| **CICC** | Cybercrime Investigation and Coordinating Center: inter-agency body under DICT |
+| **DOJ-OOC** | Department of Justice Office of Cybercrime: central authority for cybercrime matters |
+| **PNP-ACG / PNP-WCPC** | Philippine National Police Anti-Cybercrime Group / Women and Children Protection Center |
+| **NBI-CCD** | National Bureau of Investigation Cybercrime Division |
+| **IACAT** | Inter-Agency Council Against Trafficking; hosts the national coordination center against OSAEC and CSAEM |
+| **Internet intermediary** | Under RA 11930: a person or entity that provides infrastructure, platforms, access or hosting for online communication. That includes us |
 | **OSAEC** | Online Sexual Abuse or Exploitation of Children |
 | **CSAEM** | Child Sexual Abuse or Exploitation Materials |
 | **Content filter** | Client-side mechanism that checks messages for banned words, spam patterns, and personal info before encryption |
