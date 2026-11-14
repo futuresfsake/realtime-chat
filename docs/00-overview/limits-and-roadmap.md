@@ -2,7 +2,7 @@
 
 > The honest register. Every limit, gap and unfinished piece we know about is here, with **why** it exists, **what protects people meanwhile**, and **what is planned**. If you find a new one, add a row in the same pull request. Nothing here is hidden elsewhere: the [security overview](../04-security/security-overview.md) says what *is* protected; this says what is *not*.
 
-**Current position (2026-11-14):** a **portfolio project**. M0 to M6 are code complete (policy drafts await counsel) and M7 is partly done (metrics, alerts, accessibility checks, browser tests in CI). It runs locally, has never been deployed, and is **not ready for public use**.
+**Current position (2026-11-14):** a **portfolio project**. **M0 to M7 are built and tested** (the policy drafts await counsel, and a few M7 items need hosting or people). **M8 to M10 are deliberately not pursued.** It runs locally, has never been deployed, and is **not ready for public use**. If it were ever launched, the rows below are what stands between it and the public.
 
 Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milestone) · ⏸ needs a decision · ❌ not planned.
 
@@ -68,11 +68,11 @@ In the order they are planned. Scope and exit criteria live in [milestones.md](.
 
 | When | What | Closes |
 |---|---|---|
-| **Rest of M6** | Age confirmation wording (US-17) and counsel review of the policy drafts (US-38) | L-32, L-33 |
+| **Rest of M6** | Counsel review of the policy drafts (US-38) and the owner's approval of the gate text | L-32, L-33 |
 | **M7** | Done: metrics, service levels, alert rules, accessibility checks, browser tests in CI, moderator summary and guide, load test, page-size and licence checks, AsyncAPI spec, country database refresh. **Open (needs hosting or people):** uptime monitor, log alert delivery, a named moderator, a tabletop exercise | L-15, L-23 |
-| **M8** | Legal sign-off, entity, NPC registration, DPO, launch checklist, **only if the project is ever launched** | L-20, L-30 to L-35 |
-| **M9** | Penetration test, ZAP baseline, WebSocket fuzzing, disaster recovery drill, load and soak, cross-browser | L-02, L-24, L-27 |
-| **M10** | Incident drill, on-call, retrospective | operational maturity |
+| **M8** (not pursued) | Legal sign-off, entity, NPC registration, DPO, launch checklist, hosting. Only if the project is ever launched | L-20, L-30 to L-36 |
+| **M9** (not pursued) | Penetration test, ZAP baseline, WebSocket fuzzing, disaster recovery drill, load and soak, cross-browser | L-02, L-24, L-27 |
+| **M10** (not pursued) | Incident drill, on-call, retrospective | operational maturity |
 | **After v1** | Redis state and multiple instances; X25519; periodic re-keying; Turnstile; country-bucketed matching; i18n; installable app; custom domain; published file hashes | L-05, L-06, L-17, L-19, L-21, L-29 |
 
 ## How to keep this honest

@@ -8,7 +8,7 @@ No accounts. No stored messages. Free to use, safe by design.
 
 > **This is a portfolio project.** I built it to show full-stack work: a TypeScript backend (Express, Socket.IO, zod), browser-side end-to-end encryption with WebCrypto, and a hand-designed interface. It is not a launched product and it is not run as a service for the public.
 
-> ⚠️ **Status: M4 code complete.** The app pairs you with **one stranger** at a time behind an 18+ gate, and messages are **end-to-end encrypted** in the browser. Matchmaking by interest, reporting, moderation and the legal review are still ahead, so it is not ready for public use. M5 (matchmaking by interest and country) is code complete; next is **M6: trust and safety**.
+> ⚠️ **Status: milestones M0 to M7 are built and tested; M8 onward is deliberately not pursued.** The app pairs you with **one stranger** at a time behind an 18+ gate, with end-to-end encryption in the browser, interest and country matching, reporting, no-rematch, temporary blocks, a content filter, a bot puzzle, metrics and alerts, accessibility checks and a load test. It has **never been deployed** and **no lawyer has reviewed it**, so it is not ready for public use. What is missing, and why, is in [**known limits and future work**](docs/00-overview/limits-and-roadmap.md); what is protected, and the test that proves each claim, is in the [**security overview**](docs/04-security/security-overview.md).
 
 ---
 
@@ -155,15 +155,15 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 |---|---|---|---|
 | M0 Foundations | Scaffold, TypeScript, scripts | — | ✅ |
 | M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
-| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🚧 code complete; deploy pending |
-| **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🚧 code complete; deploy pending |
-| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🚧 code complete; deploy pending |
-| M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🚧 code complete |
-| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
-| M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | 🔜 |
-| M8 Public launch | Legal sign-off, compliance 100%, PH beta launch | 2–3 d | 🔜 |
-| M9 Production hardening | Pen test, DR drill, performance baseline, chaos testing | 3–4 d | 🔜 |
-| M10 Post-launch operations | Incident response drill, on-call, operational maturity | 2–3 d | 🔜 |
+| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | ✅ built and in CI; first deploy not done |
+| **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | ✅ |
+| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | ✅ |
+| M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | ✅ |
+| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | ✅ code complete; policy drafts await counsel |
+| M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | ✅ everything buildable before hosting; uptime monitor, alert delivery and a named moderator need hosting or people |
+| M8 Public launch | Legal sign-off, compliance 100%, PH beta launch | 2–3 d | ⏸ not pursued: this is a portfolio project |
+| M9 Production hardening | Pen test, DR drill, performance baseline, chaos testing | 3–4 d | ⏸ not pursued: this is a portfolio project |
+| M10 Post-launch operations | Incident response drill, on-call, operational maturity | 2–3 d | ⏸ not pursued: this is a portfolio project |
 
 Details, stories and exit criteria: [docs/01-product/milestones.md](docs/01-product/milestones.md) · Open decisions: [docs/00-overview/open-decisions.md](docs/00-overview/open-decisions.md) · **Known limits and future work:** [docs/00-overview/limits-and-roadmap.md](docs/00-overview/limits-and-roadmap.md) · **Security today:** [docs/04-security/security-overview.md](docs/04-security/security-overview.md)
 

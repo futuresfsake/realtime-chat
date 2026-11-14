@@ -1,5 +1,7 @@
 # Milestones
 
+> **Where this stands (2026-11-14):** M0 to M7 are built and tested. M8 (public launch), M9 (production hardening) and M10 (post-launch operations) are **deliberately not pursued**: this is a portfolio project that has never been deployed. Their scope below is kept as the plan for anyone who does launch it, and the honest list of what that would still take is [limits-and-roadmap.md](../00-overview/limits-and-roadmap.md).
+
 We work in **milestones**, not sprints. Each milestone is a **foundation layer**: it delivers a set of **user stories**, which are implemented as **features**, and ends with a working, deployed, demoable product.
 
 ```
@@ -21,15 +23,15 @@ Estimates assume ~5 focused hours/day and include learning, tests and docs. **E2
 |---|---|---|---|---|---|
 | M0 | Foundations | Project skeleton | — | done | ✅ |
 | M1 | Walking skeleton | Two tabs chat; terminal UI | US-26, US-27 | done | ✅ |
-| **M2** | **Hardening + CI/CD + first deploy** | Safe to be on the internet, deployed automatically | US-21–24, US-32–35 | 4–5 d | 🔜 **next** |
-| M3 | 1:1 anonymous sessions | Random names, pairs of two, skip/leave, status, reactions | US-01–11, US-36 | 4–5 d | 🟡 code complete, deploy + demo pending |
-| M4 | End-to-end encryption | Server can't read anything | US-12, US-13, US-37 | 4–5 d | 🟡 code complete, deploy + demo pending |
-| M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | 🟡 code complete |
-| M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | 🟡 US-17, 18, 19, 20, 28, 29, 39 done; US-38 drafts written, counsel review pending |
-| M7 | Quality, observability, monitoring & moderation | Coverage, logs, SLOs, dashboards, a11y, moderator tools | US-25, US-30–31, US-40–44 | 3–4 d | 🟡 |
-| M8 | Public launch | Legal sign-off, compliance 100%, go live | US-45–46 | 2–3 d | 🔜 |
-| **M9** | **Production hardening** | Pen test, DR drill, performance baseline, chaos testing | US-47–49 | 3–4 d | 🔜 |
-| **M10** | **Post-launch operations** | Incident response drill, on-call, operational maturity, retrospective | US-50 | 2–3 d | 🔜 |
+| **M2** | **Hardening + CI/CD + first deploy** | Safe to be on the internet, deployed automatically | US-21–24, US-32–35 | 4–5 d | ✅ built and in CI; first deploy not done |
+| M3 | 1:1 anonymous sessions | Random names, pairs of two, skip/leave, status, reactions | US-01–11, US-36 | 4–5 d | ✅ |
+| M4 | End-to-end encryption | Server can't read anything | US-12, US-13, US-37 | 4–5 d | ✅ |
+| M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | ✅ |
+| M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | ✅ code complete; policy drafts await counsel |
+| M7 | Quality, observability, monitoring & moderation | Coverage, logs, SLOs, dashboards, a11y, moderator tools | US-25, US-30–31, US-40–44 | 3–4 d | ✅ everything buildable before hosting |
+| M8 | Public launch | Legal sign-off, compliance 100%, go live | US-45–46 | 2–3 d | ⏸ not pursued: this is a portfolio project |
+| **M9** | **Production hardening** | Pen test, DR drill, performance baseline, chaos testing | US-47–49 | 3–4 d | ⏸ not pursued: this is a portfolio project |
+| **M10** | **Post-launch operations** | Incident response drill, on-call, operational maturity, retrospective | US-50 | 2–3 d | ⏸ not pursued: this is a portfolio project |
 
 ```mermaid
 flowchart LR
