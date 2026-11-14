@@ -25,8 +25,8 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 ## Privacy (RA 10173 - Data Privacy Act)
 - [ ] Data inventory in privacy-and-sessions.md matches the code
 - [x] No raw IPs logged; logs contain no content (T-15). Evidence: CI grep in `ci.yml` and `server.test.ts`
-- [ ] Privacy notice published, compliant with RA 10173 requirements
-- [ ] Rules page live with clear prohibited conduct list
+- [ ] Privacy notice published, compliant with RA 10173 requirements. Drafted: [privacy-notice.md](../09-compliance/policies/privacy-notice.md); not reviewed by counsel
+- [ ] Rules page live with clear prohibited conduct list. Drafted: [community-rules.md](../09-compliance/policies/community-rules.md); the short version is at the gate. Publication waits for counsel
 - [ ] DB-IP attribution shown in footer
 - [ ] Data retention policy documented and enforced
 - [ ] Privacy Impact Assessment completed before launch

@@ -37,6 +37,9 @@ const EnvSchema = z.object({
   MAX_SOCKETS_PER_IP: z.coerce.number().int().min(1).max(100).default(5),
   // Path to the DB-IP country database (.mmdb). Without it every country is unknown.
   COUNTRY_DB_PATH: z.string().min(1).optional(),
+  // Proof-of-work difficulty in leading zero bits: about 2^N hashes (12 is a
+  // fraction of a second in a browser). 0 switches it off.
+  POW_DIFFICULTY_BITS: z.coerce.number().int().min(0).max(24).default(12),
   // How long a search sticks to shared interests before accepting anyone (ms).
   INTEREST_WAIT_MS: z.coerce.number().int().min(500).max(60_000).default(10_000),
 });
@@ -57,6 +60,7 @@ export interface Config {
   maxSocketsPerIp: number;
   countryDbPath: string | undefined;
   interestWaitMs: number;
+  powBits: number;
   matchSweepMs: number;
   noRematchMs: number;
   reportWindowMs: number;
@@ -112,6 +116,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maxSocketsPerIp: parsed.MAX_SOCKETS_PER_IP,
     countryDbPath: parsed.COUNTRY_DB_PATH,
     interestWaitMs: parsed.INTEREST_WAIT_MS,
+    powBits: parsed.POW_DIFFICULTY_BITS,
     // How often waiting searches are checked for an expired interest wait.
     matchSweepMs: 1_000,
     // Two people who skip or leave each other are not paired again for this long.

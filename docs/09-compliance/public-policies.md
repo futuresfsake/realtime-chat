@@ -1,15 +1,15 @@
 # Public Policy Documents
 
-**Last reviewed:** 2026-11-13 · **Owner:** DPO (D-12) · **None of these is written yet**
+**Last reviewed:** 2026-11-13 · **Owner:** DPO (D-12) · **Drafts exist (2026-11-14); none is reviewed or published**
 
-The documents users and authorities will read. They are drafted in M6, reviewed by counsel in M7, and published in M8. This page tracks them and says what each must contain. The drafts themselves will live in `docs/09-compliance/policies/` once started, and the published versions are served by the app.
+The documents users and authorities will read. They are drafted in M6, reviewed by counsel in M7, and published in M8. This page tracks them and says what each must contain. The drafts live in [`policies/`](policies/README.md); the published versions will be served by the app after counsel has reviewed them.
 
 ## 1. Register
 | Document | Audience | Must exist by | Status | Gap |
 |---|---|---|---|---|
-| Privacy notice | Users | Draft M6, publish M8 | Not started | G-01 |
-| Terms of service | Users | Draft M6, publish M8 | Not started | G-09 |
-| Community rules (acceptable use) | Users | Draft M6, publish M8 | **Preview text** shown at the gate today (`RULES_VERSION` in `src/types/events.ts`); not reviewed by counsel | G-09 |
+| Privacy notice | Users | Draft M6, publish M8 | **Draft 1 written**: [policies/privacy-notice.md](policies/privacy-notice.md). Not reviewed by counsel | G-01 |
+| Terms of service | Users | Draft M6, publish M8 | **Draft 1 written**: [policies/terms-of-service.md](policies/terms-of-service.md). Not reviewed by counsel | G-09 |
+| Community rules (acceptable use) | Users | Draft M6, publish M8 | **Draft 1 written**: [policies/community-rules.md](policies/community-rules.md). A short **preview text** is shown at the gate today (`RULES_VERSION` in `src/types/events.ts`); neither is reviewed by counsel | G-09 |
 | Law-enforcement guidelines | Authorities | M8 | Not started | G-08 |
 | Vulnerability disclosure policy | Researchers | Now | ✅ `SECURITY.md` | — |
 | Yearly transparency note | Public | First anniversary | Not started | — |

@@ -283,7 +283,20 @@ async function fetchConnectToken() {
       sys("Waking up the server. This can take up to a minute after a quiet period.");
     }, 2500);
     try {
-      const res = await fetch("/connect-token", { cache: "no-store" });
+      // First a small puzzle (US-39): finding the answer takes a browser a
+      // fraction of a second, and earns the token. When the server has it
+      // switched off, the answer is skipped.
+      let url = "/connect-token";
+      const puzzle = await fetch("/pow-challenge", { cache: "no-store" });
+      let res = puzzle;
+      if (puzzle.ok) {
+        const challenge = await puzzle.json();
+        if (challenge.bits > 0) {
+          const nonce = await ProofOfWork.solve(challenge.challenge, challenge.bits);
+          url = `/connect-token?c=${encodeURIComponent(challenge.challenge)}&n=${nonce}`;
+        }
+        res = await fetch(url, { cache: "no-store" });
+      }
       if (res.ok) {
         const body = await res.json();
         els.banner.hidden = !body.preview;

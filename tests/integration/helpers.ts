@@ -47,7 +47,7 @@ export async function startServer(
   const clock = new FakeClock(Date.UTC(2026, 0, 1));
   const logs: string[] = [];
   const config: Config = {
-    ...loadConfig({ NODE_ENV: "test", ALLOWED_ORIGINS: ORIGIN, LOG_LEVEL: "debug", ...env }),
+    ...loadConfig({ NODE_ENV: "test", ALLOWED_ORIGINS: ORIGIN, LOG_LEVEL: "debug", POW_DIFFICULTY_BITS: "0", ...env }),
     ...overrides,
   };
   const logger = createLogger({ level: config.logLevel, write: (line) => logs.push(line), clock });

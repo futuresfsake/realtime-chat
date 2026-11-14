@@ -52,6 +52,7 @@ A keyed hash of an IP address is **still personal information** for as long as i
 | M6 | Report: category plus the two keyed IP hashes, counted per reported connection | C2 | Counting reports toward a block | Server memory only, at most 5,000 targets | 1 hour |
 | M6 | Report log line: category and an 8 character prefix of the reported hash (never the reporter) | C2 | Operator can see that reports happen | Structured logs | Per the log platform (see D-14); a safety ledger with a 30 day purge job (D-10) is not built |
 | M6 | Block list: keyed IP hash and expiry | C2 | Keep a reported connection from matching | Server memory only, at most 5,000 entries | 24 hours, and the daily salt rotation makes it useless after at most a day |
+| M6 | Proof-of-work challenge: random value, expiry and the keyed IP hash it was issued to; used-challenge markers | C1 | Keeping automated scripts out | Server memory only, at most 10,000 markers | About a minute |
 | M6 | Ban record | C2 | Enforce bans | Safety ledger | 24 hours to 30 days by severity |
 | M5/M6 | No-rematch pairs (two IP hashes, or two connection ids on a shared address) | C2 | Keep two people who parted apart | Server memory, at most 10,000 pairs, never logged | 24 hours, and the daily salt rotation makes the hashes useless after at most a day |
 | M7 | Legal-hold flag | C1 | Stop deletion when the law requires | Safety ledger | Until the DPO releases it |

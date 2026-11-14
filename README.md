@@ -162,7 +162,7 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 | M9 Production hardening | Pen test, DR drill, performance baseline, chaos testing | 3–4 d | 🔜 |
 | M10 Post-launch operations | Incident response drill, on-call, operational maturity | 2–3 d | 🔜 |
 
-Details, stories and exit criteria: [docs/01-product/milestones.md](docs/01-product/milestones.md) · Open decisions: [docs/00-overview/open-decisions.md](docs/00-overview/open-decisions.md)
+Details, stories and exit criteria: [docs/01-product/milestones.md](docs/01-product/milestones.md) · Open decisions: [docs/00-overview/open-decisions.md](docs/00-overview/open-decisions.md) · **Known limits and future work:** [docs/00-overview/limits-and-roadmap.md](docs/00-overview/limits-and-roadmap.md) · **Security today:** [docs/04-security/security-overview.md](docs/04-security/security-overview.md)
 
 ### After v1
 Multi-language UI · multi-instance scaling with Redis · more regions · installable PWA · X25519 migration · CDN · custom domain · browser fingerprinting. See [scaling.md](docs/06-operations/scaling.md).

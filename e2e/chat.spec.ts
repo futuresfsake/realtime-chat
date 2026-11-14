@@ -397,3 +397,36 @@ test.describe("content filter", () => {
     await expect(a.page.getByRole("log")).toContainText("do not share your name, address, phone number");
   });
 });
+
+test.describe("proof of work in a real browser", () => {
+  test.use({ serverEnv: { POW_DIFFICULTY_BITS: "12" } });
+
+  test("the page solves the puzzle by itself and connects, quickly", async ({ person }) => {
+    const a = await person();
+    const requested: string[] = [];
+    a.page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith("/pow-challenge") || path.startsWith("/connect-token")) requested.push(path);
+    });
+    const started = Date.now();
+    await a.join();
+    expect(Date.now() - started).toBeLessThan(8000);
+    // The puzzle came first, then the token.
+    expect(requested).toEqual(["/pow-challenge", "/connect-token"]);
+  });
+
+  test("two people can still chat end to end with the puzzle on", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await say(a, "hello through the puzzle");
+    await expect(b.page.getByRole("log")).toContainText("hello through the puzzle");
+  });
+
+  test("a script that skips the puzzle gets no token", async ({ serverUrl }) => {
+    const res = await fetch(`${serverUrl}/connect-token`);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: { code: "POW_REQUIRED" } });
+  });
+});
