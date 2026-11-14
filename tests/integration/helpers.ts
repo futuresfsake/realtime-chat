@@ -5,6 +5,7 @@ import { buildServer } from "../../src/app.js";
 import { loadConfig } from "../../src/config.js";
 import type { Config } from "../../src/config.js";
 import { FakeClock } from "../../src/lib/clock.js";
+import type { CountryLookup } from "../../src/geo/countryLookup.js";
 import { createLogger } from "../../src/observability/logger.js";
 import { ALLOWED_REACTIONS, PROTOCOL_VERSION, RULES_VERSION } from "../../src/types/events.js";
 import { loadE2ee } from "../helpers/e2ee.js";
@@ -18,7 +19,7 @@ export interface TestServer {
   clock: FakeClock;
   logs: string[];
   sockets: Socket[];
-  token(): Promise<string>;
+  token(forwardedFor?: string): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -41,6 +42,7 @@ function listen(httpServer: ReturnType<typeof buildServer>["httpServer"]): Promi
 export async function startServer(
   env: Record<string, string> = {},
   overrides: Partial<Config> = {},
+  countries?: CountryLookup,
 ): Promise<TestServer> {
   const clock = new FakeClock(Date.UTC(2026, 0, 1));
   const logs: string[] = [];
@@ -53,11 +55,11 @@ export async function startServer(
   // The OS picks the port. Now and then it picks one that fetch() refuses to
   // talk to ("bad port"), which used to fail a few tests at random. If that
   // happens, throw this server away and build another.
-  let built = buildServer({ config, logger, clock });
+  let built = buildServer({ config, logger, clock, countries });
   let port = await listen(built.httpServer);
   while (FETCH_BLOCKED_PORTS.has(port)) {
     await built.shutdown();
-    built = buildServer({ config, logger, clock });
+    built = buildServer({ config, logger, clock, countries });
     port = await listen(built.httpServer);
   }
   const { shutdown, io } = built;
@@ -70,8 +72,8 @@ export async function startServer(
     clock,
     logs,
     sockets,
-    async token() {
-      const res = await fetch(`${url}/connect-token`);
+    async token(forwardedFor?: string) {
+      const res = await fetch(`${url}/connect-token`, forwardedFor ? { headers: { "x-forwarded-for": forwardedFor } } : {});
       return ((await res.json()) as { token: string }).token;
     },
     async close() {
@@ -83,6 +85,9 @@ export async function startServer(
 
 export interface ConnectOptions {
   origin?: string | null; // null = send no Origin header
+  // Pretends to come from this address (needs TRUST_PROXY_HOPS=1 on the server),
+  // so a fake country lookup can give different clients different countries.
+  forwardedFor?: string;
   auth?: Record<string, unknown>; // replaces the default auth entirely
   authOverrides?: Record<string, unknown>; // merged over the default auth
   // Reconnect by itself after a drop, like the browser does, waiting this
@@ -95,7 +100,7 @@ export async function connect(server: TestServer, options: ConnectOptions = {}):
   const origin = options.origin === undefined ? ORIGIN : options.origin;
   const freshAuth = async () => ({
     protocolVersion: PROTOCOL_VERSION,
-    token: await server.token(),
+    token: await server.token(options.forwardedFor),
     consent: { adult: true, rulesVersion: RULES_VERSION },
     ...options.authOverrides,
   });
@@ -110,7 +115,10 @@ export async function connect(server: TestServer, options: ConnectOptions = {}):
     auth: reconnects
       ? (cb: (data: object) => void) => void freshAuth().then(cb)
       : (options.auth ?? (await freshAuth())),
-    ...(origin === null ? {} : { extraHeaders: { origin } }),
+    extraHeaders: {
+      ...(origin === null ? {} : { origin }),
+      ...(options.forwardedFor ? { "x-forwarded-for": options.forwardedFor } : {}),
+    },
   });
   server.sockets.push(socket);
   return new Promise((resolve, reject) => {
@@ -140,6 +148,7 @@ export function keepChannel(from: Socket, to: Socket): void {
 }
 
 export interface Matched {
+  sharedInterests?: string[];
   sessionId: string;
   myName: string;
   partnerName: string;
