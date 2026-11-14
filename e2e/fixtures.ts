@@ -80,7 +80,7 @@ export const test = base.extend<Fixtures>({
     const port = await freePort();
     const url = `http://localhost:${port}`;
     const child = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
-      env: { ...process.env, PORT: String(port), ALLOWED_ORIGINS: url, NODE_ENV: "development", LOG_LEVEL: "error" },
+      env: { ...process.env, PORT: String(port), ALLOWED_ORIGINS: url, NODE_ENV: "development", LOG_LEVEL: "error", INTEREST_WAIT_MS: "2000" },
       stdio: ["ignore", "ignore", "inherit"],
     });
     try {
