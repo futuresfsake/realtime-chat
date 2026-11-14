@@ -2,7 +2,8 @@
 const MAX_LINES = 500;    // cap DOM size so long sessions stay fast
 const MAX_HISTORY = 50;   // input history for the up/down arrow keys
 const PROTOCOL_VERSION = "rc/v1";          // must match src/types/events.ts
-const RULES_VERSION = "2026-11-preview-3"; // must match src/types/events.ts
+const RULES_VERSION = "2026-11-preview-4"; // must match src/types/events.ts
+const MAX_INTERESTS = 5;                   // must match src/matchmaking/interests.ts
 const CONSENT_KEY = "rtc.consent";         // sessionStorage: asked again in every new tab/visit
 const ACK_TIMEOUT_MS = 8000;               // how long to wait for the server to confirm a message
 // Without WebCrypto (very old browser, or a page not served over HTTPS) there
@@ -33,6 +34,10 @@ const els = {
   verify: $("btn-verify"),
   verifyDialog: $("verify"),
   verifyCode: $("verify-code"),
+  chips: $("chips"),
+  interestCount: $("interest-count"),
+  scopeLocal: $("scope-local"),
+  scopeNote: $("scope-note"),
   gate: $("gate"),
   gateForm: $("gate-form"),
   gateAdult: $("gate-adult"),
@@ -57,6 +62,9 @@ const socket = io({
 let me = "guest";
 let partner = null;      // set while chatting with someone
 let searching = false;   // waiting in the queue for a partner
+let searchOpen = false;  // the wait for a shared interest ran out: anyone will do now
+let searchPrefs = { interests: [], scope: "world" }; // what the current search asked for
+const chosen = new Set(); // interests ticked in the picker
 let partnerState = "none"; // none | connected | typing | reconnecting
 
 // Everything said in the current chat lives here, in memory only (US-09).
@@ -97,7 +105,9 @@ function render() {
       ? `${partner} lost their connection. Waiting up to 30 seconds`
       : p === "chatting" && me !== "guest"
         ? `You are ${me}`
-        : SUBTITLE[p];
+        : p === "searching"
+          ? searchSubtitle()
+          : SUBTITLE[p];
 
   els.start.disabled = !(p === "idle" && CAN_ENCRYPT);
   els.next.disabled = !(inChat || p === "searching");
@@ -112,6 +122,14 @@ function render() {
   els.sealText.textContent = { secured: "End-to-end encrypted", securing: "Securing…", none: "Not encrypted yet" }[sealState];
 
   els.typing.textContent = p === "chatting" && partnerState === "typing" ? `${partner} is typing…` : "";
+}
+
+function searchSubtitle() {
+  const list = searchPrefs.interests;
+  if (list.length === 0) return SUBTITLE.searching;
+  return searchOpen
+    ? "No one with a shared interest yet. Matching you with anyone"
+    : `Looking for someone who likes ${list.join(", ")}`;
 }
 
 function setChatting(myName, partnerName) {
@@ -177,6 +195,40 @@ function setConnection(state, label) {
   render();
 }
 
+// ---------- Search preferences ----------
+// The list comes from the server, so there is one source of truth.
+function buildChips(interests) {
+  if (els.chips.childElementCount > 0 || !Array.isArray(interests)) return;
+  for (const name of interests) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = name;
+    chip.setAttribute("aria-pressed", "false");
+    chip.addEventListener("click", () => {
+      if (chosen.has(name)) chosen.delete(name);
+      else if (chosen.size < MAX_INTERESTS) chosen.add(name);
+      refreshChips();
+    });
+    els.chips.append(chip);
+  }
+  refreshChips();
+}
+
+function refreshChips() {
+  for (const chip of els.chips.children) {
+    const on = chosen.has(chip.textContent);
+    chip.setAttribute("aria-pressed", String(on));
+    chip.disabled = !on && chosen.size >= MAX_INTERESTS; // five at most
+  }
+  els.interestCount.textContent = `${chosen.size} of ${MAX_INTERESTS}`;
+}
+
+function currentPrefs() {
+  const scope = document.querySelector('input[name="scope"]:checked')?.value === "local" ? "local" : "world";
+  return { interests: [...chosen], scope };
+}
+
 // ---------- Age + rules gate ----------
 function hasConsent() {
   try {
@@ -230,6 +282,7 @@ async function fetchConnectToken() {
       if (res.ok) {
         const body = await res.json();
         els.banner.hidden = !body.preview;
+        buildChips(body.interests);
         return body.token;
       }
       const retryAfter = Number(res.headers.get("Retry-After"));
@@ -321,14 +374,20 @@ socket.on("connect", () => {
   authRetries = 0;
 });
 
-socket.on("session:matched", ({ sessionId, myName, partnerName, role }) => {
+socket.on("session:matched", ({ sessionId, myName, partnerName, role, sharedInterests }) => {
   wipeHistory(); // a new chat starts empty
   stopTyping();
   closeChannel();
   endNote = null;
   searching = false;
+  searchOpen = false;
   setChatting(myName, partnerName);
   sys(`You are chatting with ${partnerName}. You are ${myName}.`);
+  if (Array.isArray(sharedInterests) && sharedInterests.length > 0) {
+    sys(`You both like ${sharedInterests.join(", ")}.`);
+  } else if (searchPrefs.interests.length > 0) {
+    sys("No shared interests this time: you were matched with a random person.");
+  }
   startKeyExchange(sessionId, role);
 });
 
@@ -453,6 +512,13 @@ socket.on("session:ended", ({ reason }) => {
   render();
 });
 
+// The wait for a shared interest ran out: from now on anyone compatible will do.
+socket.on("search:status", ({ state }) => {
+  if (!searching || state !== "open") return;
+  searchOpen = true;
+  render();
+});
+
 socket.on("partner:status", ({ state }) => {
   if (!partner) return;
   if (state === "reconnecting") sys("Your partner lost their connection. Waiting up to 30 seconds.");
@@ -558,9 +624,9 @@ function renderReactions(id, reactions) {
 
 // ---------- Actions ----------
 // /start, /next and /leave go to the server; the answer arrives as an event.
-function sendCommand(event, onOk) {
+function sendCommand(event, onOk, payload = {}) {
   if (!socket.connected) return err("Not connected.");
-  socket.emit(event, {}, (ack) => {
+  socket.emit(event, payload, (ack) => {
     if (!ack) return;
     if (ack.ok) return onOk?.();
     if (ack.error.code === "INVALID_STATE") {
@@ -571,6 +637,13 @@ function sendCommand(event, onOk) {
             ? "You are not in a chat. Choose Find a stranger first."
             : "There is nothing to end."
       );
+    } else if (ack.error.code === "COUNTRY_UNKNOWN") {
+      // Only worldwide matching is possible for this connection.
+      err("We could not detect your country, so only worldwide matching is available.");
+      els.scopeLocal.disabled = true;
+      document.querySelector('input[name="scope"][value="world"]').checked = true;
+      els.scopeNote.textContent = "Country could not be detected for this connection.";
+      els.scopeNote.hidden = false;
     } else if (ack.error.code === "RATE_LIMITED") {
       err("Slow down: too many searches. Try again in a minute.");
     } else {
@@ -579,24 +652,27 @@ function sendCommand(event, onOk) {
   });
 }
 
-function startSearch() {
+function beginSearch(event) {
   if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
-  sendCommand("session:start", () => {
-    searching = true;
-    render();
-  });
+  const prefs = currentPrefs();
+  sendCommand(
+    event,
+    () => {
+      searchPrefs = prefs;
+      searching = true;
+      searchOpen = prefs.interests.length === 0;
+      render();
+    },
+    prefs
+  );
 }
-function nextStranger() {
-  if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
-  sendCommand("session:next", () => {
-    searching = true;
-    render();
-  });
-}
+const startSearch = () => beginSearch("session:start");
+const nextStranger = () => beginSearch("session:next");
 function endChat() {
   sendCommand("session:leave", () => {
     // Leaving while searching produces its own "ended" event from the server.
     searching = false;
+    searchOpen = false;
     render();
   });
 }
