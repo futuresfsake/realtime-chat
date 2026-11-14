@@ -16,6 +16,7 @@ import type { Logger } from "./observability/logger.js";
 import { clientIp } from "./security/clientIp.js";
 import { ConnectTokens } from "./security/connectToken.js";
 import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
+import { ProofOfWork } from "./security/proofOfWork.js";
 import { KeyedLimiter } from "./security/tokenBucket.js";
 import { ALLOWED_INTERESTS } from "./matchmaking/interests.js";
 import { Matchmaker } from "./matchmaking/matchmaker.js";
@@ -51,6 +52,8 @@ export function buildServer(deps: ServerDeps) {
 
   const ipHasher = createIpHasher({ clock, secret: config.ipHashSecret });
   const connectTokens = new ConnectTokens(clock, config.connectTokenTtlMs);
+  const pow = new ProofOfWork(clock, config.powBits);
+  const powLimiter = new KeyedLimiter(5, 0.1, clock);
   const ipSocketCap = new IpSocketCap(config.maxSocketsPerIp);
   // New WebSocket handshakes: 5 per IP per 10 s.
   const handshakeLimiter = new KeyedLimiter(config.handshakeBurstCapacity, config.handshakeRefillPerSec, clock);
@@ -123,6 +126,37 @@ export function buildServer(deps: ServerDeps) {
     }),
   );
 
+  // Step 0 of connecting (US-39): a small puzzle. Answering it is what earns a
+  // connection token, so opening many connections costs a script real work.
+  // 5 in a burst, then one every 10 seconds, per address.
+  app.get("/pow-challenge", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const site = req.get("sec-fetch-site");
+    if (site !== undefined && site !== "same-origin") {
+      res.status(403).json({ error: { code: "FORBIDDEN" } });
+      return;
+    }
+    if (shuttingDown || config.maintenanceMode) {
+      res.status(503).set("Retry-After", "30").json({ error: { code: "MAINTENANCE" } });
+      return;
+    }
+    if (!pow.required) {
+      res.json({ bits: 0 });
+      return;
+    }
+    const ipHash = ipHashOf(req);
+    if (!powLimiter.consume(ipHash)) {
+      const retryAfterMs = powLimiter.retryAfterMs(ipHash);
+      logger.warn("rate_limited", { data: { bucket: "pow_challenge", ipHashPrefix: ipHashPrefix(ipHash) } });
+      res
+        .status(429)
+        .set("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))))
+        .json({ error: { code: "RATE_LIMITED", retryAfterMs } });
+      return;
+    }
+    res.json(pow.issue(ipHash));
+  });
+
   // Step 1 of connecting: the page fetches a short-lived token over HTTPS.
   app.get("/connect-token", (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -147,6 +181,16 @@ export function buildServer(deps: ServerDeps) {
         .set("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))))
         .json({ error: { code: "RATE_LIMITED", retryAfterMs } });
       return;
+    }
+    // The puzzle must have been solved (when switched on). The reason a
+    // solution is refused is logged, never sent: a bot learns nothing.
+    if (pow.required) {
+      const solved = pow.verify(req.query.c, req.query.n, ipHash);
+      if (!solved.ok) {
+        logger.warn("pow_refused", { data: { reason: solved.reason, ipHashPrefix: ipHashPrefix(ipHash) } });
+        res.status(403).json({ error: { code: "POW_REQUIRED" } });
+        return;
+      }
     }
     res.json({
       token: connectTokens.issue(ipHash),

@@ -62,7 +62,7 @@
 
 | ID | STRIDE | Threat | Mitigation | Status |
 |---|---|---|---|---|
-| T-31 | Spoofing | Automated bots bypass Origin check by spoofing headers outside browser | Connection token (HMAC-signed, IP-bound, 30s TTL) + proof-of-work challenge | 🔜 M2/M6 |
+| T-31 | Spoofing | Automated bots bypass Origin check by spoofing headers outside browser | Connection token (HMAC-signed, IP-bound, 30s TTL) + proof-of-work challenge (SHA-256, single use, address-bound, default 12 bits). Slows bots; does not stop a determined one | ✅ M6 / ⚠️ residual |
 | T-32 | DoS | WebSocket handshake flood (before rate limiter kicks in) | Connection-rate limiting at gateway: 5 new connections/IP/10s | 🔜 M2 |
 | T-33 | Tampering | Outdated client code (stale tab) sends incompatible events after deploy | Protocol versioning (`rc/v1` in handshake); mismatch → refused + refresh notice | 🔜 M2 |
 | T-34 | Info disclosure | Structured logs accidentally contain raw IP addresses | CI semgrep rule fails build on `console.*` with raw IP patterns; log audit | 🔜 M2 |

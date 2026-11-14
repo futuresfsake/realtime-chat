@@ -239,7 +239,7 @@ As a **chatter**, I want the key exchange to have a timeout, so that I don't wai
 
 ## Epic H: IT Manager — Compliance & Legal (M6, M8)
 
-### US-38 Privacy notice and terms of service (M6) 🔜
+### US-38 Privacy notice and terms of service (M6) 🟡 (drafts written; counsel review pending)
 As the **operator**, I want draft legal documents (privacy notice, terms of service, acceptable use policy), so that they can be reviewed by a Philippine lawyer before launch.
 - Privacy notice covers: what data is processed, lawful basis, data subject rights, retention periods, DPO contact.
 - Privacy notice references RA 10173 obligations explicitly.
@@ -248,7 +248,7 @@ As the **operator**, I want draft legal documents (privacy notice, terms of serv
 - All documents are in plain language, accessible to non-legal readers.
 - **Features:** F-40
 
-### US-39 Bot prevention with proof-of-work (M6) 🔜
+### US-39 Bot prevention with proof-of-work (M6) ✅ (default 12 bits; the challenge limit is a burst of 5 then one per 10 s, so a shared network is not locked out)
 As the **operator**, I want clients to solve a computational challenge before their first session, so that bot operators face meaningful friction.
 - Before issuing a connection token or allowing `session:start`, the server sends a proof-of-work challenge.
 - The challenge is: find a nonce where `SHA-256(prefix + nonce)` has N leading zero bits.

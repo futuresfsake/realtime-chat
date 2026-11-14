@@ -42,6 +42,8 @@ export interface Person {
 }
 
 export interface Fixtures {
+  // Extra settings for the test server, for tests about a setting (see test.use).
+  serverEnv: Record<string, string>;
   // A fresh server on a free port, so the real per-address rate limits of one
   // test never leak into the next.
   serverUrl: string;
@@ -76,11 +78,13 @@ async function makePerson(
 }
 
 export const test = base.extend<Fixtures>({
-  serverUrl: async ({}, use) => {
+  serverEnv: [{}, { option: true }],
+
+  serverUrl: async ({ serverEnv }, use) => {
     const port = await freePort();
     const url = `http://localhost:${port}`;
     const child = spawn(process.execPath, ["--import", "tsx", "src/index.ts"], {
-      env: { ...process.env, PORT: String(port), ALLOWED_ORIGINS: url, NODE_ENV: "development", LOG_LEVEL: "error", INTEREST_WAIT_MS: "2000" },
+      env: { ...process.env, PORT: String(port), ALLOWED_ORIGINS: url, NODE_ENV: "development", LOG_LEVEL: "error", INTEREST_WAIT_MS: "2000", POW_DIFFICULTY_BITS: "0", ...serverEnv },
       stdio: ["ignore", "ignore", "inherit"],
     });
     try {

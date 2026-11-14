@@ -2,6 +2,7 @@
 
 | File | What it contains |
 |---|---|
+| [security-overview.md](security-overview.md) | **Start here.** What is actually implemented today, by layer, with the test that proves each claim, and what it does not protect against |
 | [e2ee.md](e2ee.md) | The end-to-end encryption protocol, step by step, what it protects and **what it doesn't** |
 | [privacy-and-sessions.md](privacy-and-sessions.md) | What a session is, session-only history, **why we don't use JWT**, what we can and cannot promise, logging policy |
 | [authentication-authorization.md](authentication-authorization.md) | How a connection is authenticated without accounts: connection token, consent enforcement, session integrity |
