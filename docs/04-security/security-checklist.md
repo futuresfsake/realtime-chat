@@ -34,9 +34,9 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 
 ## Safety (RA 11930 - Anti-OSAEC, RA 11313 - Safe Spaces Act)
 - [x] 18+ gate + rules enforced on the server (S-01). Evidence: handshake tests; Playwright gate test. Wording not reviewed by counsel
-- [ ] Personal-info warning shown each session (S-08)
+- [x] Personal-info warning shown each session (S-08). Shown at the gate and at the start of every chat; the filter also warns before sending a phone number, email or social account
 - [x] Links not clickable (S-09). Messages are rendered as text only. Evidence: Playwright HTML test
-- [ ] Content filters active for known harmful patterns (S-15)
+- [x] Content filters active for known harmful patterns (S-15). Evidence: `contentFilter.test.ts`, Playwright content filter tests. The word list still needs owner review (G-16)
 - [ ] `minor` report category triggers immediate escalation (S-16). Flagged in the logs (`report_priority`); no human review tool yet
 - [x] `harassment` and `sexual` report categories implemented per RA 11313. Evidence: `report.test.ts`
 - [ ] Report categories cover all Safe Spaces Act violation types

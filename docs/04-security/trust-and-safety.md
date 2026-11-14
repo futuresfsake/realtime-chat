@@ -33,7 +33,7 @@ Security protects the **system** from attackers. Trust & Safety protects **users
 | S-12 | **Clear rules page** | Plain language; what's not allowed; how reporting works; references RA 11313 and RA 11930 obligations | M6 |
 | S-13 | **Automated behavioral monitoring** | Track report velocity, session patterns, connection anomalies, and abuse scoring per IP hash; flag patterns for human review | M7 |
 | S-14 | **Human moderator review** | Scheduled review of aggregated report data, abuse trends, and escalated cases; moderators never see message content | M7 |
-| S-15 | **Content filters (pre-encryption)** | Client-side filters for known slurs, spam patterns, and personal info warnings; server enforces content policy acknowledgment | M6 |
+| S-15 | **Content filters (pre-encryption)** | `public/js/contentFilter.js` + `bannedWords.js`. On send: banned content is not sent; personal information (phone, email, social account) and spam ask for a second press of Send. On receive: banned content is hidden behind "Show anyway", because a modified sender could skip its own check. Not built: a server-side content policy acknowledgment (it would prove nothing) | ✅ M6 |
 | S-16 | **Escalation workflow** | Reports tagged `minor` or `threats` are flagged for immediate human moderator review; documented escalation to law enforcement when required by RA 11930 | M7 |
 
 ### Why "distinct reporters"?
