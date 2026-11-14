@@ -1,6 +1,8 @@
 import { buildServer } from "./app.js";
 import { loadConfig } from "./config.js";
 import type { Config } from "./config.js";
+import { DbIpCountryLookup, noCountryLookup } from "./geo/countryLookup.js";
+import type { CountryLookup } from "./geo/countryLookup.js";
 import { createLogger } from "./observability/logger.js";
 
 const SHUTDOWN_GRACE_MS = 10_000;
@@ -17,7 +19,19 @@ try {
 }
 
 const logger = createLogger({ level: config.logLevel });
-const { httpServer, shutdown } = buildServer({ config, logger });
+// The country database is optional. Without it (or if it cannot be read) every
+// country is unknown, "my country only" is unavailable, and everything else works.
+let countries: CountryLookup = noCountryLookup;
+if (config.countryDbPath) {
+  try {
+    countries = await DbIpCountryLookup.open(config.countryDbPath);
+    logger.info("country_db_loaded", {});
+  } catch (err) {
+    logger.error("country_db_failed", { err, data: { hint: "run npm run geo:update, or unset COUNTRY_DB_PATH" } });
+  }
+}
+
+const { httpServer, shutdown } = buildServer({ config, logger, countries });
 
 httpServer.on("error", (err: NodeJS.ErrnoException) => {
   if (err.code === "EADDRINUSE") {
@@ -36,6 +50,7 @@ httpServer.listen(config.port, () => {
       allowedOrigins: config.allowedOrigins,
       previewBanner: config.previewBanner,
       maintenanceMode: config.maintenanceMode,
+      countryLookup: countries !== noCountryLookup,
     },
   });
 });
