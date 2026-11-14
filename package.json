@@ -25,7 +25,9 @@
     "e2e:capture": "node e2e/capture.mjs",
     "geo:update": "node scripts/fetch-geo.mjs",
     "moderation": "tsx scripts/moderation-report.ts",
-    "load:test": "tsx scripts/load-test.ts"
+    "load:test": "tsx scripts/load-test.ts",
+    "build:demo": "tsx scripts/build-demo.ts",
+    "demo": "tsx scripts/build-demo.ts && tsx scripts/serve-demo.ts"
   },
   "repository": {
     "type": "git",

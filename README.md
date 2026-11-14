@@ -8,6 +8,8 @@
 
 _A recording of the real app (not a mock-up): two separate browsers pair, the chat becomes end-to-end encrypted, messages and a reaction go both ways, and the safety code dialog opens. Re-recorded by `npm run e2e:capture`._
 
+**Want to click through it?** `npm run demo` opens a **browser-only demo** at http://localhost:3200: the real interface and real in-browser encryption, with a **simulated partner** (a script in the page, not a person) and no server. It says so at every step; what it does and does not show is in the [demo guide](docs/08-guides/demo.md).
+
 | Gate | Ready (interests, country) | Chat |
 |---|---|---|
 | ![Age and rules gate](docs/assets/gate.png) | ![Idle screen with interest picker](docs/assets/idle.png) | ![Encrypted chat](docs/assets/chat.png) |
@@ -24,7 +26,7 @@ _A recording of the real app (not a mock-up): two separate browsers pair, the ch
 | **Privacy by design** | The server is a blind relay with no database. People are told apart only by a **keyed hash of their IP that changes daily**; the raw address is read in one file and a **CI check fails the build** if it is read anywhere else. Logs are scrubbed and tested for leaks | [security-overview.md](docs/04-security/security-overview.md) |
 | **Abuse handling without reading chats** | Reports (a category, never text), no-rematch, temporary blocks when three different people report one connection, a content filter on both ends, a bot puzzle (proof of work), rate limits everywhere | [trust-and-safety.md](docs/04-security/trust-and-safety.md) |
 | **Matching** | Shared-interest scoring with a timed fallback, and country preference from a local IP database, always satisfying **both** people's wishes | [matchmaking.md](docs/03-design/matchmaking.md) |
-| **Testing** | 726 unit and integration tests (real server, real sockets), 40 browser tests with **two real browsers**, axe checks for WCAG 2.1 AA, a **load test** of 200 and 400 simulated people with real encryption | [scaling.md](docs/06-operations/scaling.md) |
+| **Testing** | 747 unit and integration tests (real server, real sockets), 48 browser tests with **two real browsers** (and the demo), axe checks for WCAG 2.1 AA, a **load test** of 200 and 400 simulated people with real encryption | [scaling.md](docs/06-operations/scaling.md) |
 | **Observability** | A metrics snapshot every minute, alert rules, a moderator summary of the logs that cannot show messages or addresses | [monitoring-observability.md](docs/06-operations/monitoring-observability.md) |
 | **Honest engineering** | A [register of every known limit](docs/00-overview/limits-and-roadmap.md), a [decision log](docs/00-overview/decision-log.md), a [security overview](docs/04-security/security-overview.md) mapping each claim to the test that proves it, and a final [self-audit](docs/10-reviews/2026-11-14-final-audit.md) of the result | `docs/` |
 
@@ -72,8 +74,9 @@ Accept the gate in both tabs and choose **Find a stranger** in each. A chat need
 
 | Command | What it does |
 |---|---|
-| `npm test` | 726 unit and integration tests against a real server |
-| `npm run test:e2e` | 40 browser tests: two real browsers, accessibility, keyboard-only (needs Edge; `E2E_BROWSER=chromium` for Chromium) |
+| `npm test` | 747 unit and integration tests against a real server |
+| `npm run demo` | The browser-only demo with a simulated partner, at http://localhost:3200 ([guide](docs/08-guides/demo.md)) |
+| `npm run test:e2e` | 48 browser tests: two real browsers, the demo, accessibility, keyboard-only (needs Edge; `E2E_BROWSER=chromium` for Chromium) |
 | `npm run load:test` | 200 simulated people chat, end-to-end encrypted ([results](docs/06-operations/scaling.md)) |
 | `npm run moderation -- <logfile>` | A moderator's summary of the logs (no messages, no addresses) |
 | `npm run e2e:capture` | Re-records the screenshots and demo GIF above |
@@ -85,6 +88,7 @@ Accept the gate in both tabs and choose **Find a stranger** in each. A chat need
 src/            server: gateway (events), sessions, matchmaking, safety (reports, bans),
                 security (tokens, hashing, puzzle), observability (logs, metrics, alerts), geo
 public/         the page: index.html, styles.css, client.js, js/ (crypto, filter, puzzle), fonts/
+demo/           the simulated server and partner for the browser-only demo (built by scripts/build-demo.ts)
 tests/          unit/ and integration/ (a real server on a random port)
 e2e/            Playwright browser tests, accessibility tests, screenshot and GIF capture
 scripts/        load test, moderator summary, country database download
@@ -96,7 +100,7 @@ docs/           design, security, operations, compliance, decisions, audit (docs
 
 | | |
 |---|---|
-| Never deployed | No live link. If one is ever added it runs on free hosting and has no moderation |
+| The real app was never deployed | No live link to the chat. A [browser-only demo](docs/08-guides/demo.md) with a simulated partner can be published to GitHub Pages (a one-time owner setting); until then it runs locally with `npm run demo` |
 | Not reviewed by anyone outside | No lawyer, no cryptographer, no penetration test (the [audit](docs/10-reviews/2026-11-14-final-audit.md) is the author's own) |
 | Alerts are log lines | Nobody is paged until the service is hosted |
 | Age is self-declared | A tick box, by design; real verification would contradict the privacy promise |

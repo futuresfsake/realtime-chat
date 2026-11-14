@@ -17,5 +17,6 @@ An ADR records **one important decision**: context, options, choice, consequence
 | [0011](0011-websocket-only-transport.md) | WebSocket-only transport so the Origin check can be strict | Accepted |
 | [0012](0012-portfolio-scope-not-launched.md) | Scope is a portfolio project: build to M7, do not launch | Accepted |
 | [0013](0013-country-from-local-ip-database.md) | Country from a local IP database, optional and fail-soft | Accepted |
+| [0014](0014-browser-only-demo.md) | A browser-only demo with a simulated partner | Accepted |
 
 New ADR? Copy [`../../07-process/templates/adr-template.md`](../../07-process/templates/adr-template.md).
