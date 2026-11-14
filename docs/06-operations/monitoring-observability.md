@@ -70,7 +70,7 @@ Every WebSocket connection gets a `correlationId` (short UUID prefix). All log l
 | **Relay latency** | Time the server spends relaying one envelope | `timings.relay_ms` (the server's own handling time, not network time) |
 | **Error rate** | % of events that return non-ok acks | `events_rejected` / `events_total`, and `rejected.<code>`. It includes expected refusals (rate limits, validation), so a spike means "look", not "broken" |
 | **Session duration** | How long sessions last | `timings.session_duration_ms` |
-| **Memory usage** | RSS and heap used | `gauges.rssMb`, `gauges.heapUsedMb`; also `gauges.eventLoopP99Ms` for how busy the event loop is |
+| **Memory usage** | RSS and heap used | `gauges.rssMb`, `gauges.heapUsedMb`; also `gauges.eventLoopBusyPct`, the share of time the event loop was busy since the last snapshot |
 | **Connection count** | Active WebSocket connections | `io.engine.clientsCount` |
 
 ## 4. Service Level Objectives (SLOs)
@@ -104,7 +104,7 @@ Every value is a number and every name comes from a small fixed set (an event, a
                   "match_wait_ms": { "n": 6, "p50": 1800, "p95": 9400, "max": 9900 },
                   "session_duration_ms": { "n": 6, "p50": 150000, "p95": 600000, "max": 780000 } },
     "gauges":   { "connections": 45, "activeSessions": 20, "waiting": 3, "bansActive": 2, "noRematchPairs": 11,
-                  "rssMb": 90, "heapUsedMb": 40, "eventLoopP99Ms": 3.1, "uptimeSec": 86400 }
+                  "rssMb": 90, "heapUsedMb": 40, "eventLoopBusyPct": 3.1, "uptimeSec": 86400 }
   }
 }
 ```

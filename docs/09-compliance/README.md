@@ -24,6 +24,7 @@ This folder is the **single source of truth** for what Philippine law and regula
 | [law-enforcement-requests.md](law-enforcement-requests.md) | What do we do with a preservation request, warrant or subpoena, and what can we actually produce? |
 | [child-protection-and-online-safety.md](child-protection-and-online-safety.md) | What are our duties on child safety, gender-based online harassment and trafficking? |
 | [ict-deployment-standards.md](ict-deployment-standards.md) | What must be true of hosting, vendors, access, security baselines and the operator's legal identity before we deploy? |
+| [moderator-guide.md](moderator-guide.md) | What does a moderator do day to day, what can they never see, and how does a priority report reach the right person? (draft) |
 | [roles-and-access.md](roles-and-access.md) | Who are the accountable people (DPO, child-safety officer, operator, moderator), and what can each do? |
 | [compliance-gates.md](compliance-gates.md) | Which compliance gates block each milestone, and what is the launch checklist? |
 | [public-policies.md](public-policies.md) | Which public documents (privacy notice, terms, rules) must exist, and what is their status? |

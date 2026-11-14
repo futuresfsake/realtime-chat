@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage } from "node:http";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { monitorEventLoopDelay } from "node:perf_hooks";
+import { performance } from "node:perf_hooks";
 import { Server } from "socket.io";
 import type { Config } from "./config.js";
 import { IpSocketCap, checkOrigin } from "./gateway/connectionGuards.js";
@@ -360,8 +360,9 @@ export function buildServer(deps: ServerDeps) {
   // Once a minute: log what happened since the last time (US-41) and check
   // the alert rules against it (US-30, US-42). Numbers only.
   const alerts = new Alerts(logger, { memoryCeilingMb: config.memoryCeilingMb, intervalMs: config.metricsIntervalMs });
-  const loopDelay = monitorEventLoopDelay({ resolution: 20 });
-  loopDelay.enable();
+  // How busy the event loop was since the last snapshot (0 to 100). A delay histogram was tried and
+  // dropped: on Windows it reads a 30 ms floor even when idle.
+  let lastLoad = performance.eventLoopUtilization();
   const metricsTimer = setInterval(() => {
     const memory = process.memoryUsage();
     const snapshot = metrics.snapshot({
@@ -372,10 +373,10 @@ export function buildServer(deps: ServerDeps) {
       noRematchPairs: noRematch.size,
       rssMb: Math.round(memory.rss / (1024 * 1024)),
       heapUsedMb: Math.round(memory.heapUsed / (1024 * 1024)),
-      eventLoopP99Ms: Math.round((loopDelay.percentile(99) / 1e6) * 10) / 10,
+      eventLoopBusyPct: Math.round(performance.eventLoopUtilization(lastLoad).utilization * 1000) / 10,
       uptimeSec: Math.round(process.uptime()),
     });
-    loopDelay.reset();
+    lastLoad = performance.eventLoopUtilization();
     logger.info("metrics_snapshot", { data: snapshot as unknown as Record<string, unknown> });
     alerts.evaluate(snapshot);
   }, config.metricsIntervalMs);
@@ -388,7 +389,6 @@ export function buildServer(deps: ServerDeps) {
     clearInterval(onlineTimer);
     clearInterval(matchTimer);
     clearInterval(metricsTimer);
-    loopDelay.disable();
     grace.clear();
     keyDeadlines.clear();
     return new Promise((resolve) => {

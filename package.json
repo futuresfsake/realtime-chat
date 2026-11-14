@@ -12,7 +12,9 @@
     "build": "tsc -p tsconfig.build.json",
     "test:e2e": "playwright test",
     "e2e:capture": "node e2e/capture.mjs",
-    "geo:update": "node scripts/fetch-geo.mjs"
+    "geo:update": "node scripts/fetch-geo.mjs",
+    "moderation": "tsx scripts/moderation-report.ts",
+    "load:test": "tsx scripts/load-test.ts"
   },
   "repository": {
     "type": "git",
@@ -46,6 +48,7 @@
     "socket.io-client": "^4.8.4",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1"
   }
 }

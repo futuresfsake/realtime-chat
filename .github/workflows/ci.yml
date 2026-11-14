@@ -21,6 +21,9 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      # A short run of the load test: 20 simulated people, real handshake and real encryption.
+      # It keeps the script working; the full 200 person run is `npm run load:test`.
+      - run: npm run load:test -- --users 20 --seconds 6 --every 1000
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
       # Privacy gate (RA 10173 data minimisation): a raw IP address may only be

@@ -159,7 +159,7 @@ As the **operator**, I want automated monitoring to detect abuse patterns withou
 - Pattern detection flags potential coordinated harassment or repeat offenders for human review.
 - **Features:** F-34
 
-### US-31 Human moderators can review abuse trends 🔜
+### US-31 Human moderators can review abuse trends 🟡 (a command-line summary of logs and a moderator guide; no people and no web tool)
 As the **operator**, I want human moderators to review aggregated report data, so that we can adjust safety controls and handle escalations that automated systems can't resolve.
 - Moderators see aggregated report patterns, abuse scores, and escalated cases.
 - Moderators never see message content, raw IP addresses, or full IP hashes.

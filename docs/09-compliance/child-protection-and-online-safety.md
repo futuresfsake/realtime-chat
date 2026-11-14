@@ -40,8 +40,8 @@ RA 11930 states that these duties apply notwithstanding the Data Privacy Act. Pr
 ## 3. Procedure: a `minor` report or any sign of child abuse
 | Step | Action | Who | When |
 |---|---|---|---|
-| 1 | The report enters the priority queue. The reported hash is blocked from matching at once, pending review | Automatic | Immediately |
-| 2 | Set a legal hold on the report case and related records | Automatic, or moderator | Immediately |
+| 1 | The report enters the priority queue. The reported hash is blocked from matching at once, pending review | Automatic | Immediately. **Built differently:** the report writes a `report_priority` log line and the summary tool leads with it, but it does **not** block at once (three different reporters block, as for any category). A one-report block is abusable; owner and counsel decide ([limits L-36](../00-overview/limits-and-roadmap.md)) |
+| 2 | Set a legal hold on the report case and related records | Automatic, or moderator | Immediately. **Not built:** there is no case file or ledger (D-10); the log line is the only record |
 | 3 | Review what we have: category, any second category (for example `sexual`), time, earlier reports on the same hash | Child-safety officer | Within 24 hours |
 | 4 | Decide: does the information indicate sexual abuse or exploitation of a child? If yes or unsure, go to step 5. If clearly not (for example "they said they were 17" with nothing else), keep the block, record the reason | Child-safety officer | Within 24 hours |
 | 5 | Report to the **PNP Women and Children Protection Center** or the **NBI**. Give the report record, times, and the plain statement of what we do not hold | Child-safety officer | **Within 48 hours of the report** ◻ |

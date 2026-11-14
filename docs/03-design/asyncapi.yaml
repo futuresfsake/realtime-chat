@@ -1,0 +1,287 @@
+asyncapi: 2.6.0
+info:
+  title: realtime-chat WebSocket protocol
+  version: rc/v1
+  description: |
+    The events between the browser and the server (Socket.IO over a WebSocket,
+    no long-polling). Kept in step with `src/types/events.ts` and
+    `src/validation/schemas.ts` by a test (`tests/unit/checks/asyncapi.test.ts`).
+
+    **Before the socket opens** (plain HTTP, same origin):
+    1. `GET /pow-challenge` returns `{ bits: 0 }` or `{ challenge, bits }`. The page finds a number `n` so that
+       `SHA-256(challenge + ":" + n)` starts with `bits` zero bits. A challenge is single use, bound to the
+       requester's address, and expires in a minute. Limited to a burst of 5, then one every 10 seconds.
+    2. `GET /connect-token?c=<challenge>&n=<n>` returns `{ token, ... }` for a correct answer, or 403
+       `POW_REQUIRED`. The token is single use, expires in 30 seconds and is bound to the address.
+    3. The socket connects with the `auth` object below. A refusal arrives as a `connect_error` whose message is
+       one of the handshake error codes.
+
+    **Every client-to-server event** is validated by a strict schema (unknown fields are refused) and may be sent
+    with an acknowledgement callback that receives `{ ok: true }` or `{ ok: false, error: { code, retryAfterMs? } }`.
+    The server never sends a stack trace or internal message, only a code.
+
+    **Everything people say travels as `e2e:envelope`.** The server cannot read it. There is no plaintext message event.
+  license:
+    name: ISC
+defaultContentType: application/json
+servers:
+  local:
+    url: localhost:3000
+    protocol: ws
+    description: Local development. Production uses `wss://` on the host's address and needs an exact `https://` origin in `ALLOWED_ORIGINS`.
+channels:
+  session:start:
+    description: Start searching for a stranger. Allowed when idle. Limited to 10 per minute per address, shared with `session:next`. Refused with `BANNED` if the connection is blocked, and `COUNTRY_UNKNOWN` if "local" is chosen but the country is not known.
+    publish:
+      operationId: sessionStart
+      message:
+        $ref: "#/components/messages/SearchPrefs"
+  session:next:
+    description: End this chat (or search) and look for someone new. Same payload and limit as `session:start`. The two people are not paired again for 24 hours.
+    publish:
+      operationId: sessionNext
+      message:
+        $ref: "#/components/messages/SearchPrefs"
+  session:leave:
+    description: End the chat or the search and become idle. Not rate limited. The two people are not paired again for 24 hours.
+    publish:
+      operationId: sessionLeave
+      message:
+        payload:
+          type: object
+          additionalProperties: false
+  session:report:
+    description: Report the person in this chat. Only a category is sent. Ends the chat, keeps the two apart, and counts toward a block. Limited to 3 per hour per address. `NOT_IN_SESSION` outside a chat.
+    publish:
+      operationId: sessionReport
+      message:
+        $ref: "#/components/messages/Report"
+  e2e:key:
+    description: Send your public key for this chat, once. The server relays it to your partner unchanged. A second key from the same side is refused with `INVALID_STATE`.
+    publish:
+      operationId: sendKey
+      message:
+        $ref: "#/components/messages/Key"
+    subscribe:
+      operationId: receiveKey
+      message:
+        $ref: "#/components/messages/Key"
+  e2e:envelope:
+    description: A message or a reaction, encrypted in the browser. Relayed to the partner and nowhere else, never echoed to the sender. Refused with `INVALID_STATE` until both public keys have crossed. Limited to a burst of 5, then one every 2 seconds.
+    publish:
+      operationId: sendEnvelope
+      message:
+        $ref: "#/components/messages/Envelope"
+    subscribe:
+      operationId: receiveEnvelope
+      message:
+        $ref: "#/components/messages/Envelope"
+  typing:
+    description: I started or stopped typing. Not encrypted, carries no text. Ignored outside a chat. Limited to a burst of 10, then 2 per second.
+    publish:
+      operationId: sendTyping
+      message:
+        $ref: "#/components/messages/Typing"
+  session:matched:
+    description: You have been paired. `role` fixes the order of the two public keys in the key derivation.
+    subscribe:
+      operationId: matched
+      message:
+        $ref: "#/components/messages/Matched"
+  search:status:
+    description: While searching with interests, the wait for a shared interest ran out and anyone compatible will do.
+    subscribe:
+      operationId: searchStatus
+      message:
+        payload:
+          type: object
+          required: [state]
+          properties:
+            state:
+              type: string
+              enum: [interests, open]
+  session:ended:
+    description: The chat is over, or the search was cancelled.
+    subscribe:
+      operationId: ended
+      message:
+        $ref: "#/components/messages/Ended"
+  partner:status:
+    description: What your partner's connection is doing.
+    subscribe:
+      operationId: partnerStatus
+      message:
+        payload:
+          type: object
+          required: [state]
+          properties:
+            state:
+              type: string
+              enum: [connected, reconnecting, typing, idle]
+  stats:online:
+    description: How many people are online, about every 5 seconds. A number only. It also keeps a connection recoverable after a short network drop.
+    subscribe:
+      operationId: online
+      message:
+        payload:
+          type: object
+          required: [count]
+          properties:
+            count:
+              type: integer
+              minimum: 0
+components:
+  messages:
+    SearchPrefs:
+      payload:
+        $ref: "#/components/schemas/SearchPrefs"
+    Report:
+      payload:
+        $ref: "#/components/schemas/Report"
+    Key:
+      payload:
+        $ref: "#/components/schemas/Key"
+    Envelope:
+      payload:
+        $ref: "#/components/schemas/Envelope"
+    Typing:
+      payload:
+        type: object
+        additionalProperties: false
+        required: [isTyping]
+        properties:
+          isTyping:
+            type: boolean
+    Matched:
+      payload:
+        type: object
+        required: [sessionId, myName, partnerName, role, sharedInterests]
+        properties:
+          sessionId:
+            type: string
+            format: uuid
+          myName:
+            type: string
+            description: A random name such as quiet-otter-42.
+          partnerName:
+            type: string
+          role:
+            type: string
+            enum: [initiator, responder]
+          sharedInterests:
+            type: array
+            items:
+              type: string
+            description: Interests both people picked. Empty for a random match.
+    Ended:
+      payload:
+        type: object
+        required: [reason]
+        properties:
+          reason:
+            type: string
+            enum: [left, partner_left, skipped, timeout, partner_timeout, crypto_timeout, reported, blocked]
+            description: "`reported` is only sent to the person who reported. The reported person receives `partner_left`."
+  schemas:
+    HandshakeAuth:
+      description: The `auth` object when the socket connects.
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, token, consent]
+      properties:
+        protocolVersion:
+          type: string
+          const: rc/v1
+        token:
+          type: string
+          maxLength: 512
+        consent:
+          type: object
+          additionalProperties: false
+          required: [adult, rulesVersion]
+          properties:
+            adult:
+              type: boolean
+              const: true
+            rulesVersion:
+              type: string
+              description: The version of the rules shown at the gate. An old version is refused with `CONSENT_REQUIRED`.
+        pid:
+          type: string
+          maxLength: 64
+          description: Added by the Socket.IO client when it reconnects, to restore the same socket after a short drop.
+        offset:
+          type: string
+          maxLength: 64
+    SearchPrefs:
+      type: object
+      additionalProperties: false
+      properties:
+        interests:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          default: []
+          items:
+            type: string
+            enum:
+              [anime, art, books, cars, coding, cooking, dance, design, fashion, fitness, food, gaming, history,
+               languages, memes, movies, music, nature, pets, philosophy, photography, science, space, sports, study,
+               technology, travel, tv-series, writing]
+        scope:
+          type: string
+          enum: [local, world]
+          default: world
+    Report:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [harassment, sexual, spam, hate, minor, threats, other]
+    Key:
+      type: object
+      additionalProperties: false
+      required: [publicKey]
+      properties:
+        publicKey:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{87}$"
+          description: An ECDH P-256 public key, 65 bytes as base64url.
+    Envelope:
+      type: object
+      additionalProperties: false
+      required: [seq, ct]
+      properties:
+        seq:
+          type: integer
+          minimum: 1
+          maximum: 4294967295
+          description: The sender's own count, 1, 2, 3 and so on. Used as the AES-GCM IV and checked by the receiver.
+        ct:
+          type: string
+          minLength: 107
+          maxLength: 3000
+          pattern: "^[A-Za-z0-9_-]+$"
+          description: AES-GCM-256 ciphertext, base64url. Inside is a padded JSON object, `{t:"msg",text}` or `{t:"react",ref,emoji}`, readable only by the two browsers.
+    Error:
+      description: What an acknowledgement carries when an event is refused.
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          const: false
+        error:
+          type: object
+          required: [code]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION, RATE_LIMITED, INTERNAL, NOT_IN_SESSION, INVALID_STATE, BANNED, COUNTRY_UNKNOWN]
+            retryAfterMs:
+              type: integer
+    HandshakeError:
+      description: The message of a `connect_error`.
+      type: string
+      enum: [MAINTENANCE, PROTOCOL_MISMATCH, CONSENT_REQUIRED, AUTH_REQUIRED, VALIDATION, TOO_MANY_CONNECTIONS, RETRY]

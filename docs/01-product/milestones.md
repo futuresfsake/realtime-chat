@@ -26,7 +26,7 @@ Estimates assume ~5 focused hours/day and include learning, tests and docs. **E2
 | M4 | End-to-end encryption | Server can't read anything | US-12, US-13, US-37 | 4–5 d | 🟡 code complete, deploy + demo pending |
 | M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | 🟡 code complete |
 | M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | 🟡 US-17, 18, 19, 20, 28, 29, 39 done; US-38 drafts written, counsel review pending |
-| M7 | Quality, observability, monitoring & moderation | Coverage, logs, SLOs, dashboards, a11y, moderator tools | US-25, US-30–31, US-40–44 | 3–4 d | 🔜 |
+| M7 | Quality, observability, monitoring & moderation | Coverage, logs, SLOs, dashboards, a11y, moderator tools | US-25, US-30–31, US-40–44 | 3–4 d | 🟡 |
 | M8 | Public launch | Legal sign-off, compliance 100%, go live | US-45–46 | 2–3 d | 🔜 |
 | **M9** | **Production hardening** | Pen test, DR drill, performance baseline, chaos testing | US-47–49 | 3–4 d | 🔜 |
 | **M10** | **Post-launch operations** | Incident response drill, on-call, operational maturity, retrospective | US-50 | 2–3 d | 🔜 |
@@ -253,7 +253,7 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 **Demo:** three tabs report one → it can't match for 24 h (shortened in a test config); send a banned word → filter activates; bot script fails proof-of-work challenge under load.
 **Risks:** Lawyer review timeline may delay M8. Content filter bypass is an accepted architectural trade-off (E2EE).
 
-## M7 Quality, observability, monitoring & moderation 🟡 (metrics, alert rules, accessibility and browser tests in CI done; moderator tool, uptime monitor and load test open)
+## M7 Quality, observability, monitoring & moderation 🟡 (everything that can be built before hosting is done; the uptime monitor, log alert delivery and a tabletop exercise need hosting or people)
 
 | Story | Features |
 |---|---|
@@ -271,12 +271,12 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 - [x] JSON logs with no content and no raw IPs; counters for sessions, matches, rejections, reports. Evidence: `metrics.test.ts`
 - [ ] Automated behavioral monitoring operational: report velocity, session churn, connection pattern tracking
 - [ ] Safety metrics logged every 60 seconds; abuse scoring per IP hash functional
-- [ ] Human moderator review process documented with access controls (no message content, no raw IPs)
+- [x] Human moderator review process documented with access controls (no message content, no raw IPs): [moderator-guide.md](../09-compliance/moderator-guide.md)
 - [ ] Escalation workflow: `minor` and `threats` reports trigger priority human review
-- [ ] Moderator training documentation covering RA 11313, RA 11930, and RA 10173
+- [x] Moderator training documentation covering RA 11313, RA 11930, and RA 10173 (draft; legal points await counsel)
 - [ ] Uptime monitor + post-deploy smoke test in CI/CD
 - [ ] Dependabot, CodeQL, ESLint/Prettier, link checker in CI ([automation.md](../07-process/automation.md))
-- [ ] Small load test (e.g. 200 simulated users) documented in [scaling.md](../06-operations/scaling.md)
+- [x] Small load test (e.g. 200 simulated users) documented in [scaling.md](../06-operations/scaling.md): 200 and 400 people, all targets met, with the limits of the test stated
 - [ ] Incident response plan documented
 - [x] **IT-REVIEW:** SLIs defined and collection implemented (availability needs an outside checker). See monitoring-observability.md section 3
 - [ ] **IT-REVIEW:** SLOs documented (99.5% uptime, <50ms p95 relay, <1% error rate)
@@ -289,11 +289,11 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 - [ ] **IT-REVIEW:** Breach notification procedure documented (NPC 72-hour requirement)
 - [ ] **IT-REVIEW:** Child safety escalation procedure documented (RA 11930)
 - [ ] **IT-REVIEW:** Disaster recovery plan documented
-- [ ] **IT-REVIEW:** State persistence on graceful shutdown (ban list + report counts)
-- [ ] **IT-REVIEW:** Moderator authentication via API key
-- [ ] **IT-REVIEW:** AsyncAPI specification for WebSocket protocol
-- [ ] **IT-REVIEW:** Bundle size check in CI (page < 100KB)
-- [ ] **IT-REVIEW:** License compliance check in CI (no GPL in production deps)
+- [ ] **IT-REVIEW:** State persistence on graceful shutdown (ban list + report counts). **Decided against for now:** it would write pseudonymous safety data to disk, which the privacy design avoids (ADR-0005). Blocks and counts are lost on a restart (limits L-14). Revisit with the safety ledger (D-10)
+- [x] **IT-REVIEW:** Moderator authentication: not applicable today. There is no moderator web interface, only a command-line summary of logs that uses the host's own login. An API key is needed only if a web tool is built
+- [x] **IT-REVIEW:** AsyncAPI specification for WebSocket protocol: [asyncapi.yaml](../03-design/asyncapi.yaml), kept in step with the code by a test
+- [x] **IT-REVIEW:** Bundle size check in CI (page < 100KB): 84 KB on the wire today, checked by `bundle.test.ts`
+- [x] **IT-REVIEW:** License compliance check in CI (no GPL in production deps): `licenses.test.ts`; all 94 production packages are MIT, ISC or BSD
 
 ## M8 Public launch 🔜
 
