@@ -14,7 +14,7 @@ const { PNG } = pngjs;
 
 const OUT = path.resolve("docs/assets");
 mkdirSync(OUT, { recursive: true });
-const VIEW = { width: 900, height: 640 };
+const VIEW = { width: 900, height: 720 };
 
 const port = await new Promise((resolve) => {
   const probe = createServer();
@@ -72,6 +72,8 @@ try {
   await consent(a.page);
   await consent(b.page);
   await a.page.locator("#btn-start").waitFor();
+  for (const name of ["gaming", "music", "travel"]) await a.page.locator("#chips").getByRole("button", { name, exact: true }).click();
+  await b.page.locator("#chips").getByRole("button", { name: "gaming", exact: true }).click();
   await still(a.page, "idle", { frame: true });
 
   await a.page.getByRole("button", { name: "Find a stranger" }).click();
