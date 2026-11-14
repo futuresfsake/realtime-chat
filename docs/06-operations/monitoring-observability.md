@@ -6,14 +6,15 @@
 
 ---
 
-## 1. Current State
+## 1. Current State (2026-11-14)
 
-- `console.log` for connection/disconnection events — no structure, no levels
-- `/health` endpoint returns static `{"status":"ok"}`
-- No metrics collection
-- No log aggregation
-- No alerting
-- No dashboards
+**Built and tested** (`src/observability/`, `tests/unit/observability/`, `tests/integration/metrics.test.ts`):
+- Structured JSON logs with levels, correlation ids and a scrubber for forbidden fields
+- A **metrics snapshot logged every 60 seconds** (`metrics_snapshot`): counters, timings and gauges, numbers only
+- **Alert rules** evaluated on every snapshot, written as `alert` / `alert_cleared` log lines
+- A deep `/health` (memory, connections, Socket.IO) and a coarse public answer
+
+**Not built** (see [limits-and-roadmap.md](../00-overview/limits-and-roadmap.md)): an uptime monitor, a log platform or dashboard, e-mail delivery of alerts (the alerts are log lines; something has to watch the logs), per-address abuse scoring, and a moderator tool. Nothing here has run in production, because the service has never been deployed.
 
 ## 2. Structured Logging Standard
 
@@ -59,15 +60,17 @@ Every WebSocket connection gets a `correlationId` (short UUID prefix). All log l
 
 ## 3. Service Level Indicators (SLIs)
 
+> **Status:** all except availability are **measured by the snapshot above**. Availability needs an outside checker that only makes sense once the service is hosted. The table says which snapshot field carries each indicator.
+
 | SLI | What It Measures | Collection Method |
 |---|---|---|
 | **Availability** | % of time `/health` returns 200 | UptimeRobot external checks |
-| **Connection success rate** | % of WS handshakes that complete | Counter: `ws_connect_total` / `ws_connect_attempt_total` |
-| **Match latency** | Time from `session:start` to `session:matched` | Timer in matchmaker |
-| **Relay latency** | Time from `e2e:envelope` received to forwarded | Timer in sessionManager |
-| **Error rate** | % of events that return non-ok acks | Counter per error code |
-| **Session duration** | How long sessions last | Timer: matched → ended |
-| **Memory usage** | RSS and heap used | `process.memoryUsage()` sampled every 60s |
+| **Connection success rate** | % of WS handshakes that complete | `ws_connected` against `ws_connected` + all `ws_refused.*` |
+| **Match latency** | Time the longer-waiting person waited | `timings.match_wait_ms`. In a quiet service this is dominated by waiting for another person, not by the server |
+| **Relay latency** | Time the server spends relaying one envelope | `timings.relay_ms` (the server's own handling time, not network time) |
+| **Error rate** | % of events that return non-ok acks | `events_rejected` / `events_total`, and `rejected.<code>`. It includes expected refusals (rate limits, validation), so a spike means "look", not "broken" |
+| **Session duration** | How long sessions last | `timings.session_duration_ms` |
+| **Memory usage** | RSS and heap used | `gauges.rssMb`, `gauges.heapUsedMb`; also `gauges.eventLoopP99Ms` for how busy the event loop is |
 | **Connection count** | Active WebSocket connections | `io.engine.clientsCount` |
 
 ## 4. Service Level Objectives (SLOs)
@@ -83,24 +86,32 @@ Every WebSocket connection gets a `correlationId` (short UUID prefix). All log l
 
 ## 5. Metrics Collection
 
-### 5.1 In-Process Counters (logged every 60s)
+### 5.1 In-process counters (logged every 60s) (IMPLEMENTED)
+
+Every value is a number and every name comes from a small fixed set (an event, an error code, a report category), never from anything a client typed. At most 200 names are accepted, as a safety net. The snapshot holds what happened **since the previous one** (`counters`), the running `totals`, timings in milliseconds (`n`, `p50`, `p95`, `max`), and `gauges` for right now:
 
 ```json
 {
-  "ts": "...",
-  "level": "info",
-  "event": "metrics:snapshot",
+  "ts": "...", "level": "info", "event": "metrics_snapshot",
   "data": {
-    "connections": { "current": 45, "peak": 120, "total": 5400 },
-    "sessions": { "active": 20, "total": 2700, "avgDurationMs": 180000 },
-    "matchmaking": { "poolSize": 3, "matchesTotal": 2700, "avgMatchTimeMs": 2500, "fallbacks": 400 },
-    "safety": { "reportsTotal": 15, "bansActive": 2, "bansTotal": 5, "escalations": 1 },
-    "rateLimit": { "limited": 50, "blocked": 10 },
-    "memory": { "rss": 180000000, "heapUsed": 120000000, "heapTotal": 150000000 },
-    "uptime": 86400
+    "intervalSec": 60,
+    "counters": { "ws_connected": 14, "sessions_started": 6, "matches.interest": 4, "matches.random": 2,
+                  "envelopes_relayed": 212, "keys_relayed": 12, "events_total": 480, "events_rejected": 7,
+                  "rejected.RATE_LIMITED": 5, "reports.harassment": 1, "blocks": 0, "pow_issued": 14,
+                  "sessions_ended.left": 3, "sessions_ended.partner_left": 3 },
+    "totals":   { "ws_connected": 5400 },
+    "timings":  { "relay_ms": { "n": 212, "p50": 0.02, "p95": 0.05, "max": 0.4 },
+                  "match_wait_ms": { "n": 6, "p50": 1800, "p95": 9400, "max": 9900 },
+                  "session_duration_ms": { "n": 6, "p50": 150000, "p95": 600000, "max": 780000 } },
+    "gauges":   { "connections": 45, "activeSessions": 20, "waiting": 3, "bansActive": 2, "noRematchPairs": 11,
+                  "rssMb": 90, "heapUsedMb": 40, "eventLoopP99Ms": 3.1, "uptimeSec": 86400 }
   }
 }
 ```
+
+Counter names in use: `ws_connected`, `ws_refused.<reason>`, `events_total`, `events_rejected`, `rejected.<code>`, `sessions_started`, `sessions_ended.<reason>`, `matches.interest`, `matches.random`, `search_widened`, `keys_relayed`, `envelopes_relayed`, `reports.<category>`, `reports_priority`, `blocks`, `pow_issued`, `pow_refused.<reason>`, `rate_limited.<bucket>`.
+
+What is deliberately **not** in a snapshot: addresses, hashes, countries, interests, session ids, text, ciphertext. A test feeds all of these through a real chat and searches the snapshot lines for them.
 
 ### 5.2 Event-Level Metrics (per occurrence)
 
@@ -118,25 +129,22 @@ Every WebSocket connection gets a `correlationId` (short UUID prefix). All log l
 
 ## 6. Alerting
 
-### 6.1 Alert Channels
+### 6.1 How alerts work today (IMPLEMENTED)
+On every snapshot the server checks the rules below (`src/observability/alerts.ts`). When a rule **becomes true** it writes **one** warning-level log line, `alert`, with `{ rule, severity, value, limit }`, and one `alert_cleared` line when it stops. It never repeats while the condition lasts. An alert carries only the rule name, a severity and two numbers.
 
-| Channel | For | Tool |
-|---|---|---|
-| Email | All alerts | UptimeRobot (availability) + custom (metrics) |
-| Webhook (future) | Critical alerts | Render notification or custom |
+To be told, something must watch the logs: a log platform's alert rule on `event = "alert"`, or an operator running `jq`. That wiring does not exist yet (it needs hosting), so **today an alert is a line in a log, not a message to a person.** The one exception is the priority report line `report_priority` (a `minor` or `threats` report), written at the moment of the report.
 
-### 6.2 Alert Rules
-
-| Alert | Condition | Severity | Action |
-|---|---|---|---|
-| Service down | `/health` fails 2 consecutive checks | CRITICAL | Check Render dashboard, review logs |
-| High memory | RSS > 400MB for 5 minutes | WARNING | Check for leaks, consider restart |
-| Connection spike | > 200 connections in 1 minute | WARNING | Check for bot attack, review rate limits |
-| Report spike | > 20 reports in 10 minutes | WARNING | Notify moderator, review patterns |
-| Error rate spike | > 5% error rate for 5 minutes | WARNING | Check logs for new error pattern |
-| Ban surge | > 10 bans in 1 hour | INFO | Review abuse patterns |
-| `minor` report | Any `minor` category report | CRITICAL | Immediate moderator notification |
-| Crypto failures | > 3 crypto errors across sessions in 5 min | WARNING | Check for protocol mismatch |
+### 6.2 Alert rules
+| Alert (`rule`) | Condition | Severity | Status | Action |
+|---|---|---|---|---|
+| `high_memory` | RSS above the ceiling (400 MB) in 5 snapshots in a row | warning | ✅ | Check for leaks, consider a restart |
+| `connection_spike` | More than 200 new connections in one snapshot | warning | ✅ | Check for a bot attack, review limits and the puzzle difficulty |
+| `report_spike` | More than 20 reports in 10 minutes, all categories | warning | ✅ | Review patterns; notify the moderator (when there is one) |
+| `error_rate` | More than 5% of events rejected over 5 minutes, with at least 20 events | warning | ✅ | Look for a new error pattern |
+| `crypto_failures` | More than 3 chats that could not be secured in 5 minutes | warning | ✅ | Check for a protocol or browser mismatch |
+| `ban_surge` | More than 10 blocks in an hour | info | ✅ | Review abuse patterns |
+| `report_priority` (an event, not a rule) | Any `minor` or `threats` report | critical | ✅ as a log line, not delivered to a person | Immediate human review (no moderator tool yet) |
+| Service down | `/health` fails twice | critical | 🔜 needs an outside uptime monitor and hosting | Check the host's dashboard |
 
 ## 7. Log Aggregation Strategy
 

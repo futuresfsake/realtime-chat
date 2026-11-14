@@ -9,6 +9,7 @@ import type { ReportTracker } from "../safety/reports.js";
 import { UNKNOWN_COUNTRY } from "../matchmaking/interests.js";
 import type { SearchPrefs } from "../matchmaking/interests.js";
 import type { Logger } from "../observability/logger.js";
+import type { Metrics } from "../observability/metrics.js";
 import { ipHashPrefix } from "../security/ipHash.js";
 import { KeyedLimiter, TokenBucket } from "../security/tokenBucket.js";
 import type { GraceTimers } from "../sessions/reconnectGrace.js";
@@ -48,6 +49,7 @@ export interface HandlerDeps {
   searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
   grace: GraceTimers; // countdowns for chats whose socket dropped
   keyDeadlines: GraceTimers; // countdowns for chats still exchanging keys, by session id
+  metrics: Metrics; // counters and timings, logged as a snapshot every minute
   isShuttingDown: () => boolean;
   onDisconnect: (socket: ChatSocket) => void; // e.g. release the per-IP socket slot
 }
@@ -67,7 +69,7 @@ const RECOVERABLE_REASONS: ReadonlySet<string> = new Set([
 // Wires every per-connection event. Session rules live in SessionManager; this
 // file only translates between sockets and those rules.
 export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
-  const { io, config, logger, clock, sessions, matchmaker, noRematch, bans, reports, reportLimits, searchLimits, grace, keyDeadlines } =
+  const { io, config, logger, clock, sessions, matchmaker, noRematch, bans, reports, reportLimits, searchLimits, grace, keyDeadlines, metrics } =
     deps;
   const { correlationId, ipHash } = socket.data;
   const socketId = socket.id;
@@ -86,6 +88,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     correlationId,
     data: { ipHashPrefix: ipHashPrefix(ipHash), connectionCount: io.engine.clientsCount, resumed },
   });
+  metrics.count("ws_connected");
   // Show the count right away instead of waiting for the next broadcast.
   socket.emit("stats:online", { count: io.engine.clientsCount });
 
@@ -102,7 +105,10 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   };
 
   const hooks = (event: string) => ({
+    onEvent: () => metrics.count("events_total"),
     onRejected: (code: ErrorCode, err?: unknown) => {
+      metrics.count("events_rejected");
+      metrics.count(`rejected.${code}`);
       if (code === "INTERNAL") logger.error("event_failed", { correlationId, err, data: { event } });
       else logger.warn("event_rejected", { correlationId, data: { event, code } });
     },
@@ -126,6 +132,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   function blockConnection(targetHash: string): void {
     bans.ban(targetHash);
     reports.clear(targetHash);
+    metrics.count("blocks");
     logger.warn("connection_blocked", { data: { ipHashPrefix: ipHashPrefix(targetHash) } });
     for (const [id, other] of io.sockets.sockets) {
       if (other.data.ipHash !== targetHash) continue;
@@ -154,6 +161,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
       }
     }
     if (result.ended) {
+      metrics.sessionEnded(result.ended.id, mine);
       logger.info("session_end", { correlationId, data: { reason: mine, activeSessions: sessions.sessionCount() } });
     }
   }
@@ -233,7 +241,9 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
           correlationId,
           data: { reason, ...(targetHash ? { targetIpHashPrefix: ipHashPrefix(targetHash) } : {}) },
         });
+        metrics.count(`reports.${reason}`);
         if (PRIORITY_CATEGORIES.has(reason)) {
+          metrics.count("reports_priority");
           logger.warn("report_priority", { correlationId, data: { reason } });
         }
         if (targetHash !== undefined && reports.record(targetHash, socket.data.ipHash).reachedThreshold) {
@@ -256,6 +266,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
         const result = sessions.recordKey(socketId);
         if (!result.ok) throw new HandlerError(result.code);
         io.to(result.partner).emit("e2e:key", { publicKey });
+        metrics.count("keys_relayed");
         if (result.complete) {
           keyDeadlines.cancel(result.sessionId);
           logger.info("session_secured", { correlationId, data: { activeSessions: sessions.sessionCount() } });
@@ -278,7 +289,11 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
         const partnerId = sessions.getPartner(socketId);
         if (!partnerId) throw new HandlerError("NOT_IN_SESSION");
         if (!sessions.isSecured(socketId)) throw new HandlerError("INVALID_STATE");
+        // Timed: the relay latency service level (US-40). Counts only; nothing about the content.
+        const started = performance.now();
         io.to(partnerId).emit("e2e:envelope", { seq, ct });
+        metrics.observe("relay_ms", performance.now() - started);
+        metrics.count("envelopes_relayed");
       },
       hooks("e2e:envelope"),
     ),
@@ -310,6 +325,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     // a little longer than the grace period, so a client that returns just
     // too late is still told its chat is over.
     io.to(socketId).emit("session:ended", { reason: "timeout" });
+    metrics.sessionEnded(ended.id, "timeout");
     logger.info("session_end", { correlationId, data: { reason: "timeout", activeSessions: sessions.sessionCount() } });
   }
 
@@ -326,6 +342,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
       const { ended } = sessions.removeClient(socketId);
       if (ended && partnerId) {
         io.to(partnerId).emit("session:ended", { reason: "partner_left" });
+        metrics.sessionEnded(ended.id, "disconnect");
         logger.info("session_end", {
           correlationId,
           data: { reason: "disconnect", activeSessions: sessions.sessionCount() },

@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import type { IncomingMessage } from "node:http";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { monitorEventLoopDelay } from "node:perf_hooks";
 import { Server } from "socket.io";
 import type { Config } from "./config.js";
 import { IpSocketCap, checkOrigin } from "./gateway/connectionGuards.js";
@@ -12,7 +13,9 @@ import { healthRoute } from "./http/health.js";
 import { CSP_REPORT_PATH, securityHeaders } from "./http/securityHeaders.js";
 import type { Clock } from "./lib/clock.js";
 import { realClock } from "./lib/clock.js";
+import { Alerts } from "./observability/alerts.js";
 import type { Logger } from "./observability/logger.js";
+import { Metrics } from "./observability/metrics.js";
 import { clientIp } from "./security/clientIp.js";
 import { ConnectTokens } from "./security/connectToken.js";
 import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
@@ -42,6 +45,7 @@ export interface ServerDeps {
   logger: Logger;
   clock?: Clock;
   countries?: CountryLookup; // address -> country code; defaults to "unknown" for everyone
+  metrics?: Metrics; // counters and timings; a fresh one by default
 }
 
 // Builds the app WITHOUT listening, so tests can start it on a random port.
@@ -49,6 +53,7 @@ export function buildServer(deps: ServerDeps) {
   const { config, logger } = deps;
   const clock = deps.clock ?? realClock;
   const countries = deps.countries ?? noCountryLookup;
+  const metrics = deps.metrics ?? new Metrics();
 
   const ipHasher = createIpHasher({ clock, secret: config.ipHashSecret });
   const connectTokens = new ConnectTokens(clock, config.connectTokenTtlMs);
@@ -99,14 +104,17 @@ export function buildServer(deps: ServerDeps) {
       const ipHash = ipHashOf(req);
       if (!checkOrigin(req.headers.origin, config.allowedOrigins)) {
         logger.warn("ws_refused", { data: { reason: "origin", ipHashPrefix: ipHashPrefix(ipHash) } });
+        metrics.count("ws_refused.origin");
         return decide("origin not allowed", false);
       }
       if (!handshakeLimiter.consume(ipHash)) {
         logger.warn("ws_refused", { data: { reason: "handshake_rate", ipHashPrefix: ipHashPrefix(ipHash) } });
+        metrics.count("ws_refused.handshake_rate");
         return decide("too many connection attempts", false);
       }
       if (io.engine.clientsCount >= config.maxConnections) {
         logger.warn("ws_refused", { data: { reason: "server_full" } });
+        metrics.count("ws_refused.server_full");
         return decide("server full", false);
       }
       decide(null, true);
@@ -148,12 +156,14 @@ export function buildServer(deps: ServerDeps) {
     if (!powLimiter.consume(ipHash)) {
       const retryAfterMs = powLimiter.retryAfterMs(ipHash);
       logger.warn("rate_limited", { data: { bucket: "pow_challenge", ipHashPrefix: ipHashPrefix(ipHash) } });
+      metrics.count("rate_limited.pow_challenge");
       res
         .status(429)
         .set("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))))
         .json({ error: { code: "RATE_LIMITED", retryAfterMs } });
       return;
     }
+    metrics.count("pow_issued");
     res.json(pow.issue(ipHash));
   });
 
@@ -176,6 +186,7 @@ export function buildServer(deps: ServerDeps) {
     if (!tokenLimiter.consume(ipHash)) {
       const retryAfterMs = tokenLimiter.retryAfterMs(ipHash);
       logger.warn("rate_limited", { data: { bucket: "connect_token", ipHashPrefix: ipHashPrefix(ipHash) } });
+      metrics.count("rate_limited.connect_token");
       res
         .status(429)
         .set("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))))
@@ -188,6 +199,7 @@ export function buildServer(deps: ServerDeps) {
       const solved = pow.verify(req.query.c, req.query.n, ipHash);
       if (!solved.ok) {
         logger.warn("pow_refused", { data: { reason: solved.reason, ipHashPrefix: ipHashPrefix(ipHash) } });
+        metrics.count(`pow_refused.${solved.reason}`);
         res.status(403).json({ error: { code: "POW_REQUIRED" } });
         return;
       }
@@ -242,6 +254,7 @@ export function buildServer(deps: ServerDeps) {
   // ---------- WebSocket handshake (step 2 of connecting) ----------
   io.use((socket, next) => {
     const refuse = (code: HandshakeErrorCode, detail?: string) => {
+      metrics.count(`ws_refused.${code}`);
       logger.warn("ws_refused", {
         data: { reason: code, detail, ipHashPrefix: ipHashPrefix(ipHash) },
       });
@@ -302,7 +315,7 @@ export function buildServer(deps: ServerDeps) {
   const grace = new GraceTimers();
   // The same kind of countdown, one per session that is still exchanging keys.
   const keyDeadlines = new GraceTimers();
-  const sessionDeps = { io, config, logger, sessions, keyDeadlines };
+  const sessionDeps = { io, config, logger, sessions, keyDeadlines, metrics };
   io.on("connection", (socket) => {
     registerHandlers(socket, {
       io,
@@ -318,6 +331,7 @@ export function buildServer(deps: ServerDeps) {
       searchLimits,
       grace,
       keyDeadlines,
+      metrics,
       isShuttingDown: () => shuttingDown,
       onDisconnect: (s) => ipSocketCap.remove(s.data.ipHash, s.id),
     });
@@ -336,9 +350,36 @@ export function buildServer(deps: ServerDeps) {
   const matchTimer = setInterval(() => {
     const { matches, opened } = matchmaker.sweep();
     for (const match of matches) startSession(sessionDeps, match);
-    for (const id of opened) io.to(id).emit("search:status", { state: "open" });
+    for (const id of opened) {
+      metrics.count("search_widened");
+      io.to(id).emit("search:status", { state: "open" });
+    }
   }, config.matchSweepMs);
   matchTimer.unref();
+
+  // Once a minute: log what happened since the last time (US-41) and check
+  // the alert rules against it (US-30, US-42). Numbers only.
+  const alerts = new Alerts(logger, { memoryCeilingMb: config.memoryCeilingMb, intervalMs: config.metricsIntervalMs });
+  const loopDelay = monitorEventLoopDelay({ resolution: 20 });
+  loopDelay.enable();
+  const metricsTimer = setInterval(() => {
+    const memory = process.memoryUsage();
+    const snapshot = metrics.snapshot({
+      connections: io.engine.clientsCount,
+      activeSessions: sessions.sessionCount(),
+      waiting: matchmaker.size,
+      bansActive: bans.size,
+      noRematchPairs: noRematch.size,
+      rssMb: Math.round(memory.rss / (1024 * 1024)),
+      heapUsedMb: Math.round(memory.heapUsed / (1024 * 1024)),
+      eventLoopP99Ms: Math.round((loopDelay.percentile(99) / 1e6) * 10) / 10,
+      uptimeSec: Math.round(process.uptime()),
+    });
+    loopDelay.reset();
+    logger.info("metrics_snapshot", { data: snapshot as unknown as Record<string, unknown> });
+    alerts.evaluate(snapshot);
+  }, config.metricsIntervalMs);
+  metricsTimer.unref();
 
   // Stop taking new work, then close. /health turns 503 immediately so the
   // platform stops routing here.
@@ -346,6 +387,8 @@ export function buildServer(deps: ServerDeps) {
     shuttingDown = true;
     clearInterval(onlineTimer);
     clearInterval(matchTimer);
+    clearInterval(metricsTimer);
+    loopDelay.disable();
     grace.clear();
     keyDeadlines.clear();
     return new Promise((resolve) => {
@@ -353,7 +396,7 @@ export function buildServer(deps: ServerDeps) {
     });
   }
 
-  return { app, httpServer, io, shutdown };
+  return { app, httpServer, io, shutdown, metrics, alerts };
 }
 
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;

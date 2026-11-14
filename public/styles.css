@@ -187,7 +187,6 @@ p { margin: 0; }
   gap: 10px;
   overscroll-behavior: contain;
 }
-.log:empty { display: none; }
 
 .msg { max-width: min(78%, 560px); display: flex; flex-direction: column; gap: 3px; }
 .msg-meta { display: flex; gap: 8px; align-items: baseline; font-size: 12px; color: var(--muted); }

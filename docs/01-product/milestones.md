@@ -25,7 +25,7 @@ Estimates assume ~5 focused hours/day and include learning, tests and docs. **E2
 | M3 | 1:1 anonymous sessions | Random names, pairs of two, skip/leave, status, reactions | US-01–11, US-36 | 4–5 d | 🟡 code complete, deploy + demo pending |
 | M4 | End-to-end encryption | Server can't read anything | US-12, US-13, US-37 | 4–5 d | 🟡 code complete, deploy + demo pending |
 | M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | 🟡 code complete |
-| M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | 🟡 US-18, 19, 20, 28, 29, 39 done; US-38 drafts written, counsel review pending; US-17 open |
+| M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | 🟡 US-17, 18, 19, 20, 28, 29, 39 done; US-38 drafts written, counsel review pending |
 | M7 | Quality, observability, monitoring & moderation | Coverage, logs, SLOs, dashboards, a11y, moderator tools | US-25, US-30–31, US-40–44 | 3–4 d | 🔜 |
 | M8 | Public launch | Legal sign-off, compliance 100%, go live | US-45–46 | 2–3 d | 🔜 |
 | **M9** | **Production hardening** | Pen test, DR drill, performance baseline, chaos testing | US-47–49 | 3–4 d | 🔜 |
@@ -224,7 +224,7 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 **Demo:** two tabs with `gaming` match each other while a `music` tab waits, then falls back after 10 s.
 **Risks:** few users → long waits. The fallback and the online counter set expectations.
 
-## M6 Trust & safety 🟡 (reports, no-rematch, bans, categories, content filters and proof-of-work done; policy drafts written, counsel review pending)
+## M6 Trust & safety 🟡 (code complete; policy drafts written, counsel review pending)
 | Story | Features |
 |---|---|
 | US-17 Age + rules gate | F-25 |
@@ -253,7 +253,7 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 **Demo:** three tabs report one → it can't match for 24 h (shortened in a test config); send a banned word → filter activates; bot script fails proof-of-work challenge under load.
 **Risks:** Lawyer review timeline may delay M8. Content filter bypass is an accepted architectural trade-off (E2EE).
 
-## M7 Quality, observability, monitoring & moderation 🔜
+## M7 Quality, observability, monitoring & moderation 🟡 (metrics, alert rules, accessibility and browser tests in CI done; moderator tool, uptime monitor and load test open)
 
 | Story | Features |
 |---|---|
@@ -268,7 +268,7 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 
 **Exit criteria**
 - [ ] Coverage ≥ 80% on `security/`, `crypto/`, `matchmaking/`, `sessions/`
-- [ ] JSON logs with no content and no raw IPs; counters for sessions, matches, rejections, reports
+- [x] JSON logs with no content and no raw IPs; counters for sessions, matches, rejections, reports. Evidence: `metrics.test.ts`
 - [ ] Automated behavioral monitoring operational: report velocity, session churn, connection pattern tracking
 - [ ] Safety metrics logged every 60 seconds; abuse scoring per IP hash functional
 - [ ] Human moderator review process documented with access controls (no message content, no raw IPs)
@@ -278,13 +278,13 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 - [ ] Dependabot, CodeQL, ESLint/Prettier, link checker in CI ([automation.md](../07-process/automation.md))
 - [ ] Small load test (e.g. 200 simulated users) documented in [scaling.md](../06-operations/scaling.md)
 - [ ] Incident response plan documented
-- [ ] **IT-REVIEW:** SLIs defined and collection implemented (availability, relay latency, error rate, memory)
+- [x] **IT-REVIEW:** SLIs defined and collection implemented (availability needs an outside checker). See monitoring-observability.md section 3
 - [ ] **IT-REVIEW:** SLOs documented (99.5% uptime, <50ms p95 relay, <1% error rate)
-- [ ] **IT-REVIEW:** Metrics snapshot logged every 60s (connections, sessions, memory, safety)
+- [x] **IT-REVIEW:** Metrics snapshot logged every 60s (connections, sessions, memory, safety)
 - [ ] **IT-REVIEW:** UptimeRobot configured with email alerts
-- [ ] **IT-REVIEW:** Metric-based alerts for memory, report spikes, error rate, `minor` reports
-- [ ] **IT-REVIEW:** WCAG AA accessibility audit completed (axe-core or Lighthouse)
-- [ ] **IT-REVIEW:** Keyboard-only navigation verified
+- [x] **IT-REVIEW:** Metric-based alerts for memory, report spikes, error rate, `minor` reports. As log lines; delivery to a person needs hosting
+- [x] **IT-REVIEW:** WCAG AA accessibility audit completed (axe-core). Not done: a test with a real screen reader
+- [x] **IT-REVIEW:** Keyboard-only navigation verified (automated, `e2e/a11y.spec.ts`)
 - [ ] **IT-REVIEW:** Incident response plan tested with tabletop exercise
 - [ ] **IT-REVIEW:** Breach notification procedure documented (NPC 72-hour requirement)
 - [ ] **IT-REVIEW:** Child safety escalation procedure documented (RA 11930)

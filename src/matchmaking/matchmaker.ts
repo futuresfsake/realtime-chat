@@ -6,6 +6,7 @@ export interface Match {
   a: string; // the one who waited longest
   b: string;
   shared: Interest[]; // interests both picked (empty for an open match)
+  waitedMs: number; // how long the longer-waiting person waited
 }
 
 interface Waiting {
@@ -155,6 +156,11 @@ export class Matchmaker {
     this.remove(other.id);
     this.remove(me.id);
     const [first, second] = other.since <= me.since ? [other, me] : [me, other];
-    return { a: first.id, b: second.id, shared: this.shared(first, second) };
+    return {
+      a: first.id,
+      b: second.id,
+      shared: this.shared(first, second),
+      waitedMs: Math.max(0, this.clock.now() - first.since),
+    };
   }
 }
