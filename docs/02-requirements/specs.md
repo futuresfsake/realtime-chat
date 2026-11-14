@@ -24,7 +24,7 @@
 | FR-12 | Each envelope = `{ seq, ct }`. IV = 4 zero bytes + 8-byte `seq` (unique per direction key); AAD = `rc/v1|sessionId|direction|seq` | Unit | M4 |
 | FR-13 | Receivers reject envelopes with `seq` ≤ the last accepted `seq` (replay) or failed authentication (tampering), and end the session after 3 failures | Unit | M4 |
 | FR-14 | No message can be sent before the key exchange completes. There is **no unencrypted fallback** | Integration | M4 |
-| FR-15 | Safety code = SHA-256(sessionId ‖ sorted public keys); the first 20 bytes are split into four 5-byte chunks, each shown as (big-endian integer mod 100000), zero-padded → `48213 99307 17742 03621` | Unit | M4 |
+| FR-15 | Safety code = SHA-256(`rc/v1/safety|` + sessionId ‖ initiator public key ‖ responder public key); the first 20 bytes are split into four 5-byte chunks, each shown as (big-endian integer mod 100000), zero-padded → `48213 99307 17742 03621` | Unit | M4 |
 | FR-16 | Chat history exists only in browser memory and is cleared when the session ends | Manual + unit | M3 |
 | FR-17 | Plaintext is padded to a multiple of 64 bytes before encryption (hides the exact message length) | Unit | M4 |
 | FR-18 | A peer public key that is invalid or equal to the client's own key is rejected | Unit | M4 |
@@ -56,7 +56,7 @@
 | FR-40 | Every client→server event is validated with a zod `.strict()` schema; invalid → ack `{ ok:false, error:{ code } }` | Unit | M2 |
 | FR-41 | `GET /health` → `200 {"status":"ok"}`, and `503` while shutting down; `Cache-Control: no-store` | Integration | M2 |
 | FR-42 | Socket connections from origins outside `ALLOWED_ORIGINS` are refused | Integration | M2 |
-| FR-43 | Theme choice persists per browser; invalid stored values fall back to the default | Manual | ✅ |
+| FR-43 | ~~Theme choice persists per browser~~ Removed on 2026-11-14: the interface has one design, and nothing is stored in the browser except the gate acknowledgement (session only) | n/a | ❌ |
 
 ## Non-functional requirements
 | ID | Category | Requirement |
@@ -64,7 +64,7 @@
 | NFR-01 | Latency | p95 relay time on the server < 50 ms; end-to-end p95 < 300 ms within Asia (excluding cold start) |
 | NFR-02 | Capacity | ≥ 200 concurrent clients on one free instance (load-tested in M7) |
 | NFR-03 | Payload | Max incoming Socket.IO message 4 KB (`maxHttpBufferSize`) |
-| NFR-04 | Abuse | Messages: token bucket burst 5, refill 0.5/s. `/start` + `/next`: 10/min. ≤ 5 sockets per IP |
+| NFR-04 | Abuse | Envelopes (messages and reactions): token bucket burst 5, refill 0.5/s. Typing: burst 10, 2/s. Public keys: burst 10, 10/min. `/start` + `/next`: 10/min per IP hash. ≤ 5 sockets per IP |
 | NFR-05 | Privacy | No persistent storage of messages, names, interests, countries or raw IPs. Logs contain no content and no raw IPs |
 | NFR-06 | Security | All user content rendered with `textContent`; CSP without `unsafe-inline`; HTTPS/WSS only in production |
 | NFR-07 | Crypto | Only WebCrypto primitives; no custom crypto; keys never leave memory |
@@ -82,11 +82,14 @@
 | Limit | Value |
 |---|---|
 | Message length | 1–500 characters (checked in the client before encryption; the server checks envelope size) |
-| Envelope `ct` | ≤ 3,000 base64url characters |
+| Envelope `ct` | 107 to 3,000 base64url characters (107 = one 64-byte block plus the 16-byte tag). Largest padded message: 2,176 bytes |
+| Public key | exactly 87 base64url characters (65-byte P-256 point) |
+| Key exchange | both keys within 10 s of the match, else `crypto_timeout` |
 | Interests | 0–5 from the allowed list |
 | Interest-match wait | 10 s, then fallback |
 | Reconnect window | 30 s |
 | Typing timeout | 3 s |
+| Reconnect recovery window | 40 s (30 s grace + 5 s broadcast gap + 5 s slack) |
 | Report content | Reason code only, no transcript |
 | No-rematch / ban duration | 24 h |
 | Payload | 4 KB |
