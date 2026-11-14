@@ -6,18 +6,31 @@ No accounts. No stored messages. Free to use, safe by design.
 > **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
 > 📚 Full documentation: [**docs/**](docs/README.md) · 🗺️ Plan: [**milestones**](docs/01-product/milestones.md)
 
-> ⚠️ **Status: M3 code complete (1:1 sessions), first deploy pending.** Today the app pairs you with **one stranger** at a time behind an 18+ gate, **without** end-to-end encryption yet. The encrypted, interest-matched product is being built milestone by milestone; M4 (end-to-end encryption) is code complete; next is **M5: matchmaking**.
+> **This is a portfolio project.** I built it to show full-stack work: a TypeScript backend (Express, Socket.IO, zod), browser-side end-to-end encryption with WebCrypto, and a hand-designed interface. It is not a launched product and it is not run as a service for the public.
+
+> ⚠️ **Status: M4 code complete.** The app pairs you with **one stranger** at a time behind an 18+ gate, and messages are **end-to-end encrypted** in the browser. Matchmaking by interest, reporting, moderation and the legal review are still ahead, so it is not ready for public use. Next is **M5: matchmaking**.
 
 ---
 
+## Screens
+
+| Gate | Ready | Searching |
+|---|---|---|
+| ![Age and rules gate](docs/assets/gate.png) | ![Idle screen](docs/assets/idle.png) | ![Searching screen](docs/assets/searching.png) |
+
+| Chat | Safety code | Phone width |
+|---|---|---|
+| ![Encrypted chat](docs/assets/chat.png) | ![Safety code dialog](docs/assets/safety-code.png) | ![Chat on a phone](docs/assets/chat-mobile.png) |
+
+_The screenshots show the real interface with a sample conversation: a chat needs two people, so the messages were staged for the picture._
+
 ## Try it
 
-> **Demo, not a launched product.** Open the link in **two browser tabs** (a chat needs two people), accept the 18+ gate in each, and type `/start` in both. There is no moderation yet, so don't share anything personal.
+Run it locally: `npm ci && npm run dev`, then open `http://localhost:3000` in **two browser tabs** (a chat needs two people), accept the 18+ gate in each, and choose **Find a stranger** in both.
 
-- Live demo: _link goes here after the first deploy_ (free hosting: the first load can take up to a minute to wake the server)
-- What to look for: both tabs show 🔒 **end-to-end encrypted**; `/verify` shows the same safety code in both; in DevTools → Network → WS the frames carry only ciphertext (`e2e:envelope`), never your words.
-
-_Screen recording: add `docs/assets/demo.gif` and embed it here._
+- Both tabs show **End-to-end encrypted**; **Safety code** shows the same code in both.
+- In DevTools → Network → WS the frames carry only ciphertext (`e2e:envelope`), never your words.
+- Live demo: _none yet_. If one is added it runs on free hosting, so the first load can take up to a minute, and it has no moderation: do not share anything personal.
 
 ---
 
