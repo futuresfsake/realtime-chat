@@ -12,7 +12,11 @@ No accounts. No stored messages. Free to use, safe by design.
 
 ---
 
-## Screens
+## Demo
+
+![Two browsers pairing, encrypting a chat and comparing the safety code](docs/assets/demo.gif)
+
+_A recording of the real app: two separate browsers pair, the chat becomes end-to-end encrypted, messages and a reaction go both ways, and the safety code dialog opens. The script is `e2e/capture.mjs` (`npm run e2e:capture`)._
 
 | Gate | Ready | Searching |
 |---|---|---|
@@ -21,8 +25,6 @@ No accounts. No stored messages. Free to use, safe by design.
 | Chat | Safety code | Phone width |
 |---|---|---|
 | ![Encrypted chat](docs/assets/chat.png) | ![Safety code dialog](docs/assets/safety-code.png) | ![Chat on a phone](docs/assets/chat-mobile.png) |
-
-_The screenshots show the real interface with a sample conversation: a chat needs two people, so the messages were staged for the picture._
 
 ## Try it
 
@@ -132,7 +134,9 @@ Full guide (Codespaces, your own computer, phone testing, common problems): [doc
 | `npm run dev` | Development server with auto-restart |
 | `npm run build` / `npm start` | Compile to `dist/` / run like production |
 | `npm run typecheck` | TypeScript checks |
-| `npm test` / `npm run test:watch` | Tests once / on every save |
+| `npm test` / `npm run test:watch` | Unit and integration tests once / on every save |
+| `npm run test:e2e` | Browser tests: two real browsers chat through a real server (Playwright, uses Edge) |
+| `npm run e2e:capture` | Re-records the README screenshots and demo GIF |
 
 Environment variables: [docs/06-operations/deployment.md](docs/06-operations/deployment.md#environment-variables)
 
