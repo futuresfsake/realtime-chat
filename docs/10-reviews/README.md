@@ -11,6 +11,7 @@ Point-in-time reviews of this project. They are kept **unchanged** as a record o
 | 2026-10-27 | IT manager production readiness review | Architecture, security, data, operations: 47 findings | [2026-10-27-it-manager](2026-10-27-it-manager/README.md) |
 | 2026-10-28 | DICT-style security and data privacy review | Retention, roles, deployment security, tooling, crosswalk | [2026-10-28-dict](2026-10-28-dict/README.md) |
 | 2026-11-13 | Documentation restructure | Folder layout; compliance folder created; citations corrected | This table |
+| 2026-11-14 | **Final audit** (a self-audit by the author, not independent) | Repository, history, dependencies, tests, the running production build, docs; 12 findings | [2026-11-14-final-audit](2026-11-14-final-audit.md) |
 
 ## Where each review document went (2026-11-13)
 Documents that describe how the system should be built or run were moved to the folder that owns the topic and are now maintained there. Documents that record findings stayed here.

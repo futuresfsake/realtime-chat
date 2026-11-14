@@ -24,7 +24,8 @@ describe("metrics snapshot (US-41)", () => {
   it("is logged on a timer with counters, timings and gauges", async () => {
     server = await startServer({}, FAST);
     await connect(server);
-    await expect.poll(() => snapshots().length, { timeout: 6000 }).toBeGreaterThan(1);
+    // Wait for a snapshot taken AFTER the connection exists: the latest one may be up to one interval old.
+    await expect.poll(() => snapshots().at(-1)?.gauges.connections, { timeout: 6000 }).toBe(1);
     const snap = snapshots().at(-1)!;
     expect(Object.keys(snap).sort()).toEqual(["counters", "gauges", "intervalSec", "timings", "totals"]);
     expect(Object.keys(snap.gauges).sort()).toEqual([
@@ -41,7 +42,9 @@ describe("metrics snapshot (US-41)", () => {
     await send(a, "hello metrics");
     await got;
     await command(a, "session:leave");
-    await expect.poll(() => total("sessions_ended.left"), { timeout: 6000 }).toBe(1);
+    await expect
+      .poll(() => [total("sessions_ended.left"), total("envelopes_relayed"), total("keys_relayed")], { timeout: 6000 })
+      .toEqual([1, 1, 2]);
     expect(total("ws_connected")).toBe(2);
     expect(total("sessions_started")).toBe(1);
     expect(total("matches.random")).toBe(1);
@@ -80,7 +83,9 @@ describe("metrics snapshot (US-41)", () => {
     }
     await command(bad, "session:start"); // refused: blocked
     await sendRaw(bad, { nope: true }); // refused: not valid
-    await expect.poll(() => total("blocks"), { timeout: 6000 }).toBe(1);
+    await expect
+      .poll(() => [total("blocks"), total("rejected.BANNED"), total("rejected.VALIDATION")], { timeout: 6000 })
+      .toEqual([1, 1, 1]);
     expect(total("reports.harassment")).toBe(3);
     expect(total("rejected.BANNED")).toBe(1);
     expect(total("rejected.VALIDATION")).toBe(1);
@@ -91,7 +96,9 @@ describe("metrics snapshot (US-41)", () => {
     server = await startServer({}, FAST);
     await connect(server, { origin: "https://evil.example" }).catch(() => {});
     await connect(server, { authOverrides: { protocolVersion: "rc/v0" } }).catch(() => {});
-    await expect.poll(() => total("ws_refused.origin"), { timeout: 6000 }).toBe(1);
+    await expect
+      .poll(() => [total("ws_refused.origin"), total("ws_refused.PROTOCOL_MISMATCH")], { timeout: 6000 })
+      .toEqual([1, 1]);
     expect(total("ws_refused.PROTOCOL_MISMATCH")).toBe(1);
   });
 

@@ -1,5 +1,7 @@
 # Production Pipeline
 
+> **Read this first (2026-11-14):** this folder is a **plan** for a larger team. The audit tools (`tools/check-dor.ts`, `tools/check-dod.ts`), the `.githooks`, the evidence reports and the agent roles were **never built**, and per-file commits and pushes were dropped. What this repository actually does is a pull request, green CI (typecheck, tests, build, audit, secrets, semgrep, browser tests) and one squashed commit. See [limits L-37](../../00-overview/limits-and-roadmap.md) and [decision DL-04](../../00-overview/decision-log.md).
+
 **IT Manager — Production-Grade Development Pipeline**
 
 This section defines the complete story-to-production pipeline for the realtime-chat project. Every story, hotfix, and milestone flows through audited gates with evidence artifacts.
