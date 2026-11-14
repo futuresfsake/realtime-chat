@@ -1,8 +1,19 @@
 {
   "name": "realtime-chat",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "description": "Anonymous one-to-one chat with end-to-end encryption in the browser. A portfolio project: TypeScript, Express, Socket.IO, WebCrypto.",
+  "keywords": [
+    "chat",
+    "websocket",
+    "socket.io",
+    "end-to-end-encryption",
+    "webcrypto",
+    "typescript",
+    "privacy"
+  ],
+  "author": "futuresfsake",
+  "license": "ISC",
   "scripts": {
     "test": "vitest run",
     "dev": "tsx watch src/index.ts",
@@ -20,9 +31,6 @@
     "type": "git",
     "url": "git+https://github.com/futuresfsake/realtime-chat.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "module",
   "bugs": {
     "url": "https://github.com/futuresfsake/realtime-chat/issues"

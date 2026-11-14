@@ -1,203 +1,122 @@
 # realtime-chat
 
-**Anonymous, end-to-end encrypted, one-to-one chat that connects strangers around the world by shared interests.**
-No accounts. No stored messages. Free to use, safe by design.
+**Anonymous one-to-one chat where only the two people can read what they say.** The server pairs strangers, relays encrypted messages it cannot read, and keeps nothing. No accounts, no stored history.
 
-> **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
-> 📚 Full documentation: [**docs/**](docs/README.md) · 🗺️ Plan: [**milestones**](docs/01-product/milestones.md)
-
-> **This is a portfolio project.** I built it to show full-stack work: a TypeScript backend (Express, Socket.IO, zod), browser-side end-to-end encryption with WebCrypto, and a hand-designed interface. It is not a launched product and it is not run as a service for the public.
-
-> ⚠️ **Status: milestones M0 to M7 are built and tested; M8 onward is deliberately not pursued.** The app pairs you with **one stranger** at a time behind an 18+ gate, with end-to-end encryption in the browser, interest and country matching, reporting, no-rematch, temporary blocks, a content filter, a bot puzzle, metrics and alerts, accessibility checks and a load test. It has **never been deployed** and **no lawyer has reviewed it**, so it is not ready for public use. What is missing, and why, is in [**known limits and future work**](docs/00-overview/limits-and-roadmap.md); what is protected, and the test that proves each claim, is in the [**security overview**](docs/04-security/security-overview.md).
-
----
-
-## Demo
+> **A portfolio project.** I built it end to end to show how I work: a TypeScript backend (Express, Socket.IO, zod), end-to-end encryption in the browser with WebCrypto, abuse handling that does not need to read anyone's messages, a hand-designed interface, and the testing and documentation around it. It runs locally, has **never been deployed**, and **no lawyer has reviewed it**, so it is not a service for the public. What is missing and why is written down in [**known limits and future work**](docs/00-overview/limits-and-roadmap.md).
 
 ![Two browsers pairing, encrypting a chat and comparing the safety code](docs/assets/demo.gif)
 
-_A recording of the real app: two separate browsers pair, the chat becomes end-to-end encrypted, messages and a reaction go both ways, and the safety code dialog opens. The script is `e2e/capture.mjs` (`npm run e2e:capture`)._
+_A recording of the real app (not a mock-up): two separate browsers pair, the chat becomes end-to-end encrypted, messages and a reaction go both ways, and the safety code dialog opens. Re-recorded by `npm run e2e:capture`._
 
-| Gate | Ready | Searching |
+| Gate | Ready (interests, country) | Chat |
 |---|---|---|
-| ![Age and rules gate](docs/assets/gate.png) | ![Idle screen](docs/assets/idle.png) | ![Searching screen](docs/assets/searching.png) |
+| ![Age and rules gate](docs/assets/gate.png) | ![Idle screen with interest picker](docs/assets/idle.png) | ![Encrypted chat](docs/assets/chat.png) |
 
-| Chat | Safety code | Report |
+| Safety code | Report | Phone width |
 |---|---|---|
-| ![Encrypted chat](docs/assets/chat.png) | ![Safety code dialog](docs/assets/safety-code.png) | ![Report dialog](docs/assets/report.png) |
+| ![Safety code dialog](docs/assets/safety-code.png) | ![Report dialog](docs/assets/report.png) | ![Chat on a phone](docs/assets/chat-mobile.png) |
 
-| Phone width |
-|---|
-| ![Chat on a phone](docs/assets/chat-mobile.png) |
+## What is worth looking at
 
-## Try it
+| | What I built | Where to look |
+|---|---|---|
+| **End-to-end encryption** | ECDH P-256 key exchange, HKDF, AES-GCM-256 with a separate key per direction, padding, replay and tamper rejection, a safety code to detect a man in the middle. Native WebCrypto only, no hand-made crypto. A browser test inspects **every WebSocket frame** of a real chat and finds none of the words typed | [e2ee.md](docs/04-security/e2ee.md), `public/js/crypto.js` |
+| **Privacy by design** | The server is a blind relay with no database. People are told apart only by a **keyed hash of their IP that changes daily**; the raw address is read in one file and a **CI check fails the build** if it is read anywhere else. Logs are scrubbed and tested for leaks | [security-overview.md](docs/04-security/security-overview.md) |
+| **Abuse handling without reading chats** | Reports (a category, never text), no-rematch, temporary blocks when three different people report one connection, a content filter on both ends, a bot puzzle (proof of work), rate limits everywhere | [trust-and-safety.md](docs/04-security/trust-and-safety.md) |
+| **Matching** | Shared-interest scoring with a timed fallback, and country preference from a local IP database, always satisfying **both** people's wishes | [matchmaking.md](docs/03-design/matchmaking.md) |
+| **Testing** | 726 unit and integration tests (real server, real sockets), 40 browser tests with **two real browsers**, axe checks for WCAG 2.1 AA, a **load test** of 200 and 400 simulated people with real encryption | [scaling.md](docs/06-operations/scaling.md) |
+| **Observability** | A metrics snapshot every minute, alert rules, a moderator summary of the logs that cannot show messages or addresses | [monitoring-observability.md](docs/06-operations/monitoring-observability.md) |
+| **Honest engineering** | A [register of every known limit](docs/00-overview/limits-and-roadmap.md), a [decision log](docs/00-overview/decision-log.md), a [security overview](docs/04-security/security-overview.md) mapping each claim to the test that proves it, and a final [self-audit](docs/10-reviews/2026-11-14-final-audit.md) of the result | `docs/` |
 
-Run it locally: `npm ci && npm run dev`, then open `http://localhost:3000` in **two browser tabs** (a chat needs two people), accept the 18+ gate in each, and choose **Find a stranger** in both.
+**Defects the tests caught while building it** (each fixed, with a test): a no-rematch rule that would have blocked everyone on a shared network; an empty chat log hidden from screen readers; chat lines that were orphan list items; a gauge that read 30 ms on an idle process; and several races in my own tests.
 
-- Both tabs show **End-to-end encrypted**; **Safety code** shows the same code in both.
-- In DevTools → Network → WS the frames carry only ciphertext (`e2e:envelope`), never your words.
-- Live demo: _none yet_. If one is added it runs on free hosting, so the first load can take up to a minute, and it has no moderation: do not share anything personal.
-
----
-
-## What it will be (v1)
-
-1. Confirm you're **18+** and accept the rules
-2. Optionally pick up to 5 **interests** and choose **my country** or **worldwide**
-3. Get a **random name** (e.g. `quiet-otter-42`) and get matched with **one stranger** who shares an interest, or a random stranger after 10 s
-4. Chat with **end-to-end encryption**: the server only relays ciphertext it can't read
-5. `/next` to meet someone new, `/report` to report abuse. When a chat ends, its messages are **gone forever**
-
-**Safety:** automated behavioral monitoring detects abuse patterns; content filters catch harmful messages before encryption; human moderators review aggregated reports and handle escalations; all designed around Philippine law (Data Privacy Act, Cybercrime Prevention Act, Safe Spaces Act, Anti-OSAEC Law). What each law requires and where we stand: [docs/09-compliance](docs/09-compliance/README.md).
-
-**Never:** accounts, passwords, user-chosen names, group chats, file/image uploads, stored history.
-
-## What works today (M1 to M3)
-
-- **M3, 1:1 chats:** `/start` finds a stranger, you both get random names (`quiet-otter-42`), and messages go only to each other. `/next` skips, `/leave` stops. See when your partner is connected, typing or reconnecting; react with `/react 😂`; see how many people are online (a number, nothing else)
-- **M3, survives bad networks:** a dropped connection is held for 30 s and the chat carries on, missed messages included; after that the chat ends for both
-- **M3, nothing kept:** the chat exists only in your browser's memory and is wiped when it ends (the server keeps relayed messages in memory for about 100 s so a dropped client can catch up, never on disk)
-- Real-time messaging over Socket.IO
-- Standard chat interface: conversation panel, message list with reactions, composer, and buttons for Find a stranger, Next, End chat and Safety code. Fonts are self-hosted (Instrument Sans, JetBrains Mono; both OFL)
-- Plain-language status for every state (connecting, searching, securing, chatting, offline); keyboard usable; works at 360 px
-- Connection status + auto-reconnect; `/health` endpoint; graceful shutdown
-- XSS-safe rendering (`textContent`)
-- **M2 hardening:** strict zod validation of every event; token-bucket rate limits (5-message burst); 4 KB payload cap; Origin allowlist; short-lived connection token; 5 sockets per IP; security headers + CSP with no inline scripts; 18+ and rules gate enforced by the server; structured JSON logs with no IPs or content; deep `/health`; protocol version `rc/v1`
-
----
-
-## Architecture
-
-**Target (v1):** the server is a **blind relay**. It matches strangers and forwards encrypted envelopes, and it stores nothing.
+## How it works
 
 ```mermaid
 flowchart LR
-    A["👤 Stranger A<br/>encrypts in browser"] -- "WSS: ciphertext only" --> S
-    S["Node.js server<br/>matchmaking · relay · rate limits<br/>(no storage)"] -- "WSS: ciphertext only" --> B["👤 Stranger B<br/>decrypts in browser"]
+    A["Browser A<br/>makes keys, encrypts, filters"] -- "ciphertext + public key" --> S
+    S["Node.js server<br/>pairs · relays · limits · reports<br/>memory only, no database"] -- "ciphertext + public key" --> B["Browser B<br/>decrypts, filters"]
+    S -. "numbers only" .-> L[("JSON logs<br/>metrics · alerts")]
+    G[("DB-IP country file<br/>local, optional")] -.-> S
 ```
 
-Step-by-step request flows: [docs/03-design/high-level-design.md](docs/03-design/high-level-design.md) · Encryption protocol: [docs/04-security/e2ee.md](docs/04-security/e2ee.md)
+1. The page solves a small puzzle, gets a short-lived token, and opens a WebSocket. The server checks the origin, the token, the protocol version and the 18+ acknowledgement.
+2. Search for a stranger, optionally with up to 5 interests and a country preference. Two people are paired and each gets a random name.
+3. Each browser makes a fresh key pair and sends only the **public** half through the server. Both derive the same keys and can compare a **safety code** outside the chat.
+4. Every message and reaction is encrypted in the browser and relayed as ciphertext. When the chat ends it is gone; the server never had it.
 
----
+Details: [high-level design](docs/03-design/high-level-design.md) · [protocol (AsyncAPI)](docs/03-design/asyncapi.yaml) · [encryption protocol](docs/04-security/e2ee.md)
 
-## Project structure (today)
+## What a user can do
+- Pair with one stranger at a time, with a random name, behind an 18+ and rules gate
+- Choose up to 5 interests and "anywhere" or "my country only"
+- Chat with end-to-end encryption, react to messages, see typing and connection status
+- Survive a short network drop (30 s) without losing the chat
+- Compare a safety code, report the person, skip to someone new or end the chat
+- Use it with a keyboard alone, with reduced motion, down to a 320 px screen
 
-```
-realtime-chat/
-├── src/                    # Server (TypeScript)
-│   ├── index.ts            # Entry: listen on PORT, port-in-use message, graceful shutdown
-│   ├── app.ts              # buildServer(): Express + Socket.IO (doesn't listen → testable)
-│   ├── config.ts           # Environment variables + limits, validated at startup
-│   ├── gateway/            # Connection guards, handler wrapper, registerHandlers (session + chat events)
-│   ├── sessions/           # Session state machine, random names, reconnect grace timers
-│   ├── matchmaking/        # Simple first-two pairing (replaced by interest matching in M5)
-│   ├── http/               # Security headers, /health
-│   ├── security/           # Token bucket, client IP, IP hashing, connection token
-│   ├── observability/      # JSON logger
-│   ├── validation/         # zod schemas
-│   └── types/events.ts     # Event contracts, protocol + rules versions
-├── public/                 # Frontend (static files)
-│   ├── index.html · styles.css · client.js · favicon.svg
-│   └── fonts/ · js/crypto.js · js/sessionStore.js   # self-hosted fonts; E2EE; in-memory chat history
-├── tests/                  # unit/ and integration/ (real server on a random port)
-├── docs/                   # Specs, design, security, operations, process, compliance → docs/README.md
-├── .github/                # CI workflow, CODEOWNERS, Dependabot, PR + issue templates
-├── render.yaml             # Production service as code (Render Blueprint)
-├── package.json · package-lock.json · tsconfig.json · .gitignore
-└── README.md
-```
-Target module layout: [docs/03-design/low-level-design.md](docs/03-design/low-level-design.md#1-module-layout-target-reviewed-for-the-11-e2ee-design)
+## Tech
+| | |
+|---|---|
+| Server | Node 22, TypeScript (strict), Express 5, Socket.IO, zod, helmet, maxmind. **Five** runtime dependencies |
+| Browser | Plain JavaScript and CSS, no framework and no build step; WebCrypto; self-hosted fonts. **84 KB** on the wire |
+| Tests | Vitest, socket.io-client, Playwright, axe-core |
+| CI | GitHub Actions: typecheck, tests, build, `npm audit`, gitleaks, semgrep, browser tests, size and licence checks |
 
----
-
-## Dependencies
-
-| Package | Purpose | Status |
-|---|---|---|
-| `express` | HTTP server, static files, `/health` | ✅ used |
-| `socket.io` | Real-time events, reconnection, connection state recovery | ✅ used |
-| `zod` | Runtime validation of every incoming event and of the environment ([why](docs/03-design/validation-zod.md)) | ✅ used |
-| `helmet` | Security headers + CSP | ✅ used |
-| `better-sqlite3` | ~~Message history~~ | ❌ removed: no message storage ([ADR-0005](docs/03-design/adr/0005-no-server-side-message-storage.md), D-05) |
-
-**Dev:** `typescript`, `tsx`, `vitest`, `@types/node`, `@types/express`, `socket.io-client` (integration tests).
-Encryption uses the browser's built-in **WebCrypto**, with no crypto library. List installed versions with `npm ls --depth=0`.
-
----
-
-## Run it locally
-
+## Run it
 ```bash
 npm ci
-npm run dev      # http://localhost:3000 (open 2+ tabs)
+npm run dev        # http://localhost:3000 — open it in TWO browser tabs
 ```
-Full guide (Codespaces, your own computer, phone testing, common problems): [docs/08-guides/local-development.md](docs/08-guides/local-development.md)
+Accept the gate in both tabs and choose **Find a stranger** in each. A chat needs two people. (`localhost` works for encryption; any other address needs HTTPS.) Guide: [local-development.md](docs/08-guides/local-development.md)
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Development server with auto-restart |
-| `npm run build` / `npm start` | Compile to `dist/` / run like production |
-| `npm run typecheck` | TypeScript checks |
-| `npm test` / `npm run test:watch` | Unit and integration tests once / on every save |
-| `npm run test:e2e` | Browser tests: two real browsers chat through a real server (Playwright, uses Edge) |
-| `npm run e2e:capture` | Re-records the README screenshots and demo GIF |
-| `npm run load:test` | Load test: 200 simulated people chat, end-to-end encrypted, against a real server (see [scaling.md](docs/06-operations/scaling.md)) |
-| `npm run moderation -- <logfile>` | A moderator's summary of the server logs (no messages or addresses) |
-| `npm run geo:update` | Downloads the DB-IP country database |
+| `npm test` | 726 unit and integration tests against a real server |
+| `npm run test:e2e` | 40 browser tests: two real browsers, accessibility, keyboard-only (needs Edge; `E2E_BROWSER=chromium` for Chromium) |
+| `npm run load:test` | 200 simulated people chat, end-to-end encrypted ([results](docs/06-operations/scaling.md)) |
+| `npm run moderation -- <logfile>` | A moderator's summary of the logs (no messages, no addresses) |
+| `npm run e2e:capture` | Re-records the screenshots and demo GIF above |
+| `npm run geo:update` | Downloads the country database (optional; needs `COUNTRY_DB_PATH`) |
+| `npm run typecheck` · `npm run build` · `npm start` | Types · compile · run the production build |
 
-Environment variables: [docs/06-operations/deployment.md](docs/06-operations/deployment.md#environment-variables)
+## Project layout
+```
+src/            server: gateway (events), sessions, matchmaking, safety (reports, bans),
+                security (tokens, hashing, puzzle), observability (logs, metrics, alerts), geo
+public/         the page: index.html, styles.css, client.js, js/ (crypto, filter, puzzle), fonts/
+tests/          unit/ and integration/ (a real server on a random port)
+e2e/            Playwright browser tests, accessibility tests, screenshot and GIF capture
+scripts/        load test, moderator summary, country database download
+docs/           design, security, operations, compliance, decisions, audit (docs/README.md)
+```
 
----
+## Status
+**Milestones M0 to M7 are built and tested.** M8 (public launch), M9 (production hardening) and M10 (post-launch operations) are **deliberately not pursued**: they need hosting, a lawyer, a legal entity and people, which a portfolio project does not have. Their plan is kept in [milestones.md](docs/01-product/milestones.md).
 
-## Project status & plans
+| | |
+|---|---|
+| Never deployed | No live link. If one is ever added it runs on free hosting and has no moderation |
+| Not reviewed by anyone outside | No lawyer, no cryptographer, no penetration test (the [audit](docs/10-reviews/2026-11-14-final-audit.md) is the author's own) |
+| Alerts are log lines | Nobody is paged until the service is hosted |
+| Age is self-declared | A tick box, by design; real verification would contradict the privacy promise |
 
-| Milestone | Goal | Effort | Status |
-|---|---|---|---|
-| M0 Foundations | Scaffold, TypeScript, scripts | — | ✅ |
-| M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
-| **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | ✅ built and in CI; first deploy not done |
-| **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | ✅ |
-| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | ✅ |
-| M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | ✅ |
-| M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | ✅ code complete; policy drafts await counsel |
-| M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | ✅ everything buildable before hosting; uptime monitor, alert delivery and a named moderator need hosting or people |
-| M8 Public launch | Legal sign-off, compliance 100%, PH beta launch | 2–3 d | ⏸ not pursued: this is a portfolio project |
-| M9 Production hardening | Pen test, DR drill, performance baseline, chaos testing | 3–4 d | ⏸ not pursued: this is a portfolio project |
-| M10 Post-launch operations | Incident response drill, on-call, operational maturity | 2–3 d | ⏸ not pursued: this is a portfolio project |
-
-Details, stories and exit criteria: [docs/01-product/milestones.md](docs/01-product/milestones.md) · Open decisions: [docs/00-overview/open-decisions.md](docs/00-overview/open-decisions.md) · **Known limits and future work:** [docs/00-overview/limits-and-roadmap.md](docs/00-overview/limits-and-roadmap.md) · **Security today:** [docs/04-security/security-overview.md](docs/04-security/security-overview.md)
-
-### After v1
-Multi-language UI · multi-instance scaling with Redis · more regions · installable PWA · X25519 migration · CDN · custom domain · browser fingerprinting. See [scaling.md](docs/06-operations/scaling.md).
-
----
+Everything else, with reasons and plans: [**known limits and future work**](docs/00-overview/limits-and-roadmap.md). Why things are the way they are: [**decision log**](docs/00-overview/decision-log.md).
 
 ## Documentation
-
 | Folder | What's inside |
 |---|---|
-| [00-overview](docs/00-overview/README.md) | Vision, goals, non-goals, open decisions |
-| [01-product](docs/01-product/README.md) | Milestones, user stories, features, slash commands |
-| [02-requirements](docs/02-requirements/README.md) | Functional + non-functional requirements, limits |
-| [03-design](docs/03-design/README.md) | HLD, LLD, matchmaking, zod validation, API versioning, ADRs, per-story technical designs (TDDs) |
-| [04-security](docs/04-security/README.md) | E2EE, privacy & sessions (incl. why no JWT), trust & safety, automated monitoring, human moderation, threat model, checklist |
-| [05-quality](docs/05-quality/README.md) | Testing strategy, testing requirements |
-| [06-operations](docs/06-operations/README.md) | Render, deployment, deployment security, health checks, monitoring, incident response, disaster recovery, scaling, runbook |
-| [07-process](docs/07-process/README.md) | Workflows, CI/CD, automation, security tooling, templates, and the full story [pipeline](docs/07-process/pipeline/README.md) (DoR/DoD, classification, hotfixes) |
+| [00-overview](docs/00-overview/README.md) | Vision, **decision log**, open decisions, **known limits and roadmap** |
+| [01-product](docs/01-product/README.md) | Milestones, user stories, features |
+| [02-requirements](docs/02-requirements/README.md) | Requirements and limits |
+| [03-design](docs/03-design/README.md) | Architecture, protocol (AsyncAPI), ADRs, per-story designs |
+| [04-security](docs/04-security/README.md) | **Security overview**, encryption, trust and safety, threat model, checklist |
+| [05-quality](docs/05-quality/README.md) | Testing strategy |
+| [06-operations](docs/06-operations/README.md) | Deployment, monitoring, scaling and **load test results**, runbooks |
+| [07-process](docs/07-process/README.md) | Workflow, CI/CD |
 | [08-guides](docs/08-guides/README.md) | Local development |
-| [09-compliance](docs/09-compliance/README.md) | **Philippine law, data privacy and ICT deployment:** regulatory register, compliance matrix, data inventory, privacy impact assessment, breach, police-request and child-safety procedures |
-| [10-reviews](docs/10-reviews/README.md) | Archive of past reviews (legal brief, IT manager, DICT-style). Not current guidance |
-| [GLOSSARY](docs/GLOSSARY.md) | Every term and acronym |
+| [09-compliance](docs/09-compliance/README.md) | Philippine law, data inventory, policy **drafts**, moderator guide |
+| [10-reviews](docs/10-reviews/README.md) | Past reviews and the [final audit](docs/10-reviews/2026-11-14-final-audit.md) |
 
----
-
-## Timeline
-
-| Date (UTC+8) | Milestone |
-|---|---|
-| 2026-10-08 | **M0:** project scaffold |
-| 2026-10-08 | **M1:** Express + Socket.IO chat, terminal UI, 4 themes |
-| 2026-10-08 | **Docs v1:** specs, design, security, process |
-| 2026-10-08 | **Docs v2:** product redefined: anonymous 1:1, E2EE, interest/country matching, global reach |
-
-Exact commit times: `git log --date=iso --pretty="%h %ad %s"`
+## Licence
+[ISC](LICENSE). The fonts (Instrument Sans, JetBrains Mono) are under the SIL Open Font Licence; their licences are in `public/fonts/`. Country data is from [DB-IP.com](https://db-ip.com) (CC BY 4.0).

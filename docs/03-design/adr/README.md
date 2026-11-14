@@ -12,8 +12,10 @@ An ADR records **one important decision**: context, options, choice, consequence
 | [0006](0006-anonymous-no-accounts-no-jwt.md) | Anonymous: no accounts, no JWT, system-generated names | Accepted |
 | [0007](0007-e2ee-webcrypto.md) | End-to-end encryption with WebCrypto (ECDH P-256 + HKDF + AES-GCM) | Accepted |
 | [0008](0008-server-relay-not-webrtc.md) | Relay through the server, not peer-to-peer WebRTC | Accepted |
-| [0009](0009-country-via-ip-lookup.md) | Country from a server-side IP lookup (DB-IP Lite) | Proposed (D-01) |
-| [0010](0010-deploy-early-and-continuously.md) | Deploy early (M2) and continuously; public launch at M8 | Accepted |
+| [0009](0009-country-via-ip-lookup.md) | Country from a server-side IP lookup (DB-IP Lite) | Accepted, completed by 0013 |
+| [0010](0010-deploy-early-and-continuously.md) | Deploy early (M2) and continuously; public launch at M8 | ❌ Superseded by 0012 |
 | [0011](0011-websocket-only-transport.md) | WebSocket-only transport so the Origin check can be strict | Accepted |
+| [0012](0012-portfolio-scope-not-launched.md) | Scope is a portfolio project: build to M7, do not launch | Accepted |
+| [0013](0013-country-from-local-ip-database.md) | Country from a local IP database, optional and fail-soft | Accepted |
 
 New ADR? Copy [`../../07-process/templates/adr-template.md`](../../07-process/templates/adr-template.md).

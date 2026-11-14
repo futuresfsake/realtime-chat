@@ -55,7 +55,8 @@ When two documents disagree, these win. Other documents link to them.
 | Milestone scope and exit criteria | [`01-product/milestones.md`](01-product/milestones.md) |
 | Numeric limits | [`02-requirements/specs.md`](02-requirements/specs.md) |
 | Threats and mitigations | [`04-security/threat-model.md`](04-security/threat-model.md) |
-| Open product decisions | [`00-overview/open-decisions.md`](00-overview/open-decisions.md) |
+| Decisions made, and why | [`00-overview/decision-log.md`](00-overview/decision-log.md) |
+| Open product decisions (parked until a launch) | [`00-overview/open-decisions.md`](00-overview/open-decisions.md) |
 | Known limits, gaps and future work | [`00-overview/limits-and-roadmap.md`](00-overview/limits-and-roadmap.md) |
 | What is protected today, with evidence | [`04-security/security-overview.md`](04-security/security-overview.md) |
 
