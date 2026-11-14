@@ -9,7 +9,7 @@ export const PROTOCOL_VERSION = "rc/v1";
 
 // Version of the rules + privacy notice shown at the gate. Changing the text
 // means changing this, which makes every visitor acknowledge the new text.
-export const RULES_VERSION = "2026-11-preview-4";
+export const RULES_VERSION = "2026-11-preview-5";
 
 export type ErrorCode =
   | "VALIDATION"
@@ -17,6 +17,8 @@ export type ErrorCode =
   | "INTERNAL"
   | "NOT_IN_SESSION"
   | "INVALID_STATE"
+  // This connection is blocked from matching for a while, after reports.
+  | "BANNED"
   // "My country only" was chosen but the country could not be detected.
   | "COUNTRY_UNKNOWN";
 
@@ -62,7 +64,11 @@ export type SessionEndReason =
   | "skipped"
   | "timeout"
   | "partner_timeout"
-  | "crypto_timeout";
+  | "crypto_timeout"
+  // You reported your partner: the chat is over and they will not be matched with you again.
+  | "reported"
+  // Your search was cancelled because this connection was blocked after reports.
+  | "blocked";
 
 // "typing" / "idle": the partner started or stopped typing (no content).
 // There is no "left" state: session:ended already says the partner is gone.
@@ -96,6 +102,7 @@ export interface ClientToServerEvents {
   "session:start": (payload: unknown, ack?: unknown) => void;
   "session:next": (payload: unknown, ack?: unknown) => void;
   "session:leave": (payload: unknown, ack?: unknown) => void;
+  "session:report": (payload: unknown, ack?: unknown) => void;
   "e2e:key": (payload: unknown, ack?: unknown) => void;
   // The only way to say anything. There is no unencrypted message event.
   "e2e:envelope": (payload: unknown, ack?: unknown) => void;

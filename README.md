@@ -22,9 +22,13 @@ _A recording of the real app: two separate browsers pair, the chat becomes end-t
 |---|---|---|
 | ![Age and rules gate](docs/assets/gate.png) | ![Idle screen](docs/assets/idle.png) | ![Searching screen](docs/assets/searching.png) |
 
-| Chat | Safety code | Phone width |
+| Chat | Safety code | Report |
 |---|---|---|
-| ![Encrypted chat](docs/assets/chat.png) | ![Safety code dialog](docs/assets/safety-code.png) | ![Chat on a phone](docs/assets/chat-mobile.png) |
+| ![Encrypted chat](docs/assets/chat.png) | ![Safety code dialog](docs/assets/safety-code.png) | ![Report dialog](docs/assets/report.png) |
+
+| Phone width |
+|---|
+| ![Chat on a phone](docs/assets/chat-mobile.png) |
 
 ## Try it
 

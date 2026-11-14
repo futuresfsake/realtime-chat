@@ -2,7 +2,10 @@ import type { Server, Socket } from "socket.io";
 import type { Config } from "../config.js";
 import type { Clock } from "../lib/clock.js";
 import type { Matchmaker } from "../matchmaking/matchmaker.js";
+import { PRIORITY_CATEGORIES } from "../safety/categories.js";
+import type { BanList } from "../safety/bans.js";
 import type { NoRematch } from "../safety/noRematch.js";
+import type { ReportTracker } from "../safety/reports.js";
 import { UNKNOWN_COUNTRY } from "../matchmaking/interests.js";
 import type { SearchPrefs } from "../matchmaking/interests.js";
 import type { Logger } from "../observability/logger.js";
@@ -17,7 +20,14 @@ import type {
   SessionEndReason,
   SocketData,
 } from "../types/events.js";
-import { E2eEnvelopeSchema, E2eKeySchema, EmptySchema, SearchPrefsSchema, TypingSchema } from "../validation/schemas.js";
+import {
+  E2eEnvelopeSchema,
+  E2eKeySchema,
+  EmptySchema,
+  ReportSchema,
+  SearchPrefsSchema,
+  TypingSchema,
+} from "../validation/schemas.js";
 import { HandlerError, withHandler } from "./handler.js";
 import { startSession } from "./startSession.js";
 
@@ -32,6 +42,9 @@ export interface HandlerDeps {
   sessions: SessionManager;
   matchmaker: Matchmaker;
   noRematch: NoRematch; // people who just parted are not paired again for a while
+  bans: BanList; // connections blocked from matching after reports
+  reports: ReportTracker; // how many different people reported each connection
+  reportLimits: KeyedLimiter; // reports per address
   searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
   grace: GraceTimers; // countdowns for chats whose socket dropped
   keyDeadlines: GraceTimers; // countdowns for chats still exchanging keys, by session id
@@ -54,7 +67,8 @@ const RECOVERABLE_REASONS: ReadonlySet<string> = new Set([
 // Wires every per-connection event. Session rules live in SessionManager; this
 // file only translates between sockets and those rules.
 export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
-  const { io, config, logger, clock, sessions, matchmaker, noRematch, searchLimits, grace, keyDeadlines } = deps;
+  const { io, config, logger, clock, sessions, matchmaker, noRematch, bans, reports, reportLimits, searchLimits, grace, keyDeadlines } =
+    deps;
   const { correlationId, ipHash } = socket.data;
   const socketId = socket.id;
 
@@ -102,6 +116,26 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     if (match) startSession(deps, match, correlationId);
   }
 
+  // A blocked connection cannot start or skip into a new search.
+  function checkNotBanned(): void {
+    if (bans.isBanned(socket.data.ipHash)) throw new HandlerError("BANNED");
+  }
+
+  // Three different people reported this connection: it cannot be matched for
+  // a while. Anyone on it who is still searching is told, and taken out of the queue.
+  function blockConnection(targetHash: string): void {
+    bans.ban(targetHash);
+    reports.clear(targetHash);
+    logger.warn("connection_blocked", { data: { ipHashPrefix: ipHashPrefix(targetHash) } });
+    for (const [id, other] of io.sockets.sockets) {
+      if (other.data.ipHash !== targetHash) continue;
+      matchmaker.remove(id);
+      if (sessions.getClientState(id) === "SEARCHING" && sessions.stopSearching(id)) {
+        io.to(id).emit("session:ended", { reason: "blocked" });
+      }
+    }
+  }
+
   // "My country only" needs a country we could detect (an unknown one can
   // never match locally). Refused before anything changes.
   function checkPrefs(prefs: SearchPrefs): void {
@@ -130,6 +164,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
       SearchPrefsSchema,
       searchLimiter,
       (prefs) => {
+        checkNotBanned();
         checkPrefs(prefs);
         if (!sessions.startSearching(socket.id).ok) throw new HandlerError("INVALID_STATE");
         search(prefs);
@@ -146,6 +181,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
       SearchPrefsSchema,
       searchLimiter,
       (prefs) => {
+        checkNotBanned();
         checkPrefs(prefs);
         const result = sessions.next(socket.id);
         if (!result.ok) throw new HandlerError(result.code);
@@ -170,6 +206,41 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
         announceEnd(result, "left");
       },
       hooks("session:leave"),
+    ),
+  );
+
+  // /report: end the chat, never meet this person again (for a while), and
+  // count the report. Only the category is sent: the server has no messages to
+  // attach, and nobody reads chats. The partner is simply told the chat ended,
+  // not that they were reported.
+  socket.on(
+    "session:report",
+    withHandler(
+      ReportSchema,
+      { consume: () => reportLimits.consume(socket.data.ipHash), retryAfterMs: () => reportLimits.retryAfterMs(socket.data.ipHash) },
+      ({ reason }) => {
+        // Only a chat can be reported. Checked first, so a stray report from
+        // someone who is only searching does not cancel their search.
+        if (!sessions.getPartner(socketId)) throw new HandlerError("NOT_IN_SESSION");
+        const result = sessions.leave(socketId);
+        if (!result.ok || !result.ended || !result.partner) throw new HandlerError("NOT_IN_SESSION");
+        matchmaker.remove(socketId);
+        announceEnd(result, "reported"); // also keeps the pair apart (no rematch)
+
+        const targetHash = io.sockets.sockets.get(result.partner)?.data.ipHash;
+        // A category and a hash prefix only: never a full hash, an address or any text.
+        logger.info("report", {
+          correlationId,
+          data: { reason, ...(targetHash ? { targetIpHashPrefix: ipHashPrefix(targetHash) } : {}) },
+        });
+        if (PRIORITY_CATEGORIES.has(reason)) {
+          logger.warn("report_priority", { correlationId, data: { reason } });
+        }
+        if (targetHash !== undefined && reports.record(targetHash, socket.data.ipHash).reachedThreshold) {
+          blockConnection(targetHash);
+        }
+      },
+      hooks("session:report"),
     ),
   );
 

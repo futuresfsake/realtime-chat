@@ -4,6 +4,7 @@ import {
   E2eEnvelopeSchema,
   E2eKeySchema,
   HandshakeAuthSchema,
+  ReportSchema,
   SearchPrefsSchema,
   TypingSchema,
 } from "../../../src/validation/schemas.js";
@@ -115,5 +116,20 @@ describe("SearchPrefsSchema", () => {
     expect(SearchPrefsSchema.safeParse({ country: "PH" }).success).toBe(false);
     expect(SearchPrefsSchema.safeParse({ interests: [], scope: "world", evil: 1 }).success).toBe(false);
     expect(SearchPrefsSchema.safeParse(null).success).toBe(false);
+  });
+});
+
+describe("ReportSchema", () => {
+  it.each(["harassment", "sexual", "spam", "hate", "minor", "threats", "other"])("accepts %s", (reason) => {
+    expect(ReportSchema.safeParse({ reason }).success).toBe(true);
+  });
+  it("rejects anything that is not a category, free text, extra fields and a missing reason", () => {
+    expect(ReportSchema.safeParse({ reason: "rude" }).success).toBe(false);
+    expect(ReportSchema.safeParse({ reason: "Harassment" }).success).toBe(false);
+    expect(ReportSchema.safeParse({ reason: "other", text: "he said my phone number" }).success).toBe(false);
+    expect(ReportSchema.safeParse({ reason: "other", transcript: ["hi"] }).success).toBe(false);
+    expect(ReportSchema.safeParse({}).success).toBe(false);
+    expect(ReportSchema.safeParse("harassment").success).toBe(false);
+    expect(ReportSchema.safeParse(null).success).toBe(false);
   });
 });

@@ -123,16 +123,16 @@ As a **privacy-conscious chatter**, I want to compare a safety code with my stra
 - The confirmation is remembered only for the browser session (`sessionStorage`).
 - **Features:** F-25
 
-### US-18 Report a stranger 🔜
+### US-18 Report a stranger ✅
 - `/report harassment` ends the chat, prevents rematching, and sends the report (reason code only).
 - **No transcript is sent.** The server never had the messages, and with no human moderators nobody would read them. Bans are based on *how many different people* report someone (US-20).
 - **Features:** F-26
 
-### US-19 Never meet the same person again ✅ (skip and leave; reports arrive with US-18)
+### US-19 Never meet the same person again ✅
 - Strangers I skipped or reported aren't matched with me again for 24 h (best effort, using the same daily-salted IP hash as bans, so no extra identifier is created).
 - **Features:** F-27
 
-### US-20 Abusers are temporarily blocked 🔜
+### US-20 Abusers are temporarily blocked ✅
 As the **operator**, I want repeat abusers blocked automatically, so that others stay safe without us reading chats.
 - If **3 different** users report the same client within 1 hour, that client is blocked from matching for 24 h.
 - The block uses a salted hash of the IP that rotates daily. Raw IPs are never stored.
@@ -145,7 +145,7 @@ As a **chatter**, I want obvious harmful content (slurs, spam, solicitation) to 
 - URLs are displayed as plain text and never rendered as clickable links.
 - **Features:** F-32
 
-### US-29 Reports cover all types of violations 🔜
+### US-29 Reports cover all types of violations ✅ (the priority flag is a warning log line until a moderator tool exists, US-31)
 As a **chatter**, I want to report specific types of abuse, so that the platform can respond appropriately to different violations.
 - Report categories: `harassment`, `sexual`, `spam`, `hate`, `minor`, `threats`, `other`.
 - Reports tagged `minor` or `threats` are flagged for immediate human moderator review.

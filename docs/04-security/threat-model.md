@@ -42,7 +42,7 @@
 | T-13 | Spoofing | Joining someone else's session with a forged sessionId | Server checks session membership on every event | ✅ M3 |
 | T-14 | Info disclosure | Partner learns your IP | Server relay, no WebRTC | ✅ by design |
 | T-15 | Info disclosure | Our logs de-anonymize users | No raw IPs; daily-salted HMAC; no content | 🔜 M2/M7 |
-| T-16 | Repudiation / safety | Harassment by strangers | Report, no-rematch, temp bans, instant `/next` | 🔜 M3/M6 |
+| T-16 | Repudiation / safety | Harassment by strangers | Report, no-rematch, temp bans, instant `/next` | ✅ M6 (reports, no-rematch and bans built; ban evasion by changing address is accepted) |
 | T-17 | Safety | Minors on the platform | 18+ gate (self-declared), rules, reporting reason `minor` | 🔜 M6 / ⚠️ residual |
 | T-18 | DoS | Bots farming matches | `/start` + `/next` rate limit per IP hash (10 per minute) | ✅ M3 |
 | T-19 | Spoofing | Ban evasion with a VPN | Short bans; rate limits | ⚠️ accepted |

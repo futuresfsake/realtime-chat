@@ -13,7 +13,7 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 ## Abuse
 - [ ] Token buckets: envelopes, typing, start/next, keys are built and tested (T-02); **reports** arrive with M6 (T-18)
 - [x] ≤ 5 sockets per IP hash (T-03). Evidence: `server.test.ts`, `recovery.test.ts`
-- [ ] Bans + no-rematch working with daily salt rotation (T-16, S-06)
+- [x] Bans + no-rematch working with daily salt rotation (T-16, S-06). Evidence: `report.test.ts`, `noRematch.test.ts`
 
 ## Encryption
 - [x] No plaintext path from client to server (code review + integration spy test) (T-07, T-25)
@@ -37,8 +37,8 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Personal-info warning shown each session (S-08)
 - [x] Links not clickable (S-09). Messages are rendered as text only. Evidence: Playwright HTML test
 - [ ] Content filters active for known harmful patterns (S-15)
-- [ ] `minor` report category triggers immediate escalation (S-16)
-- [ ] `harassment` and `sexual` report categories implemented per RA 11313
+- [ ] `minor` report category triggers immediate escalation (S-16). Flagged in the logs (`report_priority`); no human review tool yet
+- [x] `harassment` and `sexual` report categories implemented per RA 11313. Evidence: `report.test.ts`
 - [ ] Report categories cover all Safe Spaces Act violation types
 
 ## Monitoring & moderation

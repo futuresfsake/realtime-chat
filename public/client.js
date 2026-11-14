@@ -2,7 +2,7 @@
 const MAX_LINES = 500;    // cap DOM size so long sessions stay fast
 const MAX_HISTORY = 50;   // input history for the up/down arrow keys
 const PROTOCOL_VERSION = "rc/v1";          // must match src/types/events.ts
-const RULES_VERSION = "2026-11-preview-4"; // must match src/types/events.ts
+const RULES_VERSION = "2026-11-preview-5"; // must match src/types/events.ts
 const MAX_INTERESTS = 5;                   // must match src/matchmaking/interests.ts
 const CONSENT_KEY = "rtc.consent";         // sessionStorage: asked again in every new tab/visit
 const ACK_TIMEOUT_MS = 8000;               // how long to wait for the server to confirm a message
@@ -32,6 +32,10 @@ const els = {
   next: $("btn-next"),
   leave: $("btn-leave"),
   verify: $("btn-verify"),
+  report: $("btn-report"),
+  reportDialog: $("report"),
+  reportForm: $("report-form"),
+  reportCancel: $("report-cancel"),
   verifyDialog: $("verify"),
   verifyCode: $("verify-code"),
   chips: $("chips"),
@@ -113,6 +117,7 @@ function render() {
   els.next.disabled = !(inChat || p === "searching");
   els.leave.disabled = !(inChat || p === "searching");
   els.verify.disabled = p !== "chatting";
+  els.report.disabled = !inChat; // a chat can be reported as soon as it starts
   els.input.disabled = p !== "chatting";
   els.send.disabled = p !== "chatting";
   els.input.placeholder = p === "chatting" ? "Write a message" : p === "securing" ? "Setting up encryption…" : "Start a chat to write";
@@ -499,6 +504,8 @@ const ENDED_TEXT = {
   partner_timeout: "Your partner did not come back, so the chat ended.",
   timeout: "You were offline for too long, so that chat ended.",
   crypto_timeout: "The chat could not be secured within 10 seconds, so it was ended before anything was said.",
+  reported: "Report sent. The chat is over and you will not be paired with this person again.",
+  blocked: "This connection is blocked from matching for now, after reports. Try again later.",
 };
 socket.on("session:ended", ({ reason }) => {
   wipeHistory(); // the chat is over: nothing of it is kept
@@ -637,6 +644,8 @@ function sendCommand(event, onOk, payload = {}) {
             ? "You are not in a chat. Choose Find a stranger first."
             : "There is nothing to end."
       );
+    } else if (ack.error.code === "BANNED") {
+      err("This connection is blocked from matching for now, after reports from other people. It lasts up to 24 hours.");
     } else if (ack.error.code === "COUNTRY_UNKNOWN") {
       // Only worldwide matching is possible for this connection.
       err("We could not detect your country, so only worldwide matching is available.");
@@ -685,6 +694,31 @@ function showSafetyCode() {
   els.verifyCode.textContent = code;
   els.verifyDialog.showModal();
 }
+
+// ---------- Reporting ----------
+// Only a category is sent, never text. The server ends the chat and answers
+// with a "reported" end, which is what tells the person it worked.
+function openReport() {
+  if (!partner) return err("You are not chatting with anyone.");
+  els.reportForm.reset();
+  els.reportDialog.showModal();
+}
+
+els.reportForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const reason = new FormData(els.reportForm).get("reason");
+  if (typeof reason !== "string") return;
+  els.reportDialog.close();
+  if (!socket.connected) return err("Not connected. Your report was not sent.");
+  socket.emit("session:report", { reason }, (ack) => {
+    if (!ack || ack.ok) return;
+    if (ack.error.code === "RATE_LIMITED") err("You have sent several reports recently. Try again later.");
+    else if (ack.error.code === "NOT_IN_SESSION") err("That chat has already ended, so there is nothing to report.");
+    else err("Your report was not sent. Please try again.");
+  });
+});
+els.reportCancel.addEventListener("click", () => els.reportDialog.close());
+els.report.addEventListener("click", openReport);
 
 els.start.addEventListener("click", startSearch);
 els.next.addEventListener("click", nextStranger);

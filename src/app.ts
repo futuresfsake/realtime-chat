@@ -19,7 +19,9 @@ import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
 import { KeyedLimiter } from "./security/tokenBucket.js";
 import { ALLOWED_INTERESTS } from "./matchmaking/interests.js";
 import { Matchmaker } from "./matchmaking/matchmaker.js";
+import { BanList } from "./safety/bans.js";
 import { NoRematch } from "./safety/noRematch.js";
+import { ReportTracker } from "./safety/reports.js";
 import { startSession } from "./gateway/startSession.js";
 import { noCountryLookup } from "./geo/countryLookup.js";
 import type { CountryLookup } from "./geo/countryLookup.js";
@@ -243,7 +245,16 @@ export function buildServer(deps: ServerDeps) {
   const searchLimits = new KeyedLimiter(10, 10 / 60, clock);
   const sessions = new SessionManager();
   const noRematch = new NoRematch(clock, config.noRematchMs);
-  const matchmaker = new Matchmaker(clock, config.interestWaitMs, (a, b) => noRematch.blocked(a, b));
+  const bans = new BanList(clock, config.banMs);
+  const reports = new ReportTracker(clock, config.reportWindowMs, config.reportBanThreshold);
+  // Reports: 3 an hour per address, so nobody can mass-report from many tabs.
+  const reportLimits = new KeyedLimiter(3, 3 / 3600, clock);
+  // Two people who just parted, or a blocked connection, are never matched.
+  const matchmaker = new Matchmaker(
+    clock,
+    config.interestWaitMs,
+    (a, b) => noRematch.blocked(a, b) || bans.isBanned(a.ipHash) || bans.isBanned(b.ipHash),
+  );
   const grace = new GraceTimers();
   // The same kind of countdown, one per session that is still exchanging keys.
   const keyDeadlines = new GraceTimers();
@@ -257,6 +268,9 @@ export function buildServer(deps: ServerDeps) {
       sessions,
       matchmaker,
       noRematch,
+      bans,
+      reports,
+      reportLimits,
       searchLimits,
       grace,
       keyDeadlines,

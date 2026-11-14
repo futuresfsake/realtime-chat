@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ALLOWED_INTERESTS, MAX_INTERESTS } from "../matchmaking/interests.js";
+import { REPORT_CATEGORIES } from "../safety/categories.js";
 
 // Every client -> server payload has a strict schema: wrong types, missing
 // fields and unknown fields are all rejected.
@@ -38,6 +39,11 @@ export const SearchPrefsSchema = z.strictObject({
     .refine((list) => new Set(list).size === list.length, "interests must be unique")
     .default([]),
   scope: z.enum(["local", "world"]).default("world"),
+});
+
+// A report is a category and nothing else: no text, no transcript.
+export const ReportSchema = z.strictObject({
+  reason: z.enum(REPORT_CATEGORIES),
 });
 
 // /leave carries no data.

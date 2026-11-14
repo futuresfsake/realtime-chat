@@ -37,6 +37,7 @@
         <li>No sexual harassment and no unwanted sexual messages (Safe Spaces Act, RA 11313).</li>
         <li>Nothing sexual involving minors, ever. It is a crime and will be reported to the authorities (RA 11930).</li>
         <li>No hate speech, spam, scams, impersonation or sharing other people's personal information.</li>
+        <li>You can report the person you are chatting with. The chat ends and you will not be paired with them again. Three reports from different people about the same connection block it from matching for 24 hours.</li>
       </ul>
 
       <h2>Privacy</h2>
@@ -47,6 +48,7 @@
         <li>We cannot see what is said. We can still see that two connections are chatting, when, and roughly how much is sent. The "is typing" signal is not encrypted; it contains no text.</li>
         <li>To match you, the server looks up your country (a two-letter code) from your IP address, then discards the address. That code and the interests you pick are held in the server's memory only while you search or chat, and are never written to logs. Country detection uses data from DB-IP.com.</li>
         <li>Your partner sees which interests you have in common, and nothing else about you.</li>
+        <li>A report sends only the category you choose, never any messages (we cannot see them). While a report counts, the server holds the category and a scrambled form of both connections' addresses in memory for up to an hour, and writes the category and a short fragment of the reported connection's scrambled address to its logs. A block is held in memory for 24 hours. Reports are anonymous: the other person is only told the chat ended.</li>
         <li>The server is hosted by Render in Singapore.</li>
         <li>This acknowledgement is saved only in your own browser, for this visit.</li>
       </ul>
@@ -92,6 +94,7 @@
           <button type="button" class="btn" id="btn-next" disabled>Next</button>
           <button type="button" class="btn" id="btn-leave" disabled>End chat</button>
           <button type="button" class="btn btn-quiet" id="btn-verify" disabled>Safety code</button>
+          <button type="button" class="btn btn-quiet" id="btn-report" disabled>Report</button>
         </div>
 
         <!-- What to look for. Only shown while idle. -->
@@ -137,6 +140,27 @@
 
     <footer class="credit">Country detection uses IP geolocation data by <a href="https://db-ip.com" rel="noopener noreferrer">DB-IP.com</a> (CC BY 4.0)</footer>
   </div>
+
+  <dialog id="report" class="dialog" aria-labelledby="report-title">
+    <form id="report-form" class="dialog-box">
+      <h2 id="report-title">Report this person</h2>
+      <p>The chat ends and you will not be paired with them again. Only the category you choose is sent. No messages are sent, because we never see them. The other person is not told they were reported.</p>
+      <fieldset class="reasons">
+        <legend class="sr-only">What happened?</legend>
+        <label class="radio"><input type="radio" name="reason" value="harassment" required /> <span>Harassment or bullying</span></label>
+        <label class="radio"><input type="radio" name="reason" value="sexual" /> <span>Unwanted sexual messages</span></label>
+        <label class="radio"><input type="radio" name="reason" value="hate" /> <span>Hate speech</span></label>
+        <label class="radio"><input type="radio" name="reason" value="threats" /> <span>Threats of harm</span></label>
+        <label class="radio"><input type="radio" name="reason" value="minor" /> <span>Seems to be under 18, or sexual content about a minor</span></label>
+        <label class="radio"><input type="radio" name="reason" value="spam" /> <span>Spam or scams</span></label>
+        <label class="radio"><input type="radio" name="reason" value="other" /> <span>Something else</span></label>
+      </fieldset>
+      <div class="dialog-actions">
+        <button type="button" class="btn" id="report-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="report-send">Send report</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="verify" class="dialog" aria-labelledby="verify-title">
     <form method="dialog" class="dialog-box">

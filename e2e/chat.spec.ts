@@ -30,12 +30,12 @@ test.describe("a chat between two strangers", () => {
     // Alone, a person waits.
     await a.page.getByRole("button", { name: "Find a stranger" }).click();
     await expect(a.page.locator("#chat-title")).toHaveText("Searching");
-    await expect(a.page.getByLabel("Message")).toBeDisabled();
+    await expect(a.page.getByLabel("Message", { exact: true })).toBeDisabled();
 
     await b.page.getByRole("button", { name: "Find a stranger" }).click();
     for (const p of [a, b]) {
       await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
-      await expect(p.page.getByLabel("Message")).toBeEnabled();
+      await expect(p.page.getByLabel("Message", { exact: true })).toBeEnabled();
     }
     // Each sees the other's random name, and the names differ.
     const nameSeenByA = await a.page.locator("#chat-title").innerText();
@@ -57,7 +57,7 @@ test.describe("a chat between two strangers", () => {
     await expect(b.page.locator(".msg:not(.msg--mine) .reactions")).toHaveText("😂");
 
     // The input is cleared and the typing indicator is gone once a message is sent.
-    await expect(a.page.getByLabel("Message")).toHaveValue("");
+    await expect(a.page.getByLabel("Message", { exact: true })).toHaveValue("");
   });
 
   test("both show the same safety code", async ({ person }) => {
@@ -119,7 +119,7 @@ test.describe("a chat between two strangers", () => {
     await expect(b.page.getByRole("log")).not.toContainText("this will be gone");
     await expect(a.page.getByRole("log")).not.toContainText("this will be gone");
     for (const p of [a, b]) {
-      await expect(p.page.getByLabel("Message")).toBeDisabled();
+      await expect(p.page.getByLabel("Message", { exact: true })).toBeDisabled();
       await expect(p.page.getByRole("button", { name: "Find a stranger" })).toBeEnabled();
       await expect(p.page.locator("#seal-text")).toHaveText("Not encrypted yet");
     }
@@ -136,7 +136,7 @@ test.describe("a chat between two strangers", () => {
     await expect(b.page.getByRole("log")).toContainText("Your partner left the chat.");
     for (const p of [a, c]) {
       await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
-      await expect(p.page.getByLabel("Message")).toBeEnabled();
+      await expect(p.page.getByLabel("Message", { exact: true })).toBeEnabled();
     }
 
     await say(a, "new chat, new keys");
@@ -149,8 +149,8 @@ test.describe("a chat between two strangers", () => {
     await a.join();
     await b.join();
     await startChat(a, b);
-    await a.page.getByLabel("Message").fill("x".repeat(600));
-    await expect(a.page.getByLabel("Message")).toHaveValue("x".repeat(500));
+    await a.page.getByLabel("Message", { exact: true }).fill("x".repeat(600));
+    await expect(a.page.getByLabel("Message", { exact: true })).toHaveValue("x".repeat(500));
     await a.page.getByRole("button", { name: "Send" }).click();
     await expect(b.page.locator(".msg-text").first()).toHaveText("x".repeat(500));
   });
@@ -258,5 +258,64 @@ test.describe("matchmaking", () => {
     const a = await person();
     await a.join();
     await expect(a.page.getByRole("link", { name: "DB-IP.com" })).toHaveAttribute("href", "https://db-ip.com");
+  });
+});
+
+test.describe("reporting", () => {
+  test("a report ends the chat, tells the reporter it was sent and tells the other person only that it ended", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await say(a, "this is the last message");
+    await expect(b.page.getByRole("log")).toContainText("this is the last message");
+
+    await a.page.getByRole("button", { name: "Report" }).click();
+    const dialog = a.page.getByRole("dialog", { name: "Report this person" });
+    await expect(dialog).toBeVisible();
+    // Sending needs a category.
+    await dialog.getByRole("button", { name: "Send report" }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel("Harassment or bullying").check();
+    await dialog.getByRole("button", { name: "Send report" }).click();
+
+    await expect(a.page.getByRole("log")).toContainText("Report sent.");
+    await expect(b.page.getByRole("log")).toContainText("Your partner left the chat.");
+    await expect(b.page.getByRole("log")).not.toContainText(/report/i); // the other person is never told
+    for (const p of [a, b]) {
+      await expect(p.page.getByLabel("Message", { exact: true })).toBeDisabled();
+      await expect(p.page.getByRole("button", { name: "Report" })).toBeDisabled();
+    }
+  });
+
+  test("Cancel closes the dialog and the chat carries on", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await a.page.getByRole("button", { name: "Report" }).click();
+    await a.page.getByRole("dialog", { name: "Report this person" }).getByRole("button", { name: "Cancel" }).click();
+    await expect(a.page.getByRole("dialog", { name: "Report this person" })).toBeHidden();
+    await say(a, "still talking");
+    await expect(b.page.getByRole("log")).toContainText("still talking");
+  });
+
+  test("Report is available only while in a chat, and offers all seven categories", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await expect(a.page.getByRole("button", { name: "Report" })).toBeDisabled();
+    await startChat(a, b);
+    await a.page.getByRole("button", { name: "Report" }).click();
+    const dialog = a.page.getByRole("dialog", { name: "Report this person" });
+    await expect(dialog.getByRole("radio")).toHaveCount(7);
+    await a.page.keyboard.press("Escape"); // closes from the keyboard too
+    await expect(dialog).toBeHidden();
+  });
+
+  test("the gate tells people what a report records", async ({ person, serverUrl }) => {
+    const a = await person();
+    await a.page.goto(serverUrl);
+    await expect(a.page.getByRole("dialog", { name: "Before you connect" })).toContainText("only the category you choose");
   });
 });
