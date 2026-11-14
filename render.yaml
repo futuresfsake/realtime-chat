@@ -7,7 +7,9 @@ services:
     region: singapore # closest to the Philippines; cannot be changed later
     plan: free
     branch: main
-    buildCommand: npm ci && npm run build
+    # The country database (DB-IP, about 8 MB) is downloaded at build time. If the download fails the
+    # build still succeeds and every country is simply "unknown".
+    buildCommand: npm ci && (npm run geo:update || echo "country database not downloaded") && npm run build
     startCommand: npm start
     healthCheckPath: /health
     autoDeployTrigger: checksPass # deploy only after CI is green on main
@@ -20,6 +22,8 @@ services:
         value: "true" # until the public launch (M8)
       - key: LOG_LEVEL
         value: info
+      - key: COUNTRY_DB_PATH
+        value: data/dbip.mmdb # see geo:update
       # The exact https origin of the deployed site. Render asks for this once,
       # when the Blueprint is first applied (it is not stored in this file).
       - key: ALLOWED_ORIGINS

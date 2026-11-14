@@ -33,7 +33,7 @@ Rules: least privilege, MFA on every account, no shared accounts, access reviewe
 | Structured logs with correlation IDs | M2 | US-33 |
 | Maintenance / kill switch (env flag refuses new sessions, existing ones drain) | M2 | Needed for incident response |
 | Metrics snapshot every 60 s and alert thresholds | M7 | US-41, US-42 |
-| Report queue with priority for `minor` and `threats` | M7 | US-31 |
+| Report queue with priority for `minor` and `threats` | M7 | US-31. **Built as** `npm run moderation`, a command-line summary of the logs with a "needs a person" section first ([moderator-guide.md](moderator-guide.md)) |
 | Ban list view, lift, extend (reason required) | M7 | Every action written to the audit log |
 | Legal hold set / release | M7 | Stops the purge job for named records |
 | Retention report (rows purged, rows held) | M7 | Evidence for the DPO and NPC |

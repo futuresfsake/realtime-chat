@@ -51,8 +51,8 @@ Status: ⏸ waiting · ✅ decided · 🔄 assumed (proceeding with recommendati
 
 | ID | Gap | Affects | Recommendation | Status |
 |---|---|---|---|---|
-| G-19 | **Moderator tooling format** — is the moderator dashboard a web UI, CLI, or structured log queries? | TDD-M7-US31 | Start with structured JSON logs + a CLI script that queries them. A web dashboard is post-v1. | ⏸ |
-| G-20 | **Load testing tool** — Artillery or k6? | TDD-M7-US25 | k6 (lighter, scriptable in JS, free and open-source) | 🔄 |
+| G-19 | **Moderator tooling format** — is the moderator dashboard a web UI, CLI, or structured log queries? | TDD-M7-US31 | Start with structured JSON logs + a CLI script that queries them. A web dashboard is post-v1. | ✅ Built: `npm run moderation` |
+| G-20 | **Load testing tool** — Artillery or k6? | TDD-M7-US25 | k6 was recommended. **Decided otherwise:** a Node script (`scripts/load-test.ts`) because it must run the real end-to-end encryption and the real handshake, which k6 cannot do without reimplementing them. k6 remains an option for HTTP-level testing in M9 | ✅ |
 | G-21 | **Uptime monitor service** — which external service monitors `/health`? | TDD-M7-US25 | UptimeRobot free tier (50 monitors, 5-min interval) | 🔄 |
 
 ## M8 Launch

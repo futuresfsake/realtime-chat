@@ -1,0 +1,25 @@
+# DB-IP publishes a new country database every month. The service downloads it
+# when it is built (see render.yaml), so the way to refresh it is to rebuild.
+# This asks Render to redeploy on the 5th of each month. It does nothing unless
+# a repository secret named RENDER_DEPLOY_HOOK holds the service's deploy hook URL.
+name: Refresh country database
+on:
+  schedule:
+    - cron: "17 3 5 * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask Render to redeploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "No RENDER_DEPLOY_HOOK secret is set, so there is nothing to redeploy."
+            exit 0
+          fi
+          curl --fail --silent --show-error --request POST "$HOOK"

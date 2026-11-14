@@ -141,6 +141,9 @@ Full guide (Codespaces, your own computer, phone testing, common problems): [doc
 | `npm test` / `npm run test:watch` | Unit and integration tests once / on every save |
 | `npm run test:e2e` | Browser tests: two real browsers chat through a real server (Playwright, uses Edge) |
 | `npm run e2e:capture` | Re-records the README screenshots and demo GIF |
+| `npm run load:test` | Load test: 200 simulated people chat, end-to-end encrypted, against a real server (see [scaling.md](docs/06-operations/scaling.md)) |
+| `npm run moderation -- <logfile>` | A moderator's summary of the server logs (no messages or addresses) |
+| `npm run geo:update` | Downloads the DB-IP country database |
 
 Environment variables: [docs/06-operations/deployment.md](docs/06-operations/deployment.md#environment-variables)
 

@@ -27,10 +27,10 @@ Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milest
 | L-12 | **Reports carry no transcript** | The server never has messages; nobody reads chats | A category and counts only | ⚠️ By design. Evidence for the police is limited ([law-enforcement-requests.md](../09-compliance/law-enforcement-requests.md), D-11) |
 | L-13 | **Blocks and no-rematch are tied to a network address** | A VPN or new network evades them; one block reaches **everyone on a shared address** (school, mobile data) | Needs three different reporting addresses; lasts 24 h; same-address pairs are kept apart per connection only | ⚠️ Accepted. Post-v1: stronger signals (privacy cost to weigh) |
 | L-14 | **Reports, blocks and no-rematch are lost on restart** and expire quickly (reports after 1 h) | Memory only, on purpose | No data to leak | 🔜 D-10: a minimal expiring safety ledger |
-| L-15 | **No human moderation.** `minor` and `threats` reports only write a warning log line | No moderator tool or people yet | Automatic blocks; roles are defined ([roles-and-access.md](../09-compliance/roles-and-access.md)) | 🔜 M7 moderator tooling (US-31); ⏸ D-12 name the people |
+| L-15 | **No human moderation.** A command-line summary of logs (`npm run moderation`) and a [moderator guide](../09-compliance/moderator-guide.md) exist, but no moderator is named, `minor` and `threats` reports only write a warning log line, and nobody is paged | A tool and a guide are not a person | Automatic blocks; the summary leads with what needs a person | ⏸ D-12 name the people; 🔜 a web tool only if the volume needs it |
 | L-16 | **Automated abuse detection is limited to spikes.** Alerts fire on report, connection and error spikes; there is no per-address abuse score or pattern analysis | Needs real traffic to tune | Rate limits, reports, alert rules | 🔜 Post-launch tuning |
 | L-17 | **Bot prevention only slows bots down.** A proof-of-work puzzle (default 12 bits, a fraction of a second in a browser) is solved before every connection token | A script with real CPU and many addresses can still pay the price; a shared network gets a puzzle burst of 5, then one per 10 s | Puzzle, per-address limits, connection token | ⚠️ Accepted. Post-v1: tune difficulty with real traffic; Cloudflare Turnstile |
-| L-18 | **Country detection is approximate** | VPNs, mobile carriers and a monthly database. Unknown on `localhost` | "My country only" is refused with a clear message when unknown | ⚠️ Accepted. 🔜 M7 automate the monthly refresh |
+| L-18 | **Country detection is approximate** | VPNs, mobile carriers and a monthly database. Unknown on `localhost` | "My country only" is refused with a clear message when unknown. The database is downloaded at every build, and a monthly workflow asks the host to redeploy (written, not yet run because nothing is hosted) | ⚠️ Accepted |
 | L-19 | **Matching scans the waiting list** (fine for hundreds, not millions) | Simplicity | Bounded by the 500 connection cap | 🔜 Post-v1: country-bucketed pools |
 
 ## 3. Scale, operations and hosting
@@ -40,7 +40,7 @@ Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milest
 | L-21 | **One server instance, all state in memory.** A restart or deploy ends every chat; no horizontal scaling | In-memory design (ADR-0005) | Clients are told and can start again | 🔜 Post-v1: Redis-backed state ([scaling.md](../06-operations/scaling.md)) |
 | L-22 | **Free-tier cold start** (up to about a minute) if hosted on Render free | Free hosting sleeps | The page says it is waking up | ⚠️ Accepted |
 | L-23 | **Alerts are log lines, not messages to a person**, and there is no uptime monitor, log platform or dashboard. Availability is not measured | The metrics snapshot and alert rules exist (every 60 s), but nothing watches them without hosting | `metrics_snapshot` and `alert` log lines; a deep `/health` | 🔜 With hosting: UptimeRobot and a log platform alert on `event = alert` |
-| L-24 | **No load, soak or chaos testing**; capacity is a design target, not a measurement | Not yet done | 500 connection cap, memory ceiling | 🔜 M7 small load test; M9 full |
+| L-24 | **Load is measured only on one fast machine over `localhost`**: 200 and 400 people, all targets met ([scaling.md](../06-operations/scaling.md)). There is no soak test (hours), no chaos test, no test on free-tier hardware, and bursts, mass reconnects and reports were not loaded | A short, steady run | 500 connection cap, memory ceiling, the measured headroom | 🔜 M9 (200 chats for 10 minutes, then 8 hours); re-measure once hosted |
 | L-25 | **"N online" can lag by about 5 seconds** | It is broadcast on a timer, and doubles as the reconnect keepalive | Documented | ⚠️ Accepted |
 | L-26 | ~~Browser tests are not in CI~~ **Closed (M7):** a CI job runs them in headless Chromium | The Edge-based local run and the CI Chromium run can differ in small ways | Both run the same tests | ✅ |
 | L-27 | **Only Edge/Chromium is tested.** No automated Firefox or Safari run | Cost | Standard WebCrypto only | 🔜 M9 cross-browser |
@@ -56,6 +56,7 @@ Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milest
 | L-33 | **Privacy notice, terms and community rules exist only as drafts** ([policies/](../09-compliance/policies/README.md)): not reviewed by counsel, not published, with placeholders for the operator, DPO, contact and beta scope | Drafts match the code | ⏸ D-12, D-16, D-17, D-18; publish in M8 |
 | L-34 | **No legal entity, NPC registration, DPO, child-safety officer or processor agreement** | Defined on paper | ⏸ D-12, D-16, D-17, D-18 before any public launch |
 | L-35 | **No ban/report retention schedule or purge job** (D-10, D-14) | Nothing is kept beyond memory | 🔜 With the ledger |
+| L-36 | **A single `minor` report does not block the reported connection at once**, although the child-safety procedure says it should (step 1) | One report would otherwise let anyone block a stranger for a day with a false report. Three different reporters block, like any category | The priority log line (`report_priority`) and the moderator guide's same-day escalation | ⏸ Owner and counsel decide: block on one `minor` report and accept the abuse risk, or keep escalating by a person |
 
 ## 5. Documentation and process
 - The **TDD files** for stories that are built (`docs/03-design/tdd/`) still describe the original plan in places (for example module names). The living documents and the code win; each TDD is a design record.
@@ -68,7 +69,7 @@ In the order they are planned. Scope and exit criteria live in [milestones.md](.
 | When | What | Closes |
 |---|---|---|
 | **Rest of M6** | Age confirmation wording (US-17) and counsel review of the policy drafts (US-38) | L-32, L-33 |
-| **M7** | Done: metrics, service levels, alert rules, accessibility checks, browser tests in CI. **Open:** moderator tooling, uptime monitor and log alerting (needs hosting), small load test, monthly country database refresh | L-15, L-18, L-23, L-24 |
+| **M7** | Done: metrics, service levels, alert rules, accessibility checks, browser tests in CI, moderator summary and guide, load test, page-size and licence checks, AsyncAPI spec, country database refresh. **Open (needs hosting or people):** uptime monitor, log alert delivery, a named moderator, a tabletop exercise | L-15, L-23 |
 | **M8** | Legal sign-off, entity, NPC registration, DPO, launch checklist, **only if the project is ever launched** | L-20, L-30 to L-35 |
 | **M9** | Penetration test, ZAP baseline, WebSocket fuzzing, disaster recovery drill, load and soak, cross-browser | L-02, L-24, L-27 |
 | **M10** | Incident drill, on-call, retrospective | operational maturity |

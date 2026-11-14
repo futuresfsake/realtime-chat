@@ -28,7 +28,7 @@ describe("metrics snapshot (US-41)", () => {
     const snap = snapshots().at(-1)!;
     expect(Object.keys(snap).sort()).toEqual(["counters", "gauges", "intervalSec", "timings", "totals"]);
     expect(Object.keys(snap.gauges).sort()).toEqual([
-      "activeSessions", "bansActive", "connections", "eventLoopP99Ms", "heapUsedMb", "noRematchPairs", "rssMb", "uptimeSec", "waiting",
+      "activeSessions", "bansActive", "connections", "eventLoopBusyPct", "heapUsedMb", "noRematchPairs", "rssMb", "uptimeSec", "waiting",
     ]);
     expect(snap.gauges.rssMb).toBeGreaterThan(10);
     expect(snap.gauges.connections).toBe(1);

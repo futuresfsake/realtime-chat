@@ -69,6 +69,7 @@ The server is a **blind relay**. It pairs two strangers, hands them each other's
 ### 7. Seeing what happens (monitoring)
 - A **metrics snapshot every 60 seconds** (counters, timings, gauges; numbers only) and **alert rules** that write one `alert` log line when a threshold is crossed: connection, report and error spikes, memory, failed key exchanges, block surges. Evidence: `metrics.test.ts`, `alerts.test.ts`, `metrics.test.ts` (integration).
 - Priority reports (`minor`, `threats`) write a `report_priority` line at once.
+- A moderator's view of the logs: `npm run moderation -- <logfile> --since 24h` (`src/observability/moderationSummary.ts`). It reads log lines only, so it can only show categories, counts, times and 8 character hash prefixes. Evidence: `moderationSummary.test.ts`, `moderation.test.ts` (including a check that no address or long hash appears in its output).
 - **Limit:** alerts are log lines. Nobody is paged until the service is hosted and a log platform watches them.
 
 ### 8. Accessibility
@@ -76,6 +77,7 @@ The server is a **blind relay**. It pairs two strangers, hands them each other's
 
 ### 9. How the code is protected (process)
 - **CI on every pull request:** typecheck, unit and integration tests, build, `npm audit`, a secrets scan (gitleaks, plus GitGuardian), static analysis (semgrep), two privacy greps (raw IP access, console logging), and the browser tests (two real browsers through a real server, including the accessibility checks) in headless Chromium.
+- **Page size and licences:** tests fail the build if the page grows past 100 KB on the wire (84 KB today) or if a production dependency has a non-permissive licence (`bundle.test.ts`, `licenses.test.ts`). The protocol document ([asyncapi.yaml](../03-design/asyncapi.yaml)) is kept in step with the code by a test.
 - **Dependencies:** Dependabot with a 7-day cooldown so a new release ages before it is proposed; GitHub Actions pinned to commit hashes; few runtime dependencies (`express`, `socket.io`, `zod`, `helmet`, `maxmind`).
 - **Ownership and disclosure:** `CODEOWNERS` on security-critical paths; `SECURITY.md` with a disclosure policy.
 - **Tests as a safety net:** several hundred unit and integration tests plus browser tests that drive two real browsers through a real server.
