@@ -4,24 +4,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>realtime-chat // tty1</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#F4F1EA" />
+  <title>Realtime Chat — anonymous one-to-one chat</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <script src="/js/themes.js"></script>
+  <link rel="preload" href="/fonts/instrument-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
   <script src="/js/sessionStore.js"></script>
   <script src="/js/crypto.js"></script>
-  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <!-- Shown before anything connects. The server enforces the same
        acknowledgement, so removing this element does not bypass it. -->
   <section id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
     <form id="gate-form" class="gate-box">
-      <h1 id="gate-title">// BEFORE YOU CONNECT</h1>
+      <h1 id="gate-title">Before you connect</h1>
 
-      <h2>ADULTS ONLY</h2>
+      <h2>Adults only</h2>
       <p>This chat is for people <strong>18 years old or older</strong>. If you are under 18, please close this page.</p>
 
-      <h2>THIS IS A PREVIEW</h2>
+      <h2>This is a preview</h2>
       <ul>
         <li>You are paired with <strong>one stranger</strong> at a time. They can read everything you send, and they can save or share it.</li>
         <li>Messages and reactions are <strong>end-to-end encrypted</strong>: they are locked in your browser and only your partner's browser can unlock them. Our server passes them on but cannot read them.</li>
@@ -29,7 +31,7 @@
         <li>Do not share your name, phone number, address, school, workplace or social media accounts.</li>
       </ul>
 
-      <h2>RULES</h2>
+      <h2>Rules</h2>
       <ul>
         <li>No harassment, threats or bullying.</li>
         <li>No sexual harassment and no unwanted sexual messages (Safe Spaces Act, RA 11313).</li>
@@ -37,62 +39,96 @@
         <li>No hate speech, spam, scams, impersonation or sharing other people's personal information.</li>
       </ul>
 
-      <h2>PRIVACY</h2>
+      <h2>Privacy</h2>
       <ul>
         <li>No accounts, no cookies, no analytics, no ads.</li>
         <li>Your IP address is used for a moment to limit abuse. We keep only a scrambled (hashed) form of it, in memory, for up to 24 hours. It is never written to our logs.</li>
         <li>Encrypted messages are passed on, kept in the server's memory (still encrypted) for up to two minutes so that a dropped connection can catch up, and then gone. Nothing is written to disk and we keep no chat history.</li>
         <li>We cannot see what is said. We can still see that two connections are chatting, when, and roughly how much is sent. The "is typing" signal is not encrypted; it contains no text.</li>
         <li>The server is hosted by Render in Singapore.</li>
-        <li>Your theme and this acknowledgement are saved only in your own browser.</li>
+        <li>This acknowledgement is saved only in your own browser, for this visit.</li>
       </ul>
 
-      <label class="gate-check"><input type="checkbox" id="gate-adult" required /> I am 18 years old or older.</label>
-      <label class="gate-check"><input type="checkbox" id="gate-rules" required /> I have read the above and I will follow the rules.</label>
+      <label class="check"><input type="checkbox" id="gate-adult" required /> <span>I am 18 years old or older.</span></label>
+      <label class="check"><input type="checkbox" id="gate-rules" required /> <span>I have read the above and I will follow the rules.</span></label>
 
-      <button type="submit" id="gate-enter">[ ENTER ]</button>
-      <p class="dim gate-version">notice version <span id="gate-version"></span></p>
+      <button type="submit" id="gate-enter" class="btn btn-primary">Continue</button>
+      <p class="fine">Notice version <span id="gate-version"></span></p>
     </form>
   </section>
 
-  <div class="crt" id="app">
-    <p id="preview-banner" class="preview-banner" hidden>PREVIEW: not launched yet. Things may break or reset at any time.</p>
-    <header class="bar">
-      <span class="brand">REALTIME-CHAT <span class="dim">v0.4</span></span>
-      <span class="bar-mid dim">tty1 · chat #<span id="room-name">lobby</span></span>
-      <span class="conn" id="conn" data-state="connecting">
-        <span class="led"></span><span id="conn-text">CONNECTING</span><span id="conn-online" class="dim"></span><span id="conn-e2e" role="img" aria-label="end-to-end encrypted" hidden> · 🔒</span>
-      </span>
+  <div class="app" id="app" data-phase="connecting">
+    <p id="preview-banner" class="banner" hidden>Preview: not launched yet. Things may break or reset at any time.</p>
+
+    <header class="masthead">
+      <a class="wordmark" href="/" aria-label="Realtime Chat, home">
+        <svg class="mark" width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="9" /><path d="M7 11.5l3 3 5-6" /></svg>
+        <span>Realtime Chat</span>
+      </a>
+      <p class="status" id="conn" data-state="connecting" role="status">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="conn-text">Connecting</span>
+        <span id="conn-online" class="muted"></span>
+      </p>
     </header>
 
-    <div class="body">
-      <aside class="side">
-        <section>
-          <h2>// PARTNER</h2>
-          <p id="partner-status" class="partner-status dim" data-state="none" aria-live="polite">no one yet. type /start</p>
-          <p id="e2e-status" class="e2e-status dim" data-state="none" aria-live="polite"></p>
-        </section>
-        <section>
-          <h2>// ONLINE <span id="online-count" class="dim">(0)</span></h2>
-          <ul id="online"><li class="dim">a count only: no names, no places</li></ul>
-        </section>
-        <section>
-          <h2 id="theme-heading">// THEME</h2>
-          <ul id="themes" class="themes" aria-labelledby="theme-heading"></ul>
-        </section>
-        <p class="hint dim">type /help</p>
-      </aside>
+    <main class="desk">
+      <section class="conversation" aria-labelledby="chat-title">
+        <div class="convo-head">
+          <div class="convo-who">
+            <h1 id="chat-title" class="convo-title">No active chat</h1>
+            <p class="convo-sub" id="chat-sub" aria-live="polite">Not connected yet</p>
+          </div>
+          <p class="seal" id="seal" data-state="none" aria-live="polite">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" /></svg>
+            <span id="seal-text">Not encrypted yet</span>
+          </p>
+        </div>
 
-      <main class="screen">
-        <ol id="log" class="log" role="log" aria-live="polite" aria-label="Chat messages"></ol>
-        <p id="typing" class="typing dim" aria-live="polite"></p>
-        <form id="prompt" class="prompt" autocomplete="off">
-          <label for="input" class="ps1"><span id="ps1-user">guest</span>@<span id="ps1-room">lobby</span>:~$</label>
-          <input id="input" maxlength="500" spellcheck="false" />
+        <div class="actions" role="group" aria-label="Chat actions">
+          <button type="button" class="btn btn-primary" id="btn-start" disabled>Find a stranger</button>
+          <button type="button" class="btn" id="btn-next" disabled>Next</button>
+          <button type="button" class="btn" id="btn-leave" disabled>End chat</button>
+          <button type="button" class="btn btn-quiet" id="btn-verify" disabled>Safety code</button>
+        </div>
+
+        <div class="stage">
+          <ol id="log" class="log" role="log" aria-live="polite" aria-label="Conversation"></ol>
+          <div class="empty" id="empty">
+            <p class="empty-title" data-for="connecting">Connecting to the server</p>
+            <p class="empty-body" data-for="connecting">On free hosting the server sleeps when idle and can take up to a minute to wake.</p>
+            <p class="empty-title" data-for="idle">You are not in a chat</p>
+            <p class="empty-body" data-for="idle">Choose <strong>Find a stranger</strong> to be paired with one random person. You each get a random name, and nothing is kept when the chat ends.</p>
+            <p class="empty-title" data-for="searching">Looking for someone</p>
+            <p class="empty-body" data-for="searching">Waiting for another person to press Find a stranger. Open this page in a second tab to try it yourself.</p>
+            <p class="empty-title" data-for="securing">Setting up encryption</p>
+            <p class="empty-body" data-for="securing">Swapping keys with your partner. You can write as soon as the seal closes.</p>
+            <p class="empty-title" data-for="offline">Connection lost</p>
+            <p class="empty-body" data-for="offline">Trying to reconnect. A chat in progress is kept for 30 seconds.</p>
+          </div>
+        </div>
+
+        <p id="typing" class="typing" aria-live="polite"></p>
+
+        <form id="prompt" class="composer" autocomplete="off">
+          <label for="input" class="sr-only">Message</label>
+          <input id="input" class="field" maxlength="500" spellcheck="true" placeholder="Write a message" disabled />
+          <button type="submit" class="btn btn-primary" id="btn-send" disabled>Send</button>
         </form>
-      </main>
-    </div>
+      </section>
+    </main>
   </div>
+
+  <dialog id="verify" class="dialog" aria-labelledby="verify-title">
+    <form method="dialog" class="dialog-box">
+      <h2 id="verify-title">Safety code</h2>
+      <p class="code" id="verify-code" aria-label="Safety code">00000 00000 00000 00000</p>
+      <p>Your partner sees the same code, unless someone swapped the encryption keys on the way.</p>
+      <p><strong>Compare it outside this chat</strong>, for example on a call or in another app. A code sent in this chat proves nothing, because someone in the middle could rewrite it.</p>
+      <p>If the codes differ, someone may be reading along. End the chat and share nothing private.</p>
+      <button class="btn btn-primary" id="verify-close" autofocus>Close</button>
+    </form>
+  </dialog>
 
   <!-- Socket.IO serves its own client library at this path automatically -->
   <script src="/socket.io/socket.io.js"></script>
