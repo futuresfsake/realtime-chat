@@ -394,3 +394,11 @@ p { margin: 0; }
   .chips { max-height: 92px; }
   .credit { padding: 0 8px 8px; }
 }
+
+.msg-hidden {
+  padding: 8px 12px;
+  border: 1px dashed var(--rule);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 14px;
+}

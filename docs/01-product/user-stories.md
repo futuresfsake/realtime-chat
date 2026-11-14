@@ -138,7 +138,7 @@ As the **operator**, I want repeat abusers blocked automatically, so that others
 - The block uses a salted hash of the IP that rotates daily. Raw IPs are never stored.
 - **Features:** F-28
 
-### US-28 Content is filtered for harmful patterns 🔜
+### US-28 Content is filtered for harmful patterns ✅ (word list needs owner review, G-16)
 As a **chatter**, I want obvious harmful content (slurs, spam, solicitation) to be caught before it reaches my screen, so that the platform feels safer.
 - Client-side filters check messages before encryption for banned words, spam patterns, and known harmful content.
 - Users are warned when messages appear to contain personal information (phone numbers, email addresses, social handles).

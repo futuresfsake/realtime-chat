@@ -388,6 +388,7 @@ socket.on("session:matched", ({ sessionId, myName, partnerName, role, sharedInte
   searchOpen = false;
   setChatting(myName, partnerName);
   sys(`You are chatting with ${partnerName}. You are ${myName}.`);
+  sys("Stay safe: do not share your name, address, phone number or social media accounts.");
   if (Array.isArray(sharedInterests) && sharedInterests.length > 0) {
     sys(`You both like ${sharedInterests.join(", ")}.`);
   } else if (searchPrefs.interests.length > 0) {
@@ -564,9 +565,31 @@ function showMessage(msg, mine) {
 
   const tools = document.createElement("div");
   tools.className = "msg-tools";
-  if (!mine) tools.append(reactControl(msg.seq));
 
-  li.append(meta, body, tools);
+  // A message from the other person that the filter flags is hidden until
+  // the reader chooses to see it. This runs on the receiving side because the
+  // sender's page could have been changed to skip its own check.
+  const hide = !mine && ContentFilter.hasBannedContent(msg.text);
+  if (hide) {
+    body.hidden = true;
+    const warning = document.createElement("p");
+    warning.className = "msg-hidden";
+    warning.textContent = "Message hidden: it may contain abusive content.";
+    const show = document.createElement("button");
+    show.type = "button";
+    show.className = "react-toggle";
+    show.textContent = "Show anyway";
+    show.addEventListener("click", () => {
+      body.hidden = false;
+      warning.hidden = true;
+      show.hidden = true;
+    });
+    tools.append(show);
+    li.append(meta, warning, body, tools);
+  } else {
+    li.append(meta, body, tools);
+  }
+  if (!mine) tools.append(reactControl(msg.seq));
   append(li);
   // Their message arrived, so they are not "typing" any more.
   if (!mine && partnerState === "typing") setPartnerState("connected");
@@ -756,11 +779,31 @@ els.input.addEventListener("input", () => {
 });
 
 // ---------- Composer ----------
+// The text the filter warned about. Sending the very same text again confirms it.
+let warnedText = null;
+els.input.addEventListener("input", () => {
+  if (els.input.value.trim() !== warnedText) warnedText = null; // edited: check again
+});
+
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const text = els.input.value.trim();
   if (!text) return;
   stopTyping();
+
+  // Content filter, before anything is encrypted or sent (US-28). Banned
+  // content is not sent and stays in the box to be changed. Personal
+  // information or spam asks for a second press of Send to confirm.
+  const verdict = ContentFilter.check(text);
+  if (verdict.blocked) {
+    return err("That message was not sent: it looks like it contains abusive or unsafe content. Please change it.");
+  }
+  if (verdict.warnings.length > 0 && warnedText !== text) {
+    warnedText = text;
+    const what = verdict.warnings.map((w) => ContentFilter.WARNING_TEXT[w]).join(" ");
+    return note(`${what} Strangers can see everything you send, so only press Send again if you are sure.`, true);
+  }
+  warnedText = null;
 
   history.push(text);
   if (history.length > MAX_HISTORY) history.shift();

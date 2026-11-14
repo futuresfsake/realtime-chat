@@ -149,10 +149,11 @@ test.describe("a chat between two strangers", () => {
     await a.join();
     await b.join();
     await startChat(a, b);
-    await a.page.getByLabel("Message", { exact: true }).fill("x".repeat(600));
-    await expect(a.page.getByLabel("Message", { exact: true })).toHaveValue("x".repeat(500));
+    const long = "ab".repeat(300); // varied, so the spam check does not apply
+    await a.page.getByLabel("Message", { exact: true }).fill(long);
+    await expect(a.page.getByLabel("Message", { exact: true })).toHaveValue(long.slice(0, 500));
     await a.page.getByRole("button", { name: "Send" }).click();
-    await expect(b.page.locator(".msg-text").first()).toHaveText("x".repeat(500));
+    await expect(b.page.locator(".msg-text").first()).toHaveText(long.slice(0, 500));
   });
 
   test("a page cannot send HTML into the other person's screen", async ({ person }) => {
@@ -317,5 +318,82 @@ test.describe("reporting", () => {
     const a = await person();
     await a.page.goto(serverUrl);
     await expect(a.page.getByRole("dialog", { name: "Before you connect" })).toContainText("only the category you choose");
+  });
+});
+
+test.describe("content filter", () => {
+  const box = (p: { page: import("@playwright/test").Page }) => p.page.getByLabel("Message", { exact: true });
+
+  test("banned content is not sent and stays in the box to be changed", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await box(a).fill("honestly just kys");
+    await a.page.getByRole("button", { name: "Send" }).click();
+    await expect(a.page.getByRole("log")).toContainText("was not sent");
+    await expect(box(a)).toHaveValue("honestly just kys");
+    await expect(b.page.locator(".msg")).toHaveCount(0);
+    // Changing it makes it sendable.
+    await box(a).fill("honestly just stop");
+    await a.page.getByRole("button", { name: "Send" }).click();
+    await expect(b.page.getByRole("log")).toContainText("honestly just stop");
+  });
+
+  test("personal information asks for a second Send, and editing it asks again", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await box(a).fill("text me on 0917 123 4567");
+    await a.page.getByRole("button", { name: "Send" }).click();
+    await expect(a.page.getByRole("log")).toContainText("That looks like a phone number.");
+    await expect(b.page.locator(".msg")).toHaveCount(0); // nothing left yet
+    await expect(box(a)).toHaveValue("text me on 0917 123 4567");
+
+    // An edit that still has the number is checked again.
+    await box(a).fill("text me on 0917 123 4567 ok");
+    await a.page.getByRole("button", { name: "Send" }).click();
+    await expect(b.page.locator(".msg")).toHaveCount(0);
+
+    // Pressing Send again with the same text confirms it.
+    await a.page.getByRole("button", { name: "Send" }).click();
+    await expect(b.page.getByRole("log")).toContainText("text me on 0917 123 4567 ok");
+  });
+
+  test("a message that gets past a modified sender is hidden on the receiving side until shown", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    // A's page is modified to skip its own filter.
+    await a.page.evaluate(() => {
+      (globalThis as any).ContentFilter.check = () => ({ blocked: false, reason: null, warnings: [] });
+    });
+    await say(a, "send nudes");
+    const received = b.page.locator(".msg").first();
+    await expect(received).toContainText("Message hidden: it may contain abusive content.");
+    await expect(received.locator(".msg-text")).toBeHidden();
+    await received.getByRole("button", { name: "Show anyway" }).click();
+    await expect(received.locator(".msg-text")).toBeVisible();
+    await expect(received.locator(".msg-text")).toHaveText("send nudes");
+  });
+
+  test("links are shown as plain text, never as links", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await say(a, "recipe at https://example.com/x");
+    await expect(b.page.getByRole("log")).toContainText("https://example.com/x");
+    await expect(b.page.getByRole("log").locator("a")).toHaveCount(0);
+  });
+
+  test("every chat starts with a reminder not to share personal details", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await expect(a.page.getByRole("log")).toContainText("do not share your name, address, phone number");
   });
 });
