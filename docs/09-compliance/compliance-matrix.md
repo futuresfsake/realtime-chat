@@ -23,7 +23,7 @@ Each row is one obligation from the [regulatory register](regulatory-register.md
 | A-10 | Contract with every processor | Sec 14, 21 | Render data processing addendum on file | Operator | ⚠️ | G-05 |
 | A-11 | Stay accountable for cross-border transfers | Sec 21 | Region recorded (Singapore); stated in the notice and PIA | DPO | 🚧 | `render.yaml`; D-13 |
 | A-12 | Keep data no longer than needed | Sec 11(e) | Retention column in the inventory; daily key rotation; purge job from M6 | Engineering | 🚧 | Provisional until D-11 |
-| A-13 | Valid consent where we rely on it | NPC Circular 2023-04 | Explicit 18+ and rules acknowledgement, versioned, enforced by the server; no pre-ticked boxes | Engineering | ✅ for the gate | Handshake tests. Gate text `2026-11-preview-3` was approved by the owner on 2026-11-14. **`2026-11-preview-4` adds the country and interests lines (M5) and still needs the owner's approval.** Neither version has been reviewed by counsel |
+| A-13 | Valid consent where we rely on it | NPC Circular 2023-04 | Explicit 18+ and rules acknowledgement, versioned, enforced by the server; no pre-ticked boxes | Engineering | ✅ for the gate | Handshake tests. Gate text `2026-11-preview-3` was approved by the owner on 2026-11-14. **`2026-11-preview-5` adds the country and interests lines (M5) and what a report records (M6), and still needs the owner's approval.** Neither version has been reviewed by counsel |
 | A-14 | No tracking without a basis | Sec 11, 12 | No analytics, no cookies, no fingerprinting | Engineering | ✅ | Source; CSP |
 
 ## B. Cybercrime and law enforcement (RA 10175, Rule on Cybercrime Warrants)

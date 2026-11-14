@@ -108,11 +108,11 @@ export async function startChat(a: Person, b: Person): Promise<void> {
   await b.page.getByRole("button", { name: "Find a stranger" }).click();
   for (const p of [a, b]) {
     await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
-    await expect(p.page.getByLabel("Message")).toBeEnabled();
+    await expect(p.page.getByLabel("Message", { exact: true })).toBeEnabled();
   }
 }
 
 export async function say(from: Person, text: string): Promise<void> {
-  await from.page.getByLabel("Message").fill(text);
+  await from.page.getByLabel("Message", { exact: true }).fill(text);
   await from.page.getByRole("button", { name: "Send" }).click();
 }

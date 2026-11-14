@@ -59,6 +59,9 @@ export interface Config {
   interestWaitMs: number;
   matchSweepMs: number;
   noRematchMs: number;
+  reportWindowMs: number;
+  reportBanThreshold: number;
+  banMs: number;
   // Fixed limits (not configurable from the environment)
   maxPayloadBytes: number;
   messageBurstCapacity: number;
@@ -113,6 +116,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     matchSweepMs: 1_000,
     // Two people who skip or leave each other are not paired again for this long.
     noRematchMs: 24 * 60 * 60 * 1000,
+    // 3 different people reporting the same connection within 1 hour blocks it from matching for 24 hours.
+    reportWindowMs: 60 * 60 * 1000,
+    reportBanThreshold: 3,
+    banMs: 24 * 60 * 60 * 1000,
     maxPayloadBytes: 4096,
     messageBurstCapacity: 5,
     messageRefillPerSec: 0.5,

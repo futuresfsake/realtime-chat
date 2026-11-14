@@ -381,6 +381,11 @@ p { margin: 0; }
 .radio input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .radio:has(input:disabled) { color: var(--muted); cursor: not-allowed; }
 
+.reasons { margin: 0; padding: 0; border: 0; display: grid; gap: 2px; }
+.reasons .radio { white-space: normal; align-items: flex-start; padding: 4px 0; }
+.reasons .radio input { margin-top: 3px; }
+.dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
 .credit { padding: 0 0 12px; color: var(--muted); font-size: 12px; text-align: center; }
 .credit a { color: inherit; }
 

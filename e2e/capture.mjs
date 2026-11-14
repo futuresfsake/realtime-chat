@@ -59,7 +59,7 @@ async function still(page, name, { frame = false } = {}) {
   if (frame) frames.push(png);
 }
 const say = async (page, text) => {
-  await page.getByLabel("Message").fill(text);
+  await page.getByLabel("Message", { exact: true }).fill(text);
   await page.getByRole("button", { name: "Send" }).click();
 };
 const secured = (page) => page.locator("#seal-text").getByText("End-to-end encrypted").waitFor();
@@ -82,7 +82,7 @@ try {
 
   await b.page.getByRole("button", { name: "Find a stranger" }).click();
   await Promise.all([secured(a.page), secured(b.page)]);
-  await a.page.getByLabel("Message").isEnabled();
+  await a.page.getByLabel("Message", { exact: true }).isEnabled();
   await still(a.page, null, { frame: true });
 
   await say(b.page, "hey, where are you from?");
@@ -104,6 +104,11 @@ try {
   await a.page.getByRole("dialog", { name: "Safety code" }).waitFor();
   await still(a.page, "safety-code", { frame: true });
   await a.page.getByRole("button", { name: "Close" }).click();
+
+  await a.page.getByRole("button", { name: "Report" }).click();
+  await a.page.getByRole("dialog", { name: "Report this person" }).waitFor();
+  await still(a.page, "report", { frame: true });
+  await a.page.getByRole("button", { name: "Cancel" }).click();
 
   await a.page.getByRole("button", { name: "End chat" }).click();
   await a.page.getByRole("log").getByText("You ended the chat.").waitFor();
@@ -136,7 +141,7 @@ try {
   });
   gif.finish();
   writeFileSync(path.join(OUT, "demo.gif"), gif.bytes());
-  console.log(`wrote ${frames.length} frames and 6 screenshots to ${OUT}`);
+  console.log(`wrote ${frames.length} frames and 7 screenshots to ${OUT}`);
 } finally {
   await browser.close();
   server.kill();
