@@ -39,8 +39,8 @@ _Screen recording: add `docs/assets/demo.gif` and embed it here._
 - **M3, survives bad networks:** a dropped connection is held for 30 s and the chat carries on, missed messages included; after that the chat ends for both
 - **M3, nothing kept:** the chat exists only in your browser's memory and is wiped when it ends (the server keeps relayed messages in memory for about 100 s so a dropped client can catch up, never on disk)
 - Real-time messaging over Socket.IO
-- Terminal-style UI with 4 themes (`phosphor`, `amber`, `ice`, `paper`), saved per browser
-- Slash commands `/help` `/start` `/next` `/leave` `/react` `/clear` `/whoami` `/theme`, and ↑/↓ input history
+- Standard chat interface: conversation panel, message list with reactions, composer, and buttons for Find a stranger, Next, End chat and Safety code. Fonts are self-hosted (Instrument Sans, JetBrains Mono; both OFL)
+- Plain-language status for every state (connecting, searching, securing, chatting, offline); keyboard usable; works at 360 px
 - Connection status + auto-reconnect; `/health` endpoint; graceful shutdown
 - XSS-safe rendering (`textContent`)
 - **M2 hardening:** strict zod validation of every event; token-bucket rate limits (5-message burst); 4 KB payload cap; Origin allowlist; short-lived connection token; 5 sockets per IP; security headers + CSP with no inline scripts; 18+ and rules gate enforced by the server; structured JSON logs with no IPs or content; deep `/health`; protocol version `rc/v1`
@@ -79,7 +79,7 @@ realtime-chat/
 │   └── types/events.ts     # Event contracts, protocol + rules versions
 ├── public/                 # Frontend (static files)
 │   ├── index.html · styles.css · client.js · favicon.svg
-│   └── js/themes.js · js/sessionStore.js   # theme; in-memory chat history + reactions
+│   └── fonts/ · js/crypto.js · js/sessionStore.js   # self-hosted fonts; E2EE; in-memory chat history
 ├── tests/                  # unit/ and integration/ (real server on a random port)
 ├── docs/                   # Specs, design, security, operations, process, compliance → docs/README.md
 ├── .github/                # CI workflow, CODEOWNERS, Dependabot, PR + issue templates
