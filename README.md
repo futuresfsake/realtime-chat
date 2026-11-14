@@ -10,6 +10,17 @@ No accounts. No stored messages. Free to use, safe by design.
 
 ---
 
+## Try it
+
+> **Demo, not a launched product.** Open the link in **two browser tabs** (a chat needs two people), accept the 18+ gate in each, and type `/start` in both. There is no moderation yet, so don't share anything personal.
+
+- Live demo: _link goes here after the first deploy_ (free hosting: the first load can take up to a minute to wake the server)
+- What to look for: both tabs show 🔒 **end-to-end encrypted**; `/verify` shows the same safety code in both; in DevTools → Network → WS the frames carry only ciphertext (`e2e:envelope`), never your words.
+
+_Screen recording: add `docs/assets/demo.gif` and embed it here._
+
+---
+
 ## What it will be (v1)
 
 1. Confirm you're **18+** and accept the rules
