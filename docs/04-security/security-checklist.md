@@ -42,14 +42,14 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Report categories cover all Safe Spaces Act violation types
 
 ## Monitoring & moderation
-- [ ] Automated behavioral monitoring operational (S-13)
+- [ ] Automated behavioral monitoring operational (S-13). Spike alerts are built; per-address scoring is not
 - [ ] Abuse scoring metrics tracked per IP hash
 - [ ] Report velocity and pattern detection working
 - [ ] Human moderator review process documented (S-14)
 - [ ] Escalation workflow documented and tested (S-16)
 - [ ] Moderator access controls verified (no message content, no raw IPs)
 - [ ] Moderator training documentation completed (PH law requirements)
-- [ ] Incident response plan documented
+- [ ] Incident response plan documented (a plan exists in [incident-response-plan.md](../06-operations/incident-response-plan.md); it has not been tested with a tabletop exercise)
 
 ## Supply chain & ops
 - [x] `npm audit --audit-level=high` clean in CI (T-21). Evidence: `ci.yml`

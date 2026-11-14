@@ -66,8 +66,16 @@ The server is a **blind relay**. It pairs two strangers, hands them each other's
 | Content filter | In the browser, on send and on arrival: banned content is not sent and is hidden when it arrives; phone numbers, emails, social accounts and spam need a second Send; links are plain text | `contentFilter.test.ts`, Playwright |
 | Message rendering | Everything is shown with `textContent`; no `innerHTML` in the page | `history.test.ts` (source check), Playwright HTML test |
 
-### 7. How the code is protected (process)
-- **CI on every pull request:** typecheck, unit and integration tests, build, `npm audit`, a secrets scan (gitleaks, plus GitGuardian), static analysis (semgrep), and two privacy greps (raw IP access, console logging).
+### 7. Seeing what happens (monitoring)
+- A **metrics snapshot every 60 seconds** (counters, timings, gauges; numbers only) and **alert rules** that write one `alert` log line when a threshold is crossed: connection, report and error spikes, memory, failed key exchanges, block surges. Evidence: `metrics.test.ts`, `alerts.test.ts`, `metrics.test.ts` (integration).
+- Priority reports (`minor`, `threats`) write a `report_priority` line at once.
+- **Limit:** alerts are log lines. Nobody is paged until the service is hosted and a log platform watches them.
+
+### 8. Accessibility
+- axe-core (WCAG 2.1 A and AA) passes on the gate, ready, searching, chat, hidden-message, safety-code and report screens and on a phone-sized screen; keyboard-only, focus-visibility, reduced-motion, reflow and screen-reader-announcement tests pass. Evidence: `e2e/a11y.spec.ts`. Not done: testing with real screen readers.
+
+### 9. How the code is protected (process)
+- **CI on every pull request:** typecheck, unit and integration tests, build, `npm audit`, a secrets scan (gitleaks, plus GitGuardian), static analysis (semgrep), two privacy greps (raw IP access, console logging), and the browser tests (two real browsers through a real server, including the accessibility checks) in headless Chromium.
 - **Dependencies:** Dependabot with a 7-day cooldown so a new release ages before it is proposed; GitHub Actions pinned to commit hashes; few runtime dependencies (`express`, `socket.io`, `zod`, `helmet`, `maxmind`).
 - **Ownership and disclosure:** `CODEOWNERS` on security-critical paths; `SECURITY.md` with a disclosure policy.
 - **Tests as a safety net:** several hundred unit and integration tests plus browser tests that drive two real browsers through a real server.

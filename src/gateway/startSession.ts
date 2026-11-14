@@ -2,6 +2,7 @@ import type { Server } from "socket.io";
 import type { Config } from "../config.js";
 import type { Match } from "../matchmaking/matchmaker.js";
 import type { Logger } from "../observability/logger.js";
+import type { Metrics } from "../observability/metrics.js";
 import type { GraceTimers } from "../sessions/reconnectGrace.js";
 import type { SessionManager } from "../sessions/sessionManager.js";
 import type { ClientToServerEvents, ServerToClientEvents, SocketData } from "../types/events.js";
@@ -14,6 +15,7 @@ export interface StartSessionDeps {
   logger: Logger;
   sessions: SessionManager;
   keyDeadlines: GraceTimers; // countdowns for chats still exchanging keys, by session id
+  metrics: Metrics;
 }
 
 // Turns a match into a chat: creates the session, tells both people, and
@@ -21,8 +23,11 @@ export interface StartSessionDeps {
 // and when a waiting person's wait runs out. Synchronous from creation to
 // emit, so nothing can interleave.
 export function startSession(deps: StartSessionDeps, match: Match, correlationId?: string): void {
-  const { io, config, logger, sessions, keyDeadlines } = deps;
+  const { io, config, logger, sessions, keyDeadlines, metrics } = deps;
   const session = sessions.createSession(match.a, match.b);
+  metrics.sessionStarted(session.id);
+  metrics.count(match.shared.length > 0 ? "matches.interest" : "matches.random");
+  metrics.observe("match_wait_ms", match.waitedMs);
   const nameA = sessions.getName(session.a)!;
   const nameB = sessions.getName(session.b)!;
   // The roles only fix the order of the two keys in the key derivation.
@@ -52,6 +57,7 @@ export function startSession(deps: StartSessionDeps, match: Match, correlationId
   keyDeadlines.hold(session.id, config.keyExchangeTimeoutMs, () => {
     const ended = sessions.endIfNotSecured(session.id);
     if (!ended) return; // secured in time, or already over
+    metrics.sessionEnded(ended.id, "crypto_timeout");
     io.to(ended.a).emit("session:ended", { reason: "crypto_timeout" });
     io.to(ended.b).emit("session:ended", { reason: "crypto_timeout" });
     logger.warn("session_end", {

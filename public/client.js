@@ -184,7 +184,7 @@ function append(li) {
 }
 
 function note(text, isError = false) {
-  const li = document.createElement("li");
+  const li = document.createElement("div");
   li.className = isError ? "note note--err" : "note";
   li.textContent = text;
   return append(li);
@@ -558,7 +558,7 @@ socket.on("stats:online", ({ count }) => {
 // message was accepted, or when theirs arrived. The server adds nothing.
 function showMessage(msg, mine) {
   const id = store.addMessage(msg, mine);
-  const li = document.createElement("li");
+  const li = document.createElement("div");
   li.className = mine ? "msg msg--mine" : "msg";
   li.dataset.msg = id;
 

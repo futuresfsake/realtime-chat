@@ -18,7 +18,7 @@ describe("with no interests", () => {
     expect(m.enqueue("a", "PH", prefs())).toBeNull();
     clock.advance(500);
     const match = m.enqueue("b", "PH", prefs());
-    expect(match).toEqual({ a: "a", b: "b", shared: [] });
+    expect(match).toEqual({ a: "a", b: "b", shared: [], waitedMs: 500 }); // a had waited 500 ms
     expect(m.size).toBe(0);
   });
 
@@ -57,7 +57,7 @@ describe("interest phase (US-14)", () => {
   it("pairs people who share an interest, and reports which", () => {
     const { m } = setup();
     m.enqueue("a", "PH", prefs(["gaming", "music"]));
-    expect(m.enqueue("b", "PH", prefs(["music", "travel"]))).toEqual({ a: "a", b: "b", shared: ["music"] });
+    expect(m.enqueue("b", "PH", prefs(["music", "travel"]))).toEqual({ a: "a", b: "b", shared: ["music"], waitedMs: 0 });
   });
 
   it("an interest beats a random stranger: gaming meets gaming, music keeps waiting", () => {

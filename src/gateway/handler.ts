@@ -16,6 +16,8 @@ export class HandlerError extends Error {
 export interface HandlerHooks {
   // Called with the outcome of every event, for logs and counters.
   onRejected?: (code: ErrorCode, err?: unknown) => void;
+  // Called once for every event that arrives, valid or not, so an error rate can be worked out.
+  onEvent?: () => void;
 }
 
 // The same protection for every event:
@@ -33,6 +35,7 @@ export function withHandler<S extends z.ZodType>(
       if (typeof ack === "function") (ack as (result: Ack) => void)(result);
     };
 
+    hooks.onEvent?.();
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
       hooks.onRejected?.("VALIDATION");

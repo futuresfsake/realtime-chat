@@ -62,6 +62,7 @@ export interface Config {
   interestWaitMs: number;
   powBits: number;
   matchSweepMs: number;
+  metricsIntervalMs: number;
   noRematchMs: number;
   reportWindowMs: number;
   reportBanThreshold: number;
@@ -119,6 +120,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     powBits: parsed.POW_DIFFICULTY_BITS,
     // How often waiting searches are checked for an expired interest wait.
     matchSweepMs: 1_000,
+    // A snapshot of counters, timings and gauges is logged this often (US-41).
+    metricsIntervalMs: 60_000,
     // Two people who skip or leave each other are not paired again for this long.
     noRematchMs: 24 * 60 * 60 * 1000,
     // 3 different people reporting the same connection within 1 hour blocks it from matching for 24 hours.

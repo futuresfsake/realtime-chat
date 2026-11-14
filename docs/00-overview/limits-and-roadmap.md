@@ -2,7 +2,7 @@
 
 > The honest register. Every limit, gap and unfinished piece we know about is here, with **why** it exists, **what protects people meanwhile**, and **what is planned**. If you find a new one, add a row in the same pull request. Nothing here is hidden elsewhere: the [security overview](../04-security/security-overview.md) says what *is* protected; this says what is *not*.
 
-**Current position (2026-11-14):** a **portfolio project**. M0 to M5 are done, and M6 is nearly done (reports, no-rematch, bans, content filters, proof-of-work, policy drafts). It runs locally, has never been deployed, and is **not ready for public use**.
+**Current position (2026-11-14):** a **portfolio project**. M0 to M6 are code complete (policy drafts await counsel) and M7 is partly done (metrics, alerts, accessibility checks, browser tests in CI). It runs locally, has never been deployed, and is **not ready for public use**.
 
 Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milestone) · ⏸ needs a decision · ❌ not planned.
 
@@ -28,7 +28,7 @@ Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milest
 | L-13 | **Blocks and no-rematch are tied to a network address** | A VPN or new network evades them; one block reaches **everyone on a shared address** (school, mobile data) | Needs three different reporting addresses; lasts 24 h; same-address pairs are kept apart per connection only | ⚠️ Accepted. Post-v1: stronger signals (privacy cost to weigh) |
 | L-14 | **Reports, blocks and no-rematch are lost on restart** and expire quickly (reports after 1 h) | Memory only, on purpose | No data to leak | 🔜 D-10: a minimal expiring safety ledger |
 | L-15 | **No human moderation.** `minor` and `threats` reports only write a warning log line | No moderator tool or people yet | Automatic blocks; roles are defined ([roles-and-access.md](../09-compliance/roles-and-access.md)) | 🔜 M7 moderator tooling (US-31); ⏸ D-12 name the people |
-| L-16 | **No automated abuse detection** (report velocity, churn, patterns) | Not built | Rate limits and reports | 🔜 M7 (US-30) |
+| L-16 | **Automated abuse detection is limited to spikes.** Alerts fire on report, connection and error spikes; there is no per-address abuse score or pattern analysis | Needs real traffic to tune | Rate limits, reports, alert rules | 🔜 Post-launch tuning |
 | L-17 | **Bot prevention only slows bots down.** A proof-of-work puzzle (default 12 bits, a fraction of a second in a browser) is solved before every connection token | A script with real CPU and many addresses can still pay the price; a shared network gets a puzzle burst of 5, then one per 10 s | Puzzle, per-address limits, connection token | ⚠️ Accepted. Post-v1: tune difficulty with real traffic; Cloudflare Turnstile |
 | L-18 | **Country detection is approximate** | VPNs, mobile carriers and a monthly database. Unknown on `localhost` | "My country only" is refused with a clear message when unknown | ⚠️ Accepted. 🔜 M7 automate the monthly refresh |
 | L-19 | **Matching scans the waiting list** (fine for hundreds, not millions) | Simplicity | Bounded by the 500 connection cap | 🔜 Post-v1: country-bucketed pools |
@@ -39,12 +39,12 @@ Status key: ⚠️ accepted limit (by design or by cost) · 🔜 planned (milest
 | L-20 | **Never deployed.** No live URL, no TLS, no custom domain, no HSTS preload | A portfolio project | Runs locally; Render blueprint exists | ⏸ Deploy only if wanted; then the M8 checklist applies |
 | L-21 | **One server instance, all state in memory.** A restart or deploy ends every chat; no horizontal scaling | In-memory design (ADR-0005) | Clients are told and can start again | 🔜 Post-v1: Redis-backed state ([scaling.md](../06-operations/scaling.md)) |
 | L-22 | **Free-tier cold start** (up to about a minute) if hosted on Render free | Free hosting sleeps | The page says it is waking up | ⚠️ Accepted |
-| L-23 | **No monitoring, alerting, SLOs or metrics snapshot** | Not built | Structured JSON logs, a deep `/health` | 🔜 M7 (US-25, US-40 to US-42) |
+| L-23 | **Alerts are log lines, not messages to a person**, and there is no uptime monitor, log platform or dashboard. Availability is not measured | The metrics snapshot and alert rules exist (every 60 s), but nothing watches them without hosting | `metrics_snapshot` and `alert` log lines; a deep `/health` | 🔜 With hosting: UptimeRobot and a log platform alert on `event = alert` |
 | L-24 | **No load, soak or chaos testing**; capacity is a design target, not a measurement | Not yet done | 500 connection cap, memory ceiling | 🔜 M7 small load test; M9 full |
 | L-25 | **"N online" can lag by about 5 seconds** | It is broadcast on a timer, and doubles as the reconnect keepalive | Documented | ⚠️ Accepted |
-| L-26 | **Browser tests are not in CI** | They need a browser on the runner | Run locally with `npm run test:e2e` | 🔜 M7 add them to CI |
+| L-26 | ~~Browser tests are not in CI~~ **Closed (M7):** a CI job runs them in headless Chromium | The Edge-based local run and the CI Chromium run can differ in small ways | Both run the same tests | ✅ |
 | L-27 | **Only Edge/Chromium is tested.** No automated Firefox or Safari run | Cost | Standard WebCrypto only | 🔜 M9 cross-browser |
-| L-28 | **Accessibility is not audited**, only keyboard use and focus states are built in | No audit yet | Semantic HTML, labels, live regions, 40 px targets | 🔜 M7 (US-43) |
+| L-28 | **Accessibility is checked by tools, not by people.** Axe (WCAG 2.1 A and AA) and keyboard-only tests pass on every screen and dialog; nobody has used it with a real screen reader, and axe finds only part of what matters | Cost | Semantic HTML, labelled controls, live regions, visible focus, reduced motion, reflow at 320 px | 🔜 Manual test with NVDA, VoiceOver and TalkBack |
 | L-29 | **English only**; no mobile app or installable page | Scope | Works at 360 px wide | 🔜 Post-v1: i18n, PWA |
 | L-30 | **Branch protection on `main` is not enabled**; CI is advisory | A solo project | PRs, green CI and review by habit | ⏸ Enable if hosted |
 
@@ -68,7 +68,7 @@ In the order they are planned. Scope and exit criteria live in [milestones.md](.
 | When | What | Closes |
 |---|---|---|
 | **Rest of M6** | Age confirmation wording (US-17) and counsel review of the policy drafts (US-38) | L-32, L-33 |
-| **M7** | Metrics and service levels, alerting, moderator tooling, abuse detection, accessibility audit, browser tests in CI, small load test, monthly country database refresh | L-15, L-16, L-18, L-23, L-24, L-26, L-28 |
+| **M7** | Done: metrics, service levels, alert rules, accessibility checks, browser tests in CI. **Open:** moderator tooling, uptime monitor and log alerting (needs hosting), small load test, monthly country database refresh | L-15, L-18, L-23, L-24 |
 | **M8** | Legal sign-off, entity, NPC registration, DPO, launch checklist, **only if the project is ever launched** | L-20, L-30 to L-35 |
 | **M9** | Penetration test, ZAP baseline, WebSocket fuzzing, disaster recovery drill, load and soak, cross-browser | L-02, L-24, L-27 |
 | **M10** | Incident drill, on-call, retrospective | operational maturity |

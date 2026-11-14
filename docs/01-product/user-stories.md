@@ -118,7 +118,7 @@ As a **privacy-conscious chatter**, I want to compare a safety code with my stra
 
 ## Epic D: Safety (M6)
 
-### US-17 Confirm age and rules before chatting 🔜
+### US-17 Confirm age and rules before chatting ✅ (the age check is a self-declaration by design; wording awaits the owner and counsel)
 - Before the first search I must confirm **I am 18 or older** and accept the rules (no harassment, no sharing personal info, no sexual content involving minors, etc.).
 - The confirmation is remembered only for the browser session (`sessionStorage`).
 - **Features:** F-25
@@ -152,7 +152,7 @@ As a **chatter**, I want to report specific types of abuse, so that the platform
 - Report categories align with Safe Spaces Act (RA 11313) and Anti-OSAEC Law (RA 11930) requirements.
 - **Features:** F-33
 
-### US-30 Abuse patterns are detected automatically 🔜
+### US-30 Abuse patterns are detected automatically 🟡 (report, connection and error spikes raise alerts; per-address abuse scoring is not built)
 As the **operator**, I want automated monitoring to detect abuse patterns without reading messages, so that I can respond to threats at scale.
 - The system tracks report velocity, session churn patterns, and connection anomalies per IP hash.
 - Safety metrics are logged every 60 seconds for trend analysis.
@@ -185,7 +185,7 @@ As the **operator**, I want human moderators to review aggregated report data, s
 - The app is reachable over HTTPS at a public URL; a phone on mobile data can chat with a laptop.
 - **Features:** F-11
 
-### US-25 Operator knows when it's down (M7) 🔜
+### US-25 Operator knows when it's down (M7) 🟡 (metrics, alert rules and a deep /health are built; an outside uptime monitor needs hosting)
 - An uptime monitor checks `/health` every 5 minutes and alerts by email.
 - **Features:** F-06, F-29, F-30
 
@@ -259,21 +259,21 @@ As the **operator**, I want clients to solve a computational challenge before th
 
 ## Epic I: IT Manager — Monitoring & Quality (M7)
 
-### US-40 Service level indicators and objectives (M7) 🔜
+### US-40 Service level indicators and objectives (M7) ✅ (measured by the snapshot; availability needs an outside checker)
 As the **operator**, I want defined SLIs and SLOs, so that I can measure whether the service is meeting expectations.
 - SLIs: availability (health check), connection success rate, match latency, relay latency, error rate, memory usage.
 - SLOs: 99.5% uptime, <50ms p95 relay, <15s match (with pool), <1% error rate, <400MB RSS.
 - SLO dashboard or log-based tracking implemented.
 - **Features:** F-42
 
-### US-41 Metrics collection (M7) 🔜
+### US-41 Metrics collection (M7) ✅
 As the **operator**, I want in-process metrics collected and logged every 60 seconds, so that I can track system health trends.
 - Metrics snapshot includes: connections (current, peak, total), sessions (active, total, avg duration), matchmaking (pool size, matches, fallbacks), safety (reports, bans, escalations), rate limits (limited, blocked), memory (rss, heap).
 - Metrics are logged as structured JSON at `info` level.
 - No PII in metrics (IP hashes are counts, not individual values).
 - **Features:** F-43
 
-### US-42 Alerting system (M7) 🔜
+### US-42 Alerting system (M7) 🟡 (rules fire as log lines; delivery to a person needs a log platform and hosting)
 As the **operator**, I want alerts for critical conditions, so that I can respond before users are severely affected.
 - UptimeRobot monitors `/health` every 5 minutes with email alerts.
 - `minor` report category triggers immediate email to operator.
@@ -282,7 +282,7 @@ As the **operator**, I want alerts for critical conditions, so that I can respon
 - Report spike (> 20 reports in 10 minutes) triggers moderator notification.
 - **Features:** F-44
 
-### US-43 Accessibility compliance (M7) 🔜
+### US-43 Accessibility compliance (M7) ✅ (axe WCAG 2.1 A and AA on every screen and dialog, keyboard-only and reduced-motion tests; no screen reader test with real assistive technology)
 As a **chatter** using assistive technology, I want the chat interface to be fully keyboard-navigable and screen-reader compatible, so that I can use the service without a mouse.
 - All interactive elements are reachable and operable by keyboard alone.
 - Chat messages are announced to screen readers via `aria-live` region.
