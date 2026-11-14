@@ -1,0 +1,193 @@
+import { expect, say, startChat, test } from "./fixtures.js";
+
+test.describe("gate", () => {
+  test("nothing connects until the 18+ and rules box are ticked", async ({ person, serverUrl }) => {
+    const a = await person();
+    let sockets = 0;
+    a.page.on("websocket", () => sockets++);
+    await a.page.goto(serverUrl);
+    await expect(a.page.getByRole("dialog", { name: "Before you connect" })).toBeVisible();
+
+    // Continue does nothing while a box is unticked: the browser's own validation stops it.
+    await a.page.getByLabel("I am 18 years old or older.").check();
+    await a.page.getByRole("button", { name: "Continue" }).click();
+    await expect(a.page.getByRole("dialog", { name: "Before you connect" })).toBeVisible();
+    expect(sockets).toBe(0);
+
+    await a.page.getByLabel("I have read the above and I will follow the rules.").check();
+    await a.page.getByRole("button", { name: "Continue" }).click();
+    await expect(a.page.locator("#conn-text")).toHaveText("Online");
+    expect(sockets).toBe(1);
+  });
+});
+
+test.describe("a chat between two strangers", () => {
+  test("pairs, encrypts, and delivers messages and reactions both ways", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+
+    // Alone, a person waits.
+    await a.page.getByRole("button", { name: "Find a stranger" }).click();
+    await expect(a.page.locator("#chat-title")).toHaveText("Searching");
+    await expect(a.page.getByLabel("Message")).toBeDisabled();
+
+    await b.page.getByRole("button", { name: "Find a stranger" }).click();
+    for (const p of [a, b]) {
+      await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
+      await expect(p.page.getByLabel("Message")).toBeEnabled();
+    }
+    // Each sees the other's random name, and the names differ.
+    const nameSeenByA = await a.page.locator("#chat-title").innerText();
+    const nameSeenByB = await b.page.locator("#chat-title").innerText();
+    expect(nameSeenByA).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
+    expect(nameSeenByB).toMatch(/^[a-z]+-[a-z]+-\d{2}$/);
+    expect(nameSeenByA).not.toBe(nameSeenByB);
+
+    await say(a, "hello from A, tumbleweed-9917");
+    await expect(b.page.getByRole("log")).toContainText("hello from A, tumbleweed-9917");
+    await expect(a.page.getByRole("log")).toContainText("hello from A, tumbleweed-9917");
+    await say(b, "hi A, this is B, hunter2-secret");
+    await expect(a.page.getByRole("log")).toContainText("hi A, this is B, hunter2-secret");
+
+    // B reacts to A's message; A sees it under their own message, B under A's.
+    await b.page.getByRole("button", { name: "React", exact: true }).first().click();
+    await b.page.getByRole("button", { name: "React with 😂" }).click();
+    await expect(a.page.locator(".msg--mine .reactions")).toHaveText("😂");
+    await expect(b.page.locator(".msg:not(.msg--mine) .reactions")).toHaveText("😂");
+
+    // The input is cleared and the typing indicator is gone once a message is sent.
+    await expect(a.page.getByLabel("Message")).toHaveValue("");
+  });
+
+  test("both show the same safety code", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+
+    const codes: string[] = [];
+    for (const p of [a, b]) {
+      await p.page.getByRole("button", { name: "Safety code" }).click();
+      const dialog = p.page.getByRole("dialog", { name: "Safety code" });
+      await expect(dialog).toBeVisible();
+      codes.push((await dialog.locator("#verify-code").innerText()).trim());
+      await dialog.getByRole("button", { name: "Close" }).click();
+      await expect(dialog).toBeHidden();
+    }
+    expect(codes[0]).toMatch(/^\d{5} \d{5} \d{5} \d{5}$/);
+    expect(codes[1]).toBe(codes[0]);
+  });
+
+  test("what crosses the network is ciphertext: no word of the chat is ever on the wire", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+
+    const secrets = ["tumbleweed-9917", "hunter2-secret", "meet-at-the-mall"];
+    await say(a, secrets[0]!);
+    await expect(b.page.getByRole("log")).toContainText(secrets[0]!);
+    await say(b, secrets[1]!);
+    await expect(a.page.getByRole("log")).toContainText(secrets[1]!);
+    await say(a, secrets[2]!);
+    await expect(b.page.getByRole("log")).toContainText(secrets[2]!);
+
+    for (const person of [a, b]) {
+      const wire = person.frames.join("\n");
+      expect(wire).toContain("e2e:envelope");
+      expect(wire).toContain("e2e:key");
+      expect(wire).not.toContain("chat:");
+      for (const secret of secrets) {
+        expect(wire).not.toContain(secret);
+        expect(wire).not.toContain(Buffer.from(secret).toString("base64"));
+        expect(wire).not.toContain(Buffer.from(secret).toString("base64url"));
+      }
+    }
+  });
+
+  test("ending the chat tells the partner, locks the composer and wipes the screen", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await say(a, "this will be gone");
+    await expect(b.page.getByRole("log")).toContainText("this will be gone");
+
+    await a.page.getByRole("button", { name: "End chat" }).click();
+    await expect(b.page.getByRole("log")).toContainText("Your partner left the chat.");
+    await expect(b.page.getByRole("log")).not.toContainText("this will be gone");
+    await expect(a.page.getByRole("log")).not.toContainText("this will be gone");
+    for (const p of [a, b]) {
+      await expect(p.page.getByLabel("Message")).toBeDisabled();
+      await expect(p.page.getByRole("button", { name: "Find a stranger" })).toBeEnabled();
+      await expect(p.page.locator("#seal-text")).toHaveText("Not encrypted yet");
+    }
+  });
+
+  test("Next moves on to a waiting stranger with fresh keys, and the old partner hears nothing", async ({ person }) => {
+    const [a, b, c] = [await person(), await person(), await person()];
+    for (const p of [a, b, c]) await p.join();
+    await startChat(a, b);
+    await c.page.getByRole("button", { name: "Find a stranger" }).click();
+    await expect(c.page.locator("#chat-title")).toHaveText("Searching");
+
+    await a.page.getByRole("button", { name: "Next" }).click();
+    await expect(b.page.getByRole("log")).toContainText("Your partner left the chat.");
+    for (const p of [a, c]) {
+      await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
+      await expect(p.page.getByLabel("Message")).toBeEnabled();
+    }
+
+    await say(a, "new chat, new keys");
+    await expect(c.page.getByRole("log")).toContainText("new chat, new keys");
+    await expect(b.page.getByRole("log")).not.toContainText("new chat, new keys");
+  });
+
+  test("the message box stops at 500 characters", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await a.page.getByLabel("Message").fill("x".repeat(600));
+    await expect(a.page.getByLabel("Message")).toHaveValue("x".repeat(500));
+    await a.page.getByRole("button", { name: "Send" }).click();
+    await expect(b.page.locator(".msg-text").first()).toHaveText("x".repeat(500));
+  });
+
+  test("a page cannot send HTML into the other person's screen", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    const html = '<img src=x onerror="document.title=\'hacked\'"><b>bold</b>';
+    await say(a, html);
+    await expect(b.page.locator(".msg-text").first()).toHaveText(html); // shown as text
+    await expect(b.page.locator(".msg-text img, .msg-text b")).toHaveCount(0);
+    await expect(b.page).not.toHaveTitle("hacked");
+  });
+});
+
+test.describe("on a phone", () => {
+  test("the whole chat fits a 360 px screen with no sideways scrolling", async ({ person }) => {
+    const [a, b] = [
+      await person({ viewport: { width: 360, height: 740 } }),
+      await person({ viewport: { width: 360, height: 740 } }),
+    ];
+    await a.join();
+    await b.join();
+    await startChat(a, b);
+    await say(b, "a longer message so the bubble has to wrap onto a second line on a narrow screen");
+    await expect(a.page.getByRole("log")).toContainText("a longer message");
+
+    const overflow = await a.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    for (const name of ["Find a stranger", "Next", "End chat", "Safety code", "Send"]) {
+      const box = await a.page.getByRole("button", { name, exact: true }).boundingBox();
+      expect(box, name).not.toBeNull();
+      expect(box!.x, name).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width, name).toBeLessThanOrEqual(360);
+      expect(box!.height, name).toBeGreaterThanOrEqual(40); // comfortable to tap
+    }
+  });
+});
