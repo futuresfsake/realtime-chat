@@ -22,29 +22,37 @@ type Info = Record<string, any>;
 
 // US-36: no chat gets stuck or corrupted by awkward timing.
 describe("edge cases", () => {
-  it("both partners press /next at the same moment: one new session, nothing orphaned", async () => {
+  it("both partners press /next at the same moment: nobody is orphaned and they are not put back together", async () => {
     server = await startServer();
     const { a, b, sessionId } = await pair(server);
-    const matchedA = next<Matched>(a, "session:matched");
-    const matchedB = next<Matched>(b, "session:matched");
+    const rematchA = arrivesWithin(a, "session:matched", 300);
+    const rematchB = arrivesWithin(b, "session:matched", 300);
 
     const [ackA, ackB] = await Promise.all([command(a, "session:next"), command(b, "session:next")]);
     expect(ackA).toEqual({ ok: true });
     expect(ackB).toEqual({ ok: true });
 
-    // They end up together in ONE new session, not in two or in a stale one.
-    const [infoA, infoB] = await Promise.all([matchedA, matchedB]);
-    expect(infoA.sessionId).toBe(infoB.sessionId);
-    expect(infoA.sessionId).not.toBe(sessionId);
+    // Both are searching, and neither is handed back to the other.
+    expect(await rematchA).toBe(false);
+    expect(await rematchB).toBe(false);
 
-    // And it really works, for both directions, with fresh keys and fresh numbering.
-    await exchangeKeys(a, b, infoA, infoB);
-    const toB = next<Info>(b, "e2e:envelope");
+    // A newcomer is paired with whoever has waited longest, and it really works.
+    const c = await connect(server);
+    const matchedA = next<Matched>(a, "session:matched");
+    const matchedC = next<Matched>(c, "session:matched");
+    await command(c, "session:start");
+    const [infoA, infoC] = await Promise.all([matchedA, matchedC]);
+    expect(infoA.sessionId).toBe(infoC.sessionId);
+    expect(infoA.sessionId).not.toBe(sessionId);
+    await exchangeKeys(a, c, infoA, infoC);
+    const toC = next<Info>(c, "e2e:envelope");
     expect(await send(a, "after the double skip")).toEqual({ ok: true });
-    expect((await toB).seq).toBe(1);
+    expect((await toC).seq).toBe(1);
     const toA = nextText(a);
-    expect(await send(b, "and back")).toEqual({ ok: true });
+    expect(await send(c, "and back")).toEqual({ ok: true });
     expect(await toA).toBe("and back");
+    // B is still waiting for someone else, not stuck in a half-made session.
+    expect(await command(b, "session:start")).toEqual({ ok: false, error: { code: "INVALID_STATE" } });
   });
 
   it("a double /next from one client does not create two searches", async () => {
@@ -76,9 +84,14 @@ describe("edge cases", () => {
     expect(ackA).toEqual({ ok: true });
     expect(ackB).toEqual({ ok: true });
 
+    // They are idle again and can search. They just parted, so they are not
+    // paired with each other: a third person is.
+    const c = await connect(server);
     const matched = next(a, "session:matched");
     expect(await command(a, "session:start")).toEqual({ ok: true });
     expect(await command(b, "session:start")).toEqual({ ok: true });
+    expect(await arrivesWithin(a, "session:matched", 200)).toBe(false);
+    expect(await command(c, "session:start")).toEqual({ ok: true });
     expect(await matched).toBeDefined();
   });
 

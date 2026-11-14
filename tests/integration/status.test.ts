@@ -120,6 +120,7 @@ describe("message numbers", () => {
     const matchedA = next<Matched>(a, "session:matched");
     const matchedB = next<Matched>(b, "session:matched");
     await command(a, "session:next");
+    server.clock.advance(24 * 60 * 60 * 1000 + 1); // the no-rematch period is over
     await command(b, "session:start");
     await exchangeKeys(a, b, await matchedA, await matchedB);
     const first = next<Info>(b, "e2e:envelope");

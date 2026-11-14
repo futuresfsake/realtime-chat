@@ -10,6 +10,7 @@ export interface Match {
 
 interface Waiting {
   id: string;
+  ipHash: string; // only to ask "have these two just parted?"
   country: string;
   interests: readonly Interest[];
   scope: SearchPrefs["scope"];
@@ -34,6 +35,8 @@ export class Matchmaker {
   constructor(
     private readonly clock: Clock,
     private readonly interestWaitMs: number,
+    // Have these two parted recently? Such a pair is never matched.
+    private readonly recentlyParted: (a: { id: string; ipHash: string }, b: { id: string; ipHash: string }) => boolean = () => false,
   ) {}
 
   get size(): number {
@@ -52,10 +55,11 @@ export class Matchmaker {
 
   // Returns the match to start, or null if this person must wait. Searching
   // again while already waiting replaces the earlier search.
-  enqueue(id: string, country: string, prefs: SearchPrefs): Match | null {
+  enqueue(id: string, country: string, prefs: SearchPrefs, ipHash = id): Match | null {
     this.remove(id);
     const me: Waiting = {
       id,
+      ipHash,
       country,
       interests: [...new Set(prefs.interests)],
       scope: prefs.scope,
@@ -112,6 +116,10 @@ export class Matchmaker {
     }
   }
 
+  private canPair(a: Waiting, b: Waiting): boolean {
+    return compatible(a, b) && !this.recentlyParted(a, b);
+  }
+
   private shared(a: Waiting, b: Waiting): Interest[] {
     return a.interests.filter((i) => b.interests.includes(i));
   }
@@ -125,7 +133,7 @@ export class Matchmaker {
         if (seen.has(id)) continue;
         seen.add(id);
         const other = this.waiting.get(id);
-        if (!other || !compatible(me, other)) continue;
+        if (!other || !this.canPair(me, other)) continue;
         const score = this.shared(me, other).length;
         if (!best || score > best.score || (score === best.score && other.since < best.entry.since)) {
           best = { entry: other, score };
@@ -138,7 +146,7 @@ export class Matchmaker {
   // The longest-waiting open person compatible with `me`.
   private firstOpen(me: Waiting): Waiting | null {
     for (const other of this.waiting.values()) {
-      if (other.open && compatible(me, other)) return other;
+      if (other.open && this.canPair(me, other)) return other;
     }
     return null;
   }
