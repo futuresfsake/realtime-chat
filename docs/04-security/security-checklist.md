@@ -3,16 +3,16 @@
 All boxes must be checked before the link is shared publicly. Each line references a threat (T-##) or safety control (S-##).
 
 ## Input, output & transport
-- [ ] Every client→server event validated by a zod `strictObject` schema (T-01)
-- [ ] `maxHttpBufferSize` = 4 KB (T-01)
-- [ ] No `innerHTML` with any user-influenced data anywhere (T-05)
-- [ ] helmet enabled; CSP without `unsafe-inline` (theme script allowed by hash) (T-05, T-06)
-- [ ] Origin allowlist enforced in production (T-04)
+- [x] Every client→server event validated by a zod `strictObject` schema (T-01). Evidence: `schemas.ts`, `server.test.ts`, `e2ee.test.ts`
+- [x] `maxHttpBufferSize` = 4 KB (T-01). Evidence: `server.test.ts` (10 KB drops the sender)
+- [x] No `innerHTML` with any user-influenced data anywhere (T-05). Evidence: no `innerHTML` in `public/`; Playwright test sends HTML and sees it as text
+- [x] helmet enabled; CSP without `unsafe-inline` and with no inline script at all (T-05, T-06). Evidence: `server.test.ts`
+- [x] Origin allowlist enforced (T-04); production requires https origins. Evidence: `server.test.ts`, `config.test.ts`
 - [ ] HTTPS/WSS only (Render TLS)
 
 ## Abuse
-- [ ] Token buckets: envelopes, typing, start/next, reports (T-02, T-18)
-- [ ] ≤ 5 sockets per IP hash (T-03)
+- [ ] Token buckets: envelopes, typing, start/next, keys are built and tested (T-02); **reports** arrive with M6 (T-18)
+- [x] ≤ 5 sockets per IP hash (T-03). Evidence: `server.test.ts`, `recovery.test.ts`
 - [ ] Bans + no-rematch working with daily salt rotation (T-16, S-06)
 
 ## Encryption
@@ -20,11 +20,11 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [x] Per-direction keys, counter IVs, seq + AAD checks unit-tested (T-10, T-11)
 - [x] Padding to 64 bytes (T-12)
 - [x] `/verify` safety codes match; MITM simulation differs (T-08)
-- [ ] No keys or plaintext in any log statement (grep in CI)
+- [x] No keys or plaintext in any log statement. Evidence: `server.test.ts` checks logs for message text, ciphertext and public keys. A CI grep is not added
 
 ## Privacy (RA 10173 - Data Privacy Act)
 - [ ] Data inventory in privacy-and-sessions.md matches the code
-- [ ] No raw IPs logged; logs contain no content (T-15)
+- [x] No raw IPs logged; logs contain no content (T-15). Evidence: CI grep in `ci.yml` and `server.test.ts`
 - [ ] Privacy notice published, compliant with RA 10173 requirements
 - [ ] Rules page live with clear prohibited conduct list
 - [ ] DB-IP attribution shown in footer
@@ -33,9 +33,9 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Data Protection Officer designated
 
 ## Safety (RA 11930 - Anti-OSAEC, RA 11313 - Safe Spaces Act)
-- [ ] 18+ gate + rules enforced on the server (S-01)
+- [x] 18+ gate + rules enforced on the server (S-01). Evidence: handshake tests; Playwright gate test. Wording not reviewed by counsel
 - [ ] Personal-info warning shown each session (S-08)
-- [ ] Links not clickable (S-09)
+- [x] Links not clickable (S-09). Messages are rendered as text only. Evidence: Playwright HTML test
 - [ ] Content filters active for known harmful patterns (S-15)
 - [ ] `minor` report category triggers immediate escalation (S-16)
 - [ ] `harassment` and `sexual` report categories implemented per RA 11313
@@ -52,8 +52,8 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Incident response plan documented
 
 ## Supply chain & ops
-- [ ] `npm audit --audit-level=high` clean in CI (T-21)
-- [ ] Dependabot + CodeQL enabled (T-21)
+- [x] `npm audit --audit-level=high` clean in CI (T-21). Evidence: `ci.yml`
+- [ ] Dependabot (done) + static analysis (semgrep runs in CI; CodeQL is not enabled) (T-21)
 - [ ] Branch protection on `main`; deploys only via CI (T-09)
 - [ ] Uptime monitor alerting; rollback tested once
 - [ ] HTTPS everywhere, secure WebSockets only
