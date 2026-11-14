@@ -35,6 +35,10 @@ const EnvSchema = z.object({
   MAINTENANCE_MODE: flag.default(false),
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
   MAX_SOCKETS_PER_IP: z.coerce.number().int().min(1).max(100).default(5),
+  // Path to the DB-IP country database (.mmdb). Without it every country is unknown.
+  COUNTRY_DB_PATH: z.string().min(1).optional(),
+  // How long a search sticks to shared interests before accepting anyone (ms).
+  INTEREST_WAIT_MS: z.coerce.number().int().min(500).max(60_000).default(10_000),
 });
 
 const RECONNECT_GRACE_MS = 30_000;
@@ -51,6 +55,9 @@ export interface Config {
   maintenanceMode: boolean;
   logLevel: "error" | "warn" | "info" | "debug";
   maxSocketsPerIp: number;
+  countryDbPath: string | undefined;
+  interestWaitMs: number;
+  matchSweepMs: number;
   // Fixed limits (not configurable from the environment)
   maxPayloadBytes: number;
   messageBurstCapacity: number;
@@ -99,6 +106,10 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maintenanceMode: parsed.MAINTENANCE_MODE,
     logLevel: parsed.LOG_LEVEL,
     maxSocketsPerIp: parsed.MAX_SOCKETS_PER_IP,
+    countryDbPath: parsed.COUNTRY_DB_PATH,
+    interestWaitMs: parsed.INTEREST_WAIT_MS,
+    // How often waiting searches are checked for an expired interest wait.
+    matchSweepMs: 1_000,
     maxPayloadBytes: 4096,
     messageBurstCapacity: 5,
     messageRefillPerSec: 0.5,
