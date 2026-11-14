@@ -191,3 +191,72 @@ test.describe("on a phone", () => {
     }
   });
 });
+
+test.describe("matchmaking", () => {
+  const chip = (p: { page: import("@playwright/test").Page }, name: string) =>
+    p.page.locator("#chips").getByRole("button", { name, exact: true });
+
+  test("interests: at most five can be picked", async ({ person }) => {
+    const a = await person();
+    await a.join();
+    await expect(a.page.locator("#interest-count")).toHaveText("0 of 5");
+    for (const name of ["anime", "art", "books", "cars", "coding"]) await chip(a, name).click();
+    await expect(a.page.locator("#interest-count")).toHaveText("5 of 5");
+    await expect(chip(a, "dance")).toBeDisabled(); // a sixth cannot be added
+    await chip(a, "art").click(); // but one can be removed
+    await expect(a.page.locator("#interest-count")).toHaveText("4 of 5");
+    await expect(chip(a, "dance")).toBeEnabled();
+  });
+
+  test("two people who share an interest are paired, are told which, and a third keeps waiting", async ({ person }) => {
+    const [a, b, c] = [await person(), await person(), await person()];
+    for (const p of [a, b, c]) await p.join();
+
+    await chip(c, "music").click();
+    await c.page.getByRole("button", { name: "Find a stranger" }).click();
+    await expect(c.page.locator("#chat-sub")).toContainText("likes music");
+
+    for (const p of [a, b]) await chip(p, "gaming").click();
+    await a.page.getByRole("button", { name: "Find a stranger" }).click();
+    await b.page.getByRole("button", { name: "Find a stranger" }).click();
+    for (const p of [a, b]) {
+      await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
+      await expect(p.page.getByRole("log")).toContainText("You both like gaming.");
+    }
+    await expect(c.page.locator("#chat-title")).toHaveText("Searching"); // music is still waiting
+  });
+
+  test("after the wait, people with different interests are paired at random and told so", async ({ person }) => {
+    const [a, b] = [await person(), await person()];
+    await a.join();
+    await b.join();
+    await chip(a, "gaming").click();
+    await chip(b, "music").click();
+    await a.page.getByRole("button", { name: "Find a stranger" }).click();
+    await b.page.getByRole("button", { name: "Find a stranger" }).click();
+    await expect(a.page.locator("#chat-sub")).toContainText("likes gaming");
+    // The test server waits 2 s for a shared interest instead of 10; then the two are paired.
+    for (const p of [a, b]) {
+      await expect(p.page.locator("#seal-text")).toHaveText("End-to-end encrypted");
+      await expect(p.page.getByRole("log")).toContainText("No shared interests this time");
+    }
+  });
+
+  test("'My country only' explains itself when the country cannot be detected, then worldwide works", async ({ person }) => {
+    const a = await person();
+    await a.join();
+    await a.page.getByLabel("My country only").check();
+    await a.page.getByRole("button", { name: "Find a stranger" }).click();
+    await expect(a.page.getByRole("log")).toContainText("could not detect your country");
+    await expect(a.page.getByLabel("My country only")).toBeDisabled();
+    await expect(a.page.getByLabel("Anywhere")).toBeChecked();
+    await a.page.getByRole("button", { name: "Find a stranger" }).click();
+    await expect(a.page.locator("#chat-title")).toHaveText("Searching");
+  });
+
+  test("the country database credit is shown", async ({ person }) => {
+    const a = await person();
+    await a.join();
+    await expect(a.page.getByRole("link", { name: "DB-IP.com" })).toHaveAttribute("href", "https://db-ip.com");
+  });
+});
