@@ -127,6 +127,9 @@ describe("fallback to a random stranger (US-16)", () => {
     await start(a, { interests: ["gaming"] });
     await start(b, { interests: ["music"] });
     a.disconnect();
+    // Wait until the SERVER has seen the disconnect. Advancing the clock first would let the sweep
+    // pair b with a person who is already gone but not yet noticed.
+    await expect.poll(() => server.logs.some((line) => line.includes("ws_disconnect")), { timeout: 5000 }).toBe(true);
     const heard = arrivesWithin(b, "session:matched", 300);
     server.clock.advance(1000);
     expect(await heard).toBe(false);
