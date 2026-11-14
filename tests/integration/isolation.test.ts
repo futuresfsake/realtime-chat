@@ -88,6 +88,7 @@ describe("session isolation", () => {
     server = await startServer();
     const { a, b, sessionId } = await pair(server);
     await command(a, "session:leave");
+    server.clock.advance(24 * 60 * 60 * 1000 + 1); // the no-rematch period is over
     const matchedA = next<Record<string, string>>(a, "session:matched");
     await command(a, "session:start");
     await command(b, "session:start");
@@ -101,7 +102,8 @@ describe("session isolation", () => {
     const oldKeysOfA = channelOf(a);
     await command(a, "session:leave");
 
-    // The same two people meet again.
+    // The same two people meet again (once the no-rematch period is over).
+    server.clock.advance(24 * 60 * 60 * 1000 + 1); // the no-rematch period is over
     const matchedA = next<Matched>(a, "session:matched");
     const matchedB = next<Matched>(b, "session:matched");
     await command(a, "session:start");

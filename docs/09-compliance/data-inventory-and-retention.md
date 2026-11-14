@@ -51,7 +51,7 @@ A keyed hash of an IP address is **still personal information** for as long as i
 | M5 | Interests (fixed list, max 5) | C1 | Interest matching | Server memory | While searching |
 | M6 | Report case: category, time, pseudonymous reporter and target | C2 | Safety enforcement; legal duties | Safety ledger (D-10) | 30 days (D-14), longer under legal hold |
 | M6 | Ban record | C2 | Enforce bans | Safety ledger | 24 hours to 30 days by severity |
-| M6 | No-rematch pairs | C2 | Keep a reported pair apart | Server memory | 24 hours |
+| M5/M6 | No-rematch pairs (two IP hashes, or two connection ids on a shared address) | C2 | Keep two people who parted apart | Server memory, at most 10,000 pairs, never logged | 24 hours, and the daily salt rotation makes the hashes useless after at most a day |
 | M7 | Legal-hold flag | C1 | Stop deletion when the law requires | Safety ledger | Until the DPO releases it |
 | M7 | Admin audit log (actor, action, reason, time) | C2 (staff data) | Accountability | Safety ledger, append-only | 1 year |
 | M8 | Rights-request tracker, breach register | C2 | Legal records | Restricted document store | 5 years (confirm with counsel) |

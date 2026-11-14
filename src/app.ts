@@ -19,6 +19,7 @@ import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
 import { KeyedLimiter } from "./security/tokenBucket.js";
 import { ALLOWED_INTERESTS } from "./matchmaking/interests.js";
 import { Matchmaker } from "./matchmaking/matchmaker.js";
+import { NoRematch } from "./safety/noRematch.js";
 import { startSession } from "./gateway/startSession.js";
 import { noCountryLookup } from "./geo/countryLookup.js";
 import type { CountryLookup } from "./geo/countryLookup.js";
@@ -241,7 +242,8 @@ export function buildServer(deps: ServerDeps) {
   // /start + /next: 10 per minute per address, so people cannot rapidly scan strangers.
   const searchLimits = new KeyedLimiter(10, 10 / 60, clock);
   const sessions = new SessionManager();
-  const matchmaker = new Matchmaker(clock, config.interestWaitMs);
+  const noRematch = new NoRematch(clock, config.noRematchMs);
+  const matchmaker = new Matchmaker(clock, config.interestWaitMs, (a, b) => noRematch.blocked(a, b));
   const grace = new GraceTimers();
   // The same kind of countdown, one per session that is still exchanging keys.
   const keyDeadlines = new GraceTimers();
@@ -254,6 +256,7 @@ export function buildServer(deps: ServerDeps) {
       clock,
       sessions,
       matchmaker,
+      noRematch,
       searchLimits,
       grace,
       keyDeadlines,

@@ -58,6 +58,7 @@ export interface Config {
   countryDbPath: string | undefined;
   interestWaitMs: number;
   matchSweepMs: number;
+  noRematchMs: number;
   // Fixed limits (not configurable from the environment)
   maxPayloadBytes: number;
   messageBurstCapacity: number;
@@ -110,6 +111,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     interestWaitMs: parsed.INTEREST_WAIT_MS,
     // How often waiting searches are checked for an expired interest wait.
     matchSweepMs: 1_000,
+    // Two people who skip or leave each other are not paired again for this long.
+    noRematchMs: 24 * 60 * 60 * 1000,
     maxPayloadBytes: 4096,
     messageBurstCapacity: 5,
     messageRefillPerSec: 0.5,

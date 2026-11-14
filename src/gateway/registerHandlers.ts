@@ -2,6 +2,7 @@ import type { Server, Socket } from "socket.io";
 import type { Config } from "../config.js";
 import type { Clock } from "../lib/clock.js";
 import type { Matchmaker } from "../matchmaking/matchmaker.js";
+import type { NoRematch } from "../safety/noRematch.js";
 import { UNKNOWN_COUNTRY } from "../matchmaking/interests.js";
 import type { SearchPrefs } from "../matchmaking/interests.js";
 import type { Logger } from "../observability/logger.js";
@@ -30,6 +31,7 @@ export interface HandlerDeps {
   clock: Clock;
   sessions: SessionManager;
   matchmaker: Matchmaker;
+  noRematch: NoRematch; // people who just parted are not paired again for a while
   searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
   grace: GraceTimers; // countdowns for chats whose socket dropped
   keyDeadlines: GraceTimers; // countdowns for chats still exchanging keys, by session id
@@ -52,7 +54,7 @@ const RECOVERABLE_REASONS: ReadonlySet<string> = new Set([
 // Wires every per-connection event. Session rules live in SessionManager; this
 // file only translates between sockets and those rules.
 export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
-  const { io, config, logger, clock, sessions, matchmaker, searchLimits, grace, keyDeadlines } = deps;
+  const { io, config, logger, clock, sessions, matchmaker, noRematch, searchLimits, grace, keyDeadlines } = deps;
   const { correlationId, ipHash } = socket.data;
   const socketId = socket.id;
 
@@ -96,7 +98,7 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   // waiting, starts the session. Synchronous from enqueue to emit: no other
   // event can interleave.
   function search(prefs: SearchPrefs): void {
-    const match = matchmaker.enqueue(socketId, socket.data.country, prefs);
+    const match = matchmaker.enqueue(socketId, socket.data.country, prefs, socket.data.ipHash);
     if (match) startSession(deps, match, correlationId);
   }
 
@@ -108,7 +110,15 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
 
   function announceEnd(result: Extract<LeaveResult, { ok: true }>, mine: SessionEndReason): void {
     if (result.ended || result.wasSearching) socket.emit("session:ended", { reason: mine });
-    if (result.ended && result.partner) io.to(result.partner).emit("session:ended", { reason: "partner_left" });
+    if (result.ended && result.partner) {
+      io.to(result.partner).emit("session:ended", { reason: "partner_left" });
+      // Whoever ended it, these two do not meet again for a while. A dropped
+      // connection or a timeout is not a choice, so it never blocks anyone.
+      const partnerHash = io.sockets.sockets.get(result.partner)?.data.ipHash;
+      if (partnerHash !== undefined) {
+        noRematch.add({ ipHash: socket.data.ipHash, id: socketId }, { ipHash: partnerHash, id: result.partner });
+      }
+    }
     if (result.ended) {
       logger.info("session_end", { correlationId, data: { reason: mine, activeSessions: sessions.sessionCount() } });
     }

@@ -128,7 +128,7 @@ As a **privacy-conscious chatter**, I want to compare a safety code with my stra
 - **No transcript is sent.** The server never had the messages, and with no human moderators nobody would read them. Bans are based on *how many different people* report someone (US-20).
 - **Features:** F-26
 
-### US-19 Never meet the same person again 🔜
+### US-19 Never meet the same person again ✅ (skip and leave; reports arrive with US-18)
 - Strangers I skipped or reported aren't matched with me again for 24 h (best effort, using the same daily-salted IP hash as bans, so no extra identifier is created).
 - **Features:** F-27
 
