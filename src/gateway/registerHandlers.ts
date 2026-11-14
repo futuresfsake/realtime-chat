@@ -1,7 +1,9 @@
 import type { Server, Socket } from "socket.io";
 import type { Config } from "../config.js";
 import type { Clock } from "../lib/clock.js";
-import type { SimpleMatchmaker } from "../matchmaking/simpleMatchmaker.js";
+import type { Matchmaker } from "../matchmaking/matchmaker.js";
+import { UNKNOWN_COUNTRY } from "../matchmaking/interests.js";
+import type { SearchPrefs } from "../matchmaking/interests.js";
 import type { Logger } from "../observability/logger.js";
 import { ipHashPrefix } from "../security/ipHash.js";
 import { KeyedLimiter, TokenBucket } from "../security/tokenBucket.js";
@@ -14,8 +16,9 @@ import type {
   SessionEndReason,
   SocketData,
 } from "../types/events.js";
-import { E2eEnvelopeSchema, E2eKeySchema, EmptySchema, TypingSchema } from "../validation/schemas.js";
+import { E2eEnvelopeSchema, E2eKeySchema, EmptySchema, SearchPrefsSchema, TypingSchema } from "../validation/schemas.js";
 import { HandlerError, withHandler } from "./handler.js";
+import { startSession } from "./startSession.js";
 
 type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type ChatSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -26,7 +29,7 @@ export interface HandlerDeps {
   logger: Logger;
   clock: Clock;
   sessions: SessionManager;
-  matchmaker: SimpleMatchmaker;
+  matchmaker: Matchmaker;
   searchLimits: KeyedLimiter; // /start + /next, keyed by IP hash
   grace: GraceTimers; // countdowns for chats whose socket dropped
   keyDeadlines: GraceTimers; // countdowns for chats still exchanging keys, by session id
@@ -89,42 +92,18 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
     },
   });
 
-  // Puts a searching client in the queue and, if someone was waiting, starts
-  // the session. Synchronous from enqueue to emit: no other event can interleave.
-  function search(): void {
-    const pair = matchmaker.enqueue(socket.id);
-    if (!pair) return;
-    const session = sessions.createSession(pair[0], pair[1]);
-    const nameA = sessions.getName(session.a)!;
-    const nameB = sessions.getName(session.b)!;
-    // The roles only fix the order of the two keys in the key derivation.
-    io.to(session.a).emit("session:matched", {
-      sessionId: session.id,
-      myName: nameA,
-      partnerName: nameB,
-      role: "initiator",
-    });
-    io.to(session.b).emit("session:matched", {
-      sessionId: session.id,
-      myName: nameB,
-      partnerName: nameA,
-      role: "responder",
-    });
-    logger.info("session_start", { correlationId, data: { activeSessions: sessions.sessionCount() } });
+  // Puts a searching client in the queue and, if a suitable person was
+  // waiting, starts the session. Synchronous from enqueue to emit: no other
+  // event can interleave.
+  function search(prefs: SearchPrefs): void {
+    const match = matchmaker.enqueue(socketId, socket.data.country, prefs);
+    if (match) startSession(deps, match, correlationId);
+  }
 
-    // The chat is not usable until both public keys have crossed. If that
-    // does not happen in time (a browser that cannot do it, a dropped link),
-    // end it for both instead of leaving them waiting (US-37).
-    keyDeadlines.hold(session.id, config.keyExchangeTimeoutMs, () => {
-      const ended = sessions.endIfNotSecured(session.id);
-      if (!ended) return; // secured in time, or already over
-      io.to(ended.a).emit("session:ended", { reason: "crypto_timeout" });
-      io.to(ended.b).emit("session:ended", { reason: "crypto_timeout" });
-      logger.warn("session_end", {
-        correlationId,
-        data: { reason: "crypto_timeout", activeSessions: sessions.sessionCount() },
-      });
-    });
+  // "My country only" needs a country we could detect (an unknown one can
+  // never match locally). Refused before anything changes.
+  function checkPrefs(prefs: SearchPrefs): void {
+    if (prefs.scope === "local" && socket.data.country === UNKNOWN_COUNTRY) throw new HandlerError("COUNTRY_UNKNOWN");
   }
 
   function announceEnd(result: Extract<LeaveResult, { ok: true }>, mine: SessionEndReason): void {
@@ -138,11 +117,12 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   socket.on(
     "session:start",
     withHandler(
-      EmptySchema,
+      SearchPrefsSchema,
       searchLimiter,
-      () => {
+      (prefs) => {
+        checkPrefs(prefs);
         if (!sessions.startSearching(socket.id).ok) throw new HandlerError("INVALID_STATE");
-        search();
+        search(prefs);
       },
       hooks("session:start"),
     ),
@@ -153,14 +133,15 @@ export function registerHandlers(socket: ChatSocket, deps: HandlerDeps): void {
   socket.on(
     "session:next",
     withHandler(
-      EmptySchema,
+      SearchPrefsSchema,
       searchLimiter,
-      () => {
+      (prefs) => {
+        checkPrefs(prefs);
         const result = sessions.next(socket.id);
         if (!result.ok) throw new HandlerError(result.code);
         matchmaker.remove(socket.id);
         announceEnd(result, "skipped");
-        search();
+        search(prefs);
       },
       hooks("session:next"),
     ),

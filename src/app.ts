@@ -17,7 +17,11 @@ import { clientIp } from "./security/clientIp.js";
 import { ConnectTokens } from "./security/connectToken.js";
 import { createIpHasher, ipHashPrefix } from "./security/ipHash.js";
 import { KeyedLimiter } from "./security/tokenBucket.js";
-import { SimpleMatchmaker } from "./matchmaking/simpleMatchmaker.js";
+import { ALLOWED_INTERESTS } from "./matchmaking/interests.js";
+import { Matchmaker } from "./matchmaking/matchmaker.js";
+import { startSession } from "./gateway/startSession.js";
+import { noCountryLookup } from "./geo/countryLookup.js";
+import type { CountryLookup } from "./geo/countryLookup.js";
 import { GraceTimers } from "./sessions/reconnectGrace.js";
 import { SessionManager } from "./sessions/sessionManager.js";
 import { PROTOCOL_VERSION, RULES_VERSION } from "./types/events.js";
@@ -33,12 +37,14 @@ export interface ServerDeps {
   config: Config;
   logger: Logger;
   clock?: Clock;
+  countries?: CountryLookup; // address -> country code; defaults to "unknown" for everyone
 }
 
 // Builds the app WITHOUT listening, so tests can start it on a random port.
 export function buildServer(deps: ServerDeps) {
   const { config, logger } = deps;
   const clock = deps.clock ?? realClock;
+  const countries = deps.countries ?? noCountryLookup;
 
   const ipHasher = createIpHasher({ clock, secret: config.ipHashSecret });
   const connectTokens = new ConnectTokens(clock, config.connectTokenTtlMs);
@@ -55,6 +61,13 @@ export function buildServer(deps: ServerDeps) {
   // The raw address never leaves this function: only its keyed hash does.
   const ipHashOf = (req: IncomingMessage): string =>
     ipHasher.hash(clientIp(req.headers["x-forwarded-for"], req.socket.remoteAddress, config.trustProxyHops));
+
+  // At the WebSocket handshake only: also turns the address into a country
+  // code for matching. The address is used for this one lookup and dropped.
+  const identify = (req: IncomingMessage): { ipHash: string; country: string } => {
+    const address = clientIp(req.headers["x-forwarded-for"], req.socket.remoteAddress, config.trustProxyHops);
+    return { ipHash: ipHasher.hash(address), country: countries.lookup(address) };
+  };
 
   // ---------- HTTP ----------
   const app = express();
@@ -137,6 +150,7 @@ export function buildServer(deps: ServerDeps) {
       expiresInMs: config.connectTokenTtlMs,
       protocolVersion: PROTOCOL_VERSION,
       rulesVersion: RULES_VERSION,
+      interests: ALLOWED_INTERESTS,
       preview: config.previewBanner,
     });
   });
@@ -186,7 +200,7 @@ export function buildServer(deps: ServerDeps) {
       });
       next(new Error(code));
     };
-    const ipHash = ipHashOf(socket.request);
+    const { ipHash, country } = identify(socket.request);
     const auth: Record<string, unknown> = socket.handshake.auth ?? {};
 
     if (config.maintenanceMode) return refuse("MAINTENANCE");
@@ -218,6 +232,7 @@ export function buildServer(deps: ServerDeps) {
     if (!ipSocketCap.add(ipHash, socket.id)) return refuse("TOO_MANY_CONNECTIONS");
 
     socket.data.ipHash = ipHash; // may differ after a network change
+    socket.data.country = country; // a two-letter code, or "XX"
     socket.data.correlationId = socket.data.correlationId ?? randomUUID().slice(0, 8); // kept across a recovery
     next();
   });
@@ -226,10 +241,11 @@ export function buildServer(deps: ServerDeps) {
   // /start + /next: 10 per minute per address, so people cannot rapidly scan strangers.
   const searchLimits = new KeyedLimiter(10, 10 / 60, clock);
   const sessions = new SessionManager();
-  const matchmaker = new SimpleMatchmaker();
+  const matchmaker = new Matchmaker(clock, config.interestWaitMs);
   const grace = new GraceTimers();
   // The same kind of countdown, one per session that is still exchanging keys.
   const keyDeadlines = new GraceTimers();
+  const sessionDeps = { io, config, logger, sessions, keyDeadlines };
   io.on("connection", (socket) => {
     registerHandlers(socket, {
       io,
@@ -254,11 +270,21 @@ export function buildServer(deps: ServerDeps) {
   }, config.onlineBroadcastMs);
   onlineTimer.unref();
 
+  // Searches that picked interests wait for a shared one; when that wait runs
+  // out they accept anyone compatible. Checked once a second.
+  const matchTimer = setInterval(() => {
+    const { matches, opened } = matchmaker.sweep();
+    for (const match of matches) startSession(sessionDeps, match);
+    for (const id of opened) io.to(id).emit("search:status", { state: "open" });
+  }, config.matchSweepMs);
+  matchTimer.unref();
+
   // Stop taking new work, then close. /health turns 503 immediately so the
   // platform stops routing here.
   function shutdown(): Promise<void> {
     shuttingDown = true;
     clearInterval(onlineTimer);
+    clearInterval(matchTimer);
     grace.clear();
     keyDeadlines.clear();
     return new Promise((resolve) => {

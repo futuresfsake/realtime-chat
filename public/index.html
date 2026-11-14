@@ -45,6 +45,8 @@
         <li>Your IP address is used for a moment to limit abuse. We keep only a scrambled (hashed) form of it, in memory, for up to 24 hours. It is never written to our logs.</li>
         <li>Encrypted messages are passed on, kept in the server's memory (still encrypted) for up to two minutes so that a dropped connection can catch up, and then gone. Nothing is written to disk and we keep no chat history.</li>
         <li>We cannot see what is said. We can still see that two connections are chatting, when, and roughly how much is sent. The "is typing" signal is not encrypted; it contains no text.</li>
+        <li>To match you, the server looks up your country (a two-letter code) from your IP address, then discards the address. That code and the interests you pick are held in the server's memory only while you search or chat, and are never written to logs. Country detection uses data from DB-IP.com.</li>
+        <li>Your partner sees which interests you have in common, and nothing else about you.</li>
         <li>The server is hosted by Render in Singapore.</li>
         <li>This acknowledgement is saved only in your own browser, for this visit.</li>
       </ul>
@@ -92,6 +94,21 @@
           <button type="button" class="btn btn-quiet" id="btn-verify" disabled>Safety code</button>
         </div>
 
+        <!-- What to look for. Only shown while idle. -->
+        <section class="prefs" id="prefs" aria-label="Who to meet">
+          <div class="pref-group">
+            <h2 class="pref-title" id="interests-title">Interests <span class="muted" id="interest-count">0 of 5</span></h2>
+            <p class="pref-help">Optional. We try to pair you with someone who shares one. After 10 seconds without a match, anyone will do.</p>
+            <div class="chips" id="chips" role="group" aria-labelledby="interests-title"></div>
+          </div>
+          <fieldset class="pref-group">
+            <legend class="pref-title">Meet people from</legend>
+            <label class="radio"><input type="radio" name="scope" value="world" checked /> <span>Anywhere</span></label>
+            <label class="radio"><input type="radio" name="scope" value="local" id="scope-local" /> <span>My country only</span></label>
+            <p class="pref-help" id="scope-note" hidden></p>
+          </fieldset>
+        </section>
+
         <div class="stage">
           <ol id="log" class="log" role="log" aria-live="polite" aria-label="Conversation"></ol>
           <div class="empty" id="empty">
@@ -117,6 +134,8 @@
         </form>
       </section>
     </main>
+
+    <footer class="credit">Country detection uses IP geolocation data by <a href="https://db-ip.com" rel="noopener noreferrer">DB-IP.com</a> (CC BY 4.0)</footer>
   </div>
 
   <dialog id="verify" class="dialog" aria-labelledby="verify-title">

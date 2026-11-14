@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ALLOWED_INTERESTS, MAX_INTERESTS } from "../matchmaking/interests.js";
 
 // Every client -> server payload has a strict schema: wrong types, missing
 // fields and unknown fields are all rejected.
@@ -28,7 +29,18 @@ export const TypingSchema = z.strictObject({
   isTyping: z.boolean(),
 });
 
-// Session commands carry no data.
+// What a person is looking for when they start or skip. Both fields are
+// optional: `{}` means no interests and worldwide.
+export const SearchPrefsSchema = z.strictObject({
+  interests: z
+    .array(z.enum(ALLOWED_INTERESTS))
+    .max(MAX_INTERESTS)
+    .refine((list) => new Set(list).size === list.length, "interests must be unique")
+    .default([]),
+  scope: z.enum(["local", "world"]).default("world"),
+});
+
+// /leave carries no data.
 export const EmptySchema = z.strictObject({});
 
 export const ConsentSchema = z.strictObject({

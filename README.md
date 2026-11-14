@@ -8,7 +8,7 @@ No accounts. No stored messages. Free to use, safe by design.
 
 > **This is a portfolio project.** I built it to show full-stack work: a TypeScript backend (Express, Socket.IO, zod), browser-side end-to-end encryption with WebCrypto, and a hand-designed interface. It is not a launched product and it is not run as a service for the public.
 
-> ⚠️ **Status: M4 code complete.** The app pairs you with **one stranger** at a time behind an 18+ gate, and messages are **end-to-end encrypted** in the browser. Matchmaking by interest, reporting, moderation and the legal review are still ahead, so it is not ready for public use. Next is **M5: matchmaking**.
+> ⚠️ **Status: M4 code complete.** The app pairs you with **one stranger** at a time behind an 18+ gate, and messages are **end-to-end encrypted** in the browser. Matchmaking by interest, reporting, moderation and the legal review are still ahead, so it is not ready for public use. M5 (matchmaking by interest and country) is code complete; next is **M6: trust and safety**.
 
 ---
 
@@ -151,7 +151,7 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 | **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🚧 code complete; deploy pending |
 | **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🚧 code complete; deploy pending |
 | M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🚧 code complete; deploy pending |
-| M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
+| M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🚧 code complete |
 | M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
 | M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | 🔜 |
 | M8 Public launch | Legal sign-off, compliance 100%, PH beta launch | 2–3 d | 🔜 |

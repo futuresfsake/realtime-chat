@@ -39,7 +39,7 @@ A keyed hash of an IP address is **still personal information** for as long as i
 
 ### Honest notes on today's state
 - **Row 4 is plaintext until M4.** The server relays readable text and holds it in memory for up to about 100 seconds so a dropped connection can catch up. It is never written to disk or logs. This is the main reason the service must not be announced publicly before M4. See [PIA risk R-01](privacy-impact-assessment.md).
-- There are **no** reports, bans, country codes, interests or database yet.
+- There are **no** reports, bans or database yet. Country codes and chosen interests exist in server memory only while a person searches or chats (M5); the IP address is used once for the country lookup and discarded.
 - We do not read or store the browser's user agent. Render's edge may log it under its own policy.
 
 ## 4. What is added by later milestones

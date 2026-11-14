@@ -24,7 +24,7 @@ Estimates assume ~5 focused hours/day and include learning, tests and docs. **E2
 | **M2** | **Hardening + CI/CD + first deploy** | Safe to be on the internet, deployed automatically | US-21–24, US-32–35 | 4–5 d | 🔜 **next** |
 | M3 | 1:1 anonymous sessions | Random names, pairs of two, skip/leave, status, reactions | US-01–11, US-36 | 4–5 d | 🟡 code complete, deploy + demo pending |
 | M4 | End-to-end encryption | Server can't read anything | US-12, US-13, US-37 | 4–5 d | 🟡 code complete, deploy + demo pending |
-| M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | 🔜 |
+| M5 | Matchmaking | Interests + country/worldwide + fallback | US-14–16 | 3 d | 🟡 code complete |
 | M6 | Trust & safety | 18+ gate, report, no-rematch, temp bans, content filters, compliance drafts | US-17–20, US-28–29, US-38–39 | 4–5 d | 🔜 |
 | M7 | Quality, observability, monitoring & moderation | Coverage, logs, SLOs, dashboards, a11y, moderator tools | US-25, US-30–31, US-40–44 | 3–4 d | 🔜 |
 | M8 | Public launch | Legal sign-off, compliance 100%, go live | US-45–46 | 2–3 d | 🔜 |
@@ -209,7 +209,7 @@ Two browser tabs exchange messages; terminal UI with themes, slash commands and 
 **Demo:** dev tools → Network → WS frames show only ciphertext; both `/verify` codes match.
 **Risks:** crypto mistakes are silent → only standard WebCrypto primitives, no custom crypto, peer review of the design doc.
 
-## M5 Matchmaking 🔜
+## M5 Matchmaking 🟡
 **Goal:** people with shared interests meet; country preference is respected.
 
 | Story | Features |

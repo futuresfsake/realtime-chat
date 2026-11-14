@@ -9,9 +9,16 @@ export const PROTOCOL_VERSION = "rc/v1";
 
 // Version of the rules + privacy notice shown at the gate. Changing the text
 // means changing this, which makes every visitor acknowledge the new text.
-export const RULES_VERSION = "2026-11-preview-3";
+export const RULES_VERSION = "2026-11-preview-4";
 
-export type ErrorCode = "VALIDATION" | "RATE_LIMITED" | "INTERNAL" | "NOT_IN_SESSION" | "INVALID_STATE";
+export type ErrorCode =
+  | "VALIDATION"
+  | "RATE_LIMITED"
+  | "INTERNAL"
+  | "NOT_IN_SESSION"
+  | "INVALID_STATE"
+  // "My country only" was chosen but the country could not be detected.
+  | "COUNTRY_UNKNOWN";
 
 // Sent as the connect_error message when a handshake is refused.
 export type HandshakeErrorCode =
@@ -75,6 +82,13 @@ export interface SessionMatched {
   myName: string;
   partnerName: string;
   role: E2eRole;
+  sharedInterests: string[]; // interests both people picked; empty for a random match
+}
+
+// While searching with interests: "interests" is the first phase, "open" means
+// the wait for a shared interest ran out and anyone compatible will do.
+export interface SearchStatus {
+  state: "interests" | "open";
 }
 
 export interface ClientToServerEvents {
@@ -93,6 +107,7 @@ export interface ServerToClientEvents {
   "e2e:key": (key: E2eKey) => void;
   "e2e:envelope": (envelope: E2eEnvelope) => void;
   "session:matched": (info: SessionMatched) => void;
+  "search:status": (info: SearchStatus) => void;
   "session:ended": (info: { reason: SessionEndReason }) => void;
   "partner:status": (info: { state: PartnerState }) => void;
   // A count only: no names, no locations.
@@ -102,4 +117,5 @@ export interface ServerToClientEvents {
 export interface SocketData {
   correlationId: string;
   ipHash: string;
+  country: string; // two-letter code from the address, or "XX"; the address itself is not kept
 }

@@ -101,18 +101,18 @@ As a **privacy-conscious chatter**, I want to compare a safety code with my stra
 
 ## Epic C: Matching (M5)
 
-### US-14 Choose my interests 🔜
+### US-14 Choose my interests ✅
 - I can pick up to 5 interests from a predefined list (e.g. `music, gaming, coding, anime, travel…`).
 - Given I and a waiting stranger share ≥ 1 interest, then we are matched and see `shared: <interest>`.
 - **Features:** F-22
 
-### US-15 My country or worldwide 🔜
+### US-15 My country or worldwide ✅
 - `/country local` → I'm only matched with people the server detects in the same country as me.
 - `/country world` → I can be matched with anyone whose own setting allows me.
 - A local-only user is never matched with someone outside their country.
 - **Features:** F-23
 
-### US-16 Fall back to a random stranger 🔜
+### US-16 Fall back to a random stranger ✅
 - Given no interest match within 10 s, then I'm matched with any compatible stranger and see `no shared interests found - connected to a random stranger`.
 - **Features:** F-24
 

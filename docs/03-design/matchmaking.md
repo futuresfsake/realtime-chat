@@ -1,5 +1,7 @@
 # Matchmaking Design (M5)
 
+> **Implemented** in `src/matchmaking/` (`matchmaker.ts`, `compatibility.ts`, `interests.ts`) and `src/geo/countryLookup.ts`. Differences from the sketch below: the 10 s wait is not a per-user timer. A once-a-second sweep (`Matchmaker.sweep`) opens expired waits, which keeps the matchmaker synchronous and testable with a fake clock. Preferences travel in the `session:start` / `session:next` payload and are validated by `SearchPrefsSchema`. No-rematch and bans arrive with M6, so `compatible()` does not take a no-rematch list yet. People still waiting when their wait runs out get a `search:status {state:"open"}` event; two people who are both waiting are simply paired. `INTEREST_WAIT_MS` (default 10 s) and `COUNTRY_DB_PATH` are the only settings.
+
 How we pair two strangers: **shared interests first, a random stranger as fallback, always respecting the country preference.**
 
 ## 1. Inputs
