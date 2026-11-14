@@ -4,6 +4,7 @@ import {
   E2eEnvelopeSchema,
   E2eKeySchema,
   HandshakeAuthSchema,
+  SearchPrefsSchema,
   TypingSchema,
 } from "../../../src/validation/schemas.js";
 
@@ -91,4 +92,28 @@ describe("TypingSchema", () => {
       expect(TypingSchema.safeParse(payload).success).toBe(false);
     },
   );
+});
+
+describe("SearchPrefsSchema", () => {
+  it("fills in no interests and worldwide for an empty payload", () => {
+    expect(SearchPrefsSchema.parse({})).toEqual({ interests: [], scope: "world" });
+  });
+  it("accepts up to five unique interests from the list and a scope", () => {
+    const prefs = { interests: ["anime", "art", "books", "cars", "coding"], scope: "local" };
+    expect(SearchPrefsSchema.parse(prefs)).toEqual(prefs);
+  });
+  it("rejects a sixth interest, a repeat, one that is not on the list, and anything that is not a slug", () => {
+    expect(SearchPrefsSchema.safeParse({ interests: ["anime", "art", "books", "cars", "coding", "dance"] }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ interests: ["anime", "anime"] }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ interests: ["politics"] }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ interests: ["<script>"] }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ interests: ["Gaming"] }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ interests: "gaming" }).success).toBe(false);
+  });
+  it("rejects an unknown scope, extra fields and a country the client tries to claim", () => {
+    expect(SearchPrefsSchema.safeParse({ scope: "nearby" }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ country: "PH" }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse({ interests: [], scope: "world", evil: 1 }).success).toBe(false);
+    expect(SearchPrefsSchema.safeParse(null).success).toBe(false);
+  });
 });
