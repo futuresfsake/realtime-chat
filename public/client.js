@@ -1,38 +1,38 @@
 // ---------- Config ----------
 const MAX_LINES = 500;    // cap DOM size so long sessions stay fast
 const MAX_HISTORY = 50;   // input history for the up/down arrow keys
-const THEMES = ["phosphor", "amber", "ice", "paper"]; // must match styles.css
-const DEFAULT_THEME = "phosphor";
-const THEME_KEY = "rtc.theme"; // same key as js/themes.js
-const PROTOCOL_VERSION = "rc/v1";        // must match src/types/events.ts
+const PROTOCOL_VERSION = "rc/v1";          // must match src/types/events.ts
 const RULES_VERSION = "2026-11-preview-3"; // must match src/types/events.ts
-const CONSENT_KEY = "rtc.consent";       // sessionStorage: asked again in every new tab/visit
-const ACK_TIMEOUT_MS = 8000;             // how long to wait for the server to confirm a message
+const CONSENT_KEY = "rtc.consent";         // sessionStorage: asked again in every new tab/visit
+const ACK_TIMEOUT_MS = 8000;               // how long to wait for the server to confirm a message
 // Without WebCrypto (very old browser, or a page not served over HTTPS) there
 // is no encryption, and without encryption there is no chat. No fallback.
 const CAN_ENCRYPT = typeof E2EE !== "undefined" && E2EE.isSupported();
 const NO_ENCRYPTION_TEXT =
-  "this browser cannot encrypt messages here (it needs a current browser and an https:// address), so chatting is switched off";
+  "This browser cannot encrypt messages here (it needs a current browser and an https:// address), so chatting is switched off.";
 
 // ---------- DOM references ----------
 const $ = (id) => document.getElementById(id);
 const els = {
+  app: $("app"),
   log: $("log"),
   form: $("prompt"),
   input: $("input"),
+  send: $("btn-send"),
   conn: $("conn"),
   connText: $("conn-text"),
-  user: $("ps1-user"),
-  room: $("ps1-room"),
-  roomName: $("room-name"),
-  typing: $("typing"),
-  partnerStatus: $("partner-status"),
-  e2eStatus: $("e2e-status"),
-  e2eTop: $("conn-e2e"),
   onlineTop: $("conn-online"),
-  onlineSide: $("online-count"),
-  themes: $("themes"),
-  app: $("app"),
+  title: $("chat-title"),
+  sub: $("chat-sub"),
+  seal: $("seal"),
+  sealText: $("seal-text"),
+  typing: $("typing"),
+  start: $("btn-start"),
+  next: $("btn-next"),
+  leave: $("btn-leave"),
+  verify: $("btn-verify"),
+  verifyDialog: $("verify"),
+  verifyCode: $("verify-code"),
   gate: $("gate"),
   gateForm: $("gate-form"),
   gateAdult: $("gate-adult"),
@@ -55,11 +55,12 @@ const socket = io({
   },
 });
 let me = "guest";
-let partner = null; // set while chatting with someone
+let partner = null;      // set while chatting with someone
+let searching = false;   // waiting in the queue for a partner
+let partnerState = "none"; // none | connected | typing | reconnecting
 
 // Everything said in the current chat lives here, in memory only (US-09).
 const store = SessionStore.create();
-let partnerState = "none"; // none | connected | typing | reconnecting
 
 // The encryption of the current chat: this chat's keys and message counters
 // (js/crypto.js). In memory only, and forgotten when the chat ends.
@@ -68,47 +69,72 @@ let channel = null;
 // the reason can be shown once the server confirms the chat is over.
 let endNote = null;
 
+// ---------- One place that decides what the screen shows ----------
+// phase: connecting | offline | idle | searching | securing | chatting
+function phase() {
+  if (!socket.connected) return els.conn.dataset.state === "connecting" ? "connecting" : "offline";
+  if (partner) return channel && channel.ready ? "chatting" : "securing";
+  return searching ? "searching" : "idle";
+}
+
+const SUBTITLE = {
+  connecting: "Connecting to the server",
+  offline: "Connection lost, reconnecting",
+  idle: "Ready when you are",
+  searching: "Looking for someone to talk to",
+  securing: "Setting up encryption",
+  chatting: "Connected",
+};
+
+function render() {
+  const p = phase();
+  els.app.dataset.phase = p;
+  const inChat = p === "securing" || p === "chatting";
+
+  els.title.textContent = partner || (p === "searching" ? "Searching" : "No active chat");
+  els.sub.textContent =
+    p === "chatting" && partnerState === "reconnecting"
+      ? `${partner} lost their connection. Waiting up to 30 seconds`
+      : p === "chatting" && me !== "guest"
+        ? `You are ${me}`
+        : SUBTITLE[p];
+
+  els.start.disabled = !(p === "idle" && CAN_ENCRYPT);
+  els.next.disabled = !(inChat || p === "searching");
+  els.leave.disabled = !(inChat || p === "searching");
+  els.verify.disabled = p !== "chatting";
+  els.input.disabled = p !== "chatting";
+  els.send.disabled = p !== "chatting";
+  els.input.placeholder = p === "chatting" ? "Write a message" : p === "securing" ? "Setting up encryption…" : "Start a chat to write";
+
+  const sealState = p === "chatting" ? "secured" : p === "securing" ? "securing" : "none";
+  els.seal.dataset.state = sealState;
+  els.sealText.textContent = { secured: "End-to-end encrypted", securing: "Securing…", none: "Not encrypted yet" }[sealState];
+
+  els.typing.textContent = p === "chatting" && partnerState === "typing" ? `${partner} is typing…` : "";
+}
+
 function setChatting(myName, partnerName) {
   me = myName || "guest";
   partner = partnerName;
-  els.user.textContent = me;
-  els.room.textContent = partnerName || "lobby";
-  els.roomName.textContent = partnerName || "lobby";
-  setPartnerState(partnerName ? "connected" : "none");
-  if (!partnerName) setSecurity("none");
+  partnerState = partnerName ? "connected" : "none";
+  clearTimeout(partnerTypingTimer);
+  render();
 }
 
-// none: not chatting. securing: keys are being exchanged, nothing can be sent
-// yet. secured: messages are end-to-end encrypted.
-function setSecurity(state) {
-  els.e2eStatus.dataset.state = state;
-  els.e2eStatus.textContent = { none: "", securing: "… securing the chat", secured: "🔒 end-to-end encrypted" }[state];
-  els.e2eTop.hidden = state !== "secured"; // the sidebar is hidden on phones; the top bar is not
+function setPartnerState(state) {
+  partnerState = state;
+  clearTimeout(partnerTypingTimer);
+  // A partner who goes quiet without saying so (switched tabs) is not typing after 3 s.
+  if (state === "typing") partnerTypingTimer = setTimeout(() => setPartnerState("connected"), 3000);
+  render();
 }
+let partnerTypingTimer = null;
 
 function closeChannel() {
   if (channel) channel.close();
   channel = null;
 }
-
-// Sidebar: one line about the partner. ● connected, ✎ typing, ⟳ reconnecting.
-function setPartnerState(state) {
-  partnerState = state;
-  clearTimeout(partnerTypingTimer);
-  const text = {
-    none: "no one yet. type /start",
-    connected: `● ${partner} connected`,
-    typing: `✎ ${partner} is typing…`,
-    reconnecting: `⟳ ${partner} reconnecting…`,
-  }[state];
-  els.partnerStatus.textContent = text;
-  els.partnerStatus.dataset.state = state;
-  // The line under the chat only ever says "typing", and only while it is true.
-  els.typing.textContent = state === "typing" ? `${partner} is typing…` : "";
-  // A partner who goes quiet without saying so (switched tabs) is not typing after 3 s.
-  if (state === "typing") partnerTypingTimer = setTimeout(() => setPartnerState("connected"), 3000);
-}
-let partnerTypingTimer = null;
 
 // The chat is over: forget every message (screen and memory).
 function wipeHistory() {
@@ -121,71 +147,34 @@ let historyIndex = 0;
 // ---------- Rendering helpers ----------
 function isNearBottom() {
   const { scrollHeight, scrollTop, clientHeight } = els.log;
-  return scrollHeight - scrollTop - clientHeight < 40;
+  return scrollHeight - scrollTop - clientHeight < 60;
 }
 
-// parts: [text, cssClass] pairs. Always textContent, never innerHTML (XSS).
-function addLine(parts, className = "") {
-  const shouldStick = isNearBottom(); // don't yank the user down if they scrolled up
-  const li = document.createElement("li");
-  li.className = `line ${className}`.trim();
-  for (const [text, cls] of parts) {
-    const span = document.createElement("span");
-    if (cls) span.className = cls;
-    span.textContent = text;
-    li.appendChild(span);
-  }
+// Appends to the conversation without yanking a reader who scrolled up.
+// Always textContent, never innerHTML (XSS).
+function append(li) {
+  const shouldStick = isNearBottom();
   els.log.appendChild(li);
   while (els.log.children.length > MAX_LINES) els.log.firstElementChild.remove();
   if (shouldStick) els.log.scrollTop = els.log.scrollHeight;
   return li;
 }
-const sys = (text) => addLine([[`*** ${text}`]], "sys");
-const err = (text) => addLine([[`!!! ${text}`]], "err");
-const timestamp = (ms) => new Date(ms).toLocaleTimeString([], { hour12: false });
+
+function note(text, isError = false) {
+  const li = document.createElement("li");
+  li.className = isError ? "note note--err" : "note";
+  li.textContent = text;
+  return append(li);
+}
+const sys = (text) => note(text);
+const err = (text) => note(text, true);
+
+const timestamp = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function setConnection(state, label) {
   els.conn.dataset.state = state;
   els.connText.textContent = label;
-}
-
-// ---------- Themes ----------
-function currentTheme() {
-  const t = document.documentElement.dataset.theme;
-  return THEMES.includes(t) ? t : DEFAULT_THEME;
-}
-
-function setTheme(name) {
-  if (!THEMES.includes(name)) {
-    err(`unknown theme: ${name} (available: ${THEMES.join(", ")})`);
-    return;
-  }
-  document.documentElement.dataset.theme = name;
-  try {
-    localStorage.setItem(THEME_KEY, name);
-  } catch {
-    /* private mode / storage blocked: theme still applies for this visit */
-  }
-  renderThemePicker();
-}
-
-function renderThemePicker() {
-  const active = currentTheme();
-  els.themes.replaceChildren(
-    ...THEMES.map((name) => {
-      const li = document.createElement("li");
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = name;
-      btn.setAttribute("aria-pressed", String(name === active));
-      btn.addEventListener("click", () => {
-        setTheme(name);
-        sys(`theme set to ${name}`);
-      });
-      li.appendChild(btn);
-      return li;
-    })
-  );
+  render();
 }
 
 // ---------- Age + rules gate ----------
@@ -216,7 +205,7 @@ els.gateForm.addEventListener("submit", (event) => {
   }
   els.gate.hidden = true;
   els.app.inert = false;
-  els.input.focus();
+  els.start.focus();
   socket.connect();
 });
 
@@ -233,8 +222,8 @@ async function fetchConnectToken() {
     const slow = setTimeout(() => {
       if (toldUser) return;
       toldUser = true;
-      setConnection("connecting", "WAKING UP");
-      sys("waking up the server... this can take up to a minute after a quiet period");
+      setConnection("connecting", "Waking up");
+      sys("Waking up the server. This can take up to a minute after a quiet period.");
     }, 2500);
     try {
       const res = await fetch("/connect-token", { cache: "no-store" });
@@ -264,24 +253,25 @@ function retryConnect(delayMs) {
 // what was missed (those events arrive just before "connect" fires). So if a
 // chat is still set here and the socket was restored, the chat simply goes on.
 socket.on("connect", () => {
-  setConnection("online", "ONLINE");
+  setConnection("online", "Online");
   if (socket.recovered && partner) {
     // The keys never left this page's memory, so the chat is still encrypted.
-    sys(`reconnected. your chat with ${partner} continues`);
+    sys(`Reconnected. Your chat with ${partner} continues.`);
     return;
   }
-  if (partner) err("the connection was lost for too long, so that chat has ended");
+  if (partner) err("The connection was lost for too long, so that chat has ended.");
   closeChannel();
+  searching = false;
+  wipeHistory();
   setChatting("guest", null);
-  if (CAN_ENCRYPT) sys("connected to the server. type /start to meet a stranger");
-  else err(NO_ENCRYPTION_TEXT);
+  if (!CAN_ENCRYPT) err(NO_ENCRYPTION_TEXT);
 });
 
 socket.on("disconnect", (reason) => {
-  setConnection("offline", "OFFLINE");
+  setConnection("offline", "Offline");
   // Keep the chat on screen: it survives a drop of up to 30 seconds.
-  if (partner) err("connection lost - reconnecting... your chat is kept for 30 seconds");
-  else err(`connection lost (${reason}) - retrying...`);
+  if (partner) err("Connection lost. Reconnecting; your chat is kept for 30 seconds.");
+  else err(`Connection lost (${reason}). Retrying…`);
 });
 
 // Closing or leaving the page is a real goodbye: tell the server, so the
@@ -295,10 +285,10 @@ window.addEventListener("pageshow", (event) => {
 // The server refuses a handshake with one of these codes (never details).
 let authRetries = 0;
 socket.on("connect_error", (error) => {
-  setConnection("offline", "OFFLINE");
+  setConnection("offline", "Offline");
   switch (error.message) {
     case "PROTOCOL_MISMATCH":
-      return err("a new version is available - please refresh this page");
+      return err("A new version is available. Please refresh this page.");
     case "CONSENT_REQUIRED":
       try {
         sessionStorage.removeItem(CONSENT_KEY);
@@ -307,19 +297,19 @@ socket.on("connect_error", (error) => {
       }
       return showGate();
     case "TOO_MANY_CONNECTIONS":
-      return err("too many connections from your network - close other tabs, then refresh");
+      return err("Too many connections from your network. Close other tabs, then refresh.");
     case "MAINTENANCE":
-      err("the service is under maintenance - retrying in 30s");
+      err("The service is under maintenance. Retrying in 30 seconds.");
       return retryConnect(30000);
     case "RETRY":
       // The server still had our old connection open (typical after switching
       // between Wi-Fi and mobile data). It has closed it: connect once more.
-      if (++authRetries > 5) return err("could not connect - please refresh this page");
+      if (++authRetries > 5) return err("Could not connect. Please refresh this page.");
       return retryConnect(250);
     case "AUTH_REQUIRED":
     case "VALIDATION":
       // The token expired or was already used: get a new one, a few times.
-      if (++authRetries > 5) return err("could not connect - please refresh this page");
+      if (++authRetries > 5) return err("Could not connect. Please refresh this page.");
       return retryConnect(1000 * authRetries);
     default:
       // Network trouble or the server refused before the handshake.
@@ -336,9 +326,9 @@ socket.on("session:matched", ({ sessionId, myName, partnerName, role }) => {
   stopTyping();
   closeChannel();
   endNote = null;
+  searching = false;
   setChatting(myName, partnerName);
-  setSecurity("securing");
-  sys(`connected to ${partnerName}. you are ${myName}. securing the chat...`);
+  sys(`You are chatting with ${partnerName}. You are ${myName}.`);
   startKeyExchange(sessionId, role);
 });
 
@@ -373,18 +363,18 @@ socket.on("e2e:key", async ({ publicKey }) => {
     return;
   }
   if (channel !== mine) return;
-  setSecurity("secured");
-  sys("🔒 end-to-end encrypted: only the two of you can read this chat. say hi!");
-  sys("/verify shows a code to check that nobody is in the middle. /leave ends the chat");
+  render();
+  sys("End-to-end encrypted. Only the two of you can read this chat.");
+  els.input.focus();
 });
 
 // The encryption could not be set up, or too many messages failed their
 // check. The chat ends here: there is no unencrypted way to carry on.
 function secureChannelFailed() {
   closeChannel();
-  setSecurity("none");
-  endNote = "secure channel error: this chat could not be kept private, so it was ended. nothing was sent unencrypted";
+  endNote = "Secure channel error: this chat could not be kept private, so it was ended. Nothing was sent unencrypted.";
   err(endNote);
+  render();
   socket.emit("session:leave", {});
 }
 
@@ -397,7 +387,7 @@ socket.on("e2e:envelope", async (envelope) => {
   } catch (error) {
     if (channel !== mine || error.code === "CLOSED") return;
     if (error.fatal) return secureChannelFailed();
-    return err("a message failed its security check and was dropped");
+    return err("A message failed its security check and was dropped.");
   }
   if (channel !== mine) return;
   if (plain.t === "msg") {
@@ -412,219 +402,220 @@ socket.on("e2e:envelope", async (envelope) => {
 // onSent runs once the server has passed it on. `what` names it in errors.
 function sendSecure(plain, what, onSent) {
   const mine = channel;
-  if (!socket.connected) return err(`not connected - ${what} not sent`);
-  if (!partner || !mine) return err("you are not chatting with anyone. type /start to meet a stranger");
-  if (!mine.ready) return err(`the chat is still being secured - ${what} not sent. try again in a moment`);
+  if (!socket.connected) return err(`Not connected. Your ${what} was not sent.`);
+  if (!partner || !mine) return err("You are not chatting with anyone.");
+  if (!mine.ready) return err(`The chat is still being secured. Your ${what} was not sent; try again in a moment.`);
   mine.seal(plain).then(
     (envelope) => {
       if (channel !== mine) return; // the chat ended while encrypting
       socket.timeout(ACK_TIMEOUT_MS).emit("e2e:envelope", envelope, (timedOut, ack) => {
         if (channel !== mine) return;
-        if (timedOut) return err(`no answer from the server - your ${what} may not have arrived`);
+        if (timedOut) return err(`No answer from the server. Your ${what} may not have arrived.`);
         if (ack.ok) return onSent(envelope.seq);
         if (ack.error.code === "RATE_LIMITED") {
           const seconds = Math.max(1, Math.ceil((ack.error.retryAfterMs || 1000) / 1000));
-          err(`slow down - ${what} not sent, try again in ${seconds}s`);
+          err(`Slow down. Your ${what} was not sent; try again in ${seconds}s.`);
         } else if (ack.error.code === "NOT_IN_SESSION") {
-          err("you are not chatting with anyone. type /start to meet a stranger");
+          err("You are not chatting with anyone.");
         } else if (ack.error.code === "INVALID_STATE") {
-          err(`the chat is still being secured - ${what} not sent. try again in a moment`);
+          err(`The chat is still being secured. Your ${what} was not sent; try again in a moment.`);
         } else {
-          err(`${what} not sent - please try again`);
+          err(`Your ${what} was not sent. Please try again.`);
         }
       });
     },
     (error) => {
       if (channel !== mine) return;
-      if (error.code === "TOO_LONG") err(`${what} too long (500 characters at most) - not sent`);
-      else if (error.code === "BAD_MESSAGE") err(`${what} rejected (1 to 500 characters)`);
+      if (error.code === "TOO_LONG") err(`That ${what} is too long (500 characters at most), so it was not sent.`);
+      else if (error.code === "BAD_MESSAGE") err(`That ${what} was rejected (1 to 500 characters).`);
       else secureChannelFailed();
     }
   );
 }
 
 const ENDED_TEXT = {
-  partner_left: "your partner left. type /start to meet someone new",
-  left: "you left the chat. type /start to meet someone new",
-  skipped: "chat ended. looking for someone new...",
-  partner_timeout: "your partner did not come back. type /start to meet someone new",
-  timeout: "you were offline for too long, so that chat has ended. type /start to meet someone new",
-  crypto_timeout:
-    "the chat could not be secured within 10 seconds, so it was ended before anything was said. type /start to try again",
+  partner_left: "Your partner left the chat.",
+  left: "You ended the chat.",
+  skipped: "Chat ended. Looking for someone new…",
+  partner_timeout: "Your partner did not come back, so the chat ended.",
+  timeout: "You were offline for too long, so that chat ended.",
+  crypto_timeout: "The chat could not be secured within 10 seconds, so it was ended before anything was said.",
 };
 socket.on("session:ended", ({ reason }) => {
   wipeHistory(); // the chat is over: nothing of it is kept
   stopTyping();
   closeChannel(); // and neither are its keys
+  searching = reason === "skipped"; // /next goes straight back into the queue
   setChatting("guest", null);
-  if (endNote && reason === "left") {
-    err(endNote);
-    sys("type /start to meet someone new");
-  } else {
-    sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
-  }
+  if (endNote && reason === "left") err(endNote);
+  else sys(ENDED_TEXT[reason] || ENDED_TEXT.skipped);
   endNote = null;
+  render();
 });
 
-const STATUS_TEXT = {
-  reconnecting: "your partner lost their connection. waiting up to 30 seconds for them...",
-  connected: "your partner is back",
-};
 socket.on("partner:status", ({ state }) => {
   if (!partner) return;
-  if (STATUS_TEXT[state]) sys(STATUS_TEXT[state]);
-  if (state === "typing") setPartnerState("typing");
-  else if (state === "reconnecting") setPartnerState("reconnecting");
-  else setPartnerState("connected"); // connected | idle
+  if (state === "reconnecting") sys("Your partner lost their connection. Waiting up to 30 seconds.");
+  if (state === "connected" && partnerState === "reconnecting") sys("Your partner is back.");
+  setPartnerState(state === "typing" ? "typing" : state === "reconnecting" ? "reconnecting" : "connected");
 });
 
 // A count only: the server never sends names or locations.
 socket.on("stats:online", ({ count }) => {
   const n = Number.isInteger(count) && count >= 0 ? count : 0;
-  els.onlineTop.textContent = ` · ${n} online`;
-  els.onlineSide.textContent = `(${n})`;
+  els.onlineTop.textContent = `· ${n} online`;
 });
 
+// ---------- Messages ----------
 // msg: { seq, from, text, sentAt }. Times are this browser's clock: when my
 // message was accepted, or when theirs arrived. The server adds nothing.
 function showMessage(msg, mine) {
   const id = store.addMessage(msg, mine);
-  const li = addLine(
-    [[`[${timestamp(msg.sentAt)}] `, "ts"], [`<${msg.from}> `, "who"], [msg.text]],
-    mine ? "self" : ""
-  );
+  const li = document.createElement("li");
+  li.className = mine ? "msg msg--mine" : "msg";
   li.dataset.msg = id;
+
+  const meta = document.createElement("div");
+  meta.className = "msg-meta";
+  const who = document.createElement("span");
+  who.className = "msg-who";
+  who.textContent = mine ? "You" : msg.from;
+  const time = document.createElement("span");
+  time.className = "msg-time";
+  time.textContent = timestamp(msg.sentAt);
+  meta.append(who, time);
+
+  const body = document.createElement("p");
+  body.className = "msg-text";
+  body.textContent = msg.text;
+
+  const tools = document.createElement("div");
+  tools.className = "msg-tools";
+  if (!mine) tools.append(reactControl(msg.seq));
+
+  li.append(meta, body, tools);
+  append(li);
   // Their message arrived, so they are not "typing" any more.
   if (!mine && partnerState === "typing") setPartnerState("connected");
 }
 
-// ---------- Reactions ----------
+// "React" opens a row of the six allowed reactions under a partner's message.
+function reactControl(seq) {
+  const wrap = document.createElement("span");
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "react-toggle";
+  toggle.textContent = "React";
+  toggle.setAttribute("aria-expanded", "false");
+  const row = document.createElement("span");
+  row.className = "react-row";
+  row.hidden = true;
+  for (const emoji of store.ALLOWED_REACTIONS) {
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "react-pick";
+    pick.textContent = emoji;
+    pick.setAttribute("aria-label", `React with ${emoji}`);
+    pick.addEventListener("click", () => {
+      row.hidden = true;
+      toggle.hidden = false;
+      toggle.setAttribute("aria-expanded", "false");
+      // Encrypted like a message: the server cannot tell the two apart.
+      sendSecure({ t: "react", ref: seq, emoji }, "reaction", () =>
+        showReaction(store.messageId(seq, false), emoji, me)
+      );
+    });
+    row.append(pick);
+  }
+  toggle.addEventListener("click", () => {
+    row.hidden = !row.hidden;
+    toggle.setAttribute("aria-expanded", String(!row.hidden));
+  });
+  wrap.append(toggle, row);
+  return wrap;
+}
+
 function showReaction(id, emoji, from) {
   const reactions = store.addReaction(id, emoji, from);
   if (reactions) renderReactions(id, reactions); // unknown message or repeat: ignored
 }
 
-// Shows "😂 2  👍" at the end of the message that was reacted to.
+// Shows "😂 2  👍" under the message that was reacted to.
 function renderReactions(id, reactions) {
   const li = [...els.log.children].find((line) => line.dataset.msg === id);
   if (!li) return; // scrolled off the screen
+  const tools = li.querySelector(".msg-tools");
   let span = li.querySelector(".reactions");
   if (!span) {
     span = document.createElement("span");
     span.className = "reactions";
-    li.appendChild(span);
+    tools.prepend(span);
   }
   const counts = new Map();
   for (const { emoji } of reactions) counts.set(emoji, (counts.get(emoji) || 0) + 1);
-  span.textContent = ` ${[...counts].map(([emoji, n]) => (n > 1 ? `${emoji}×${n}` : emoji)).join(" ")}`;
+  span.textContent = [...counts].map(([emoji, n]) => (n > 1 ? `${emoji}×${n}` : emoji)).join(" ");
 }
 
-// ---------- Local slash commands (never sent to the server) ----------
-const commands = {
-  help() {
-    sys("commands:");
-    sys("  /help     show this list");
-    sys("  /clear    clear the screen");
-    sys("  /start    find a stranger to chat with");
-    sys("  /react    react to their last message: /react 😂  (👍 ❤️ 😂 😮 😢 🙏)");
-    sys("  /verify   show this chat's safety code, to check nobody is in the middle");
-    sys("  /next     skip to a new stranger");
-    sys("  /leave    leave the chat (or stop searching)");
-    sys("  /whoami   show your random name");
-    sys("  /theme    list themes, /theme <name> to switch");
-    sys("  up/down   browse your input history");
-  },
-  clear() {
-    wipeHistory();
-  },
-  react(args) {
-    const emoji = args.join("").replace(/\uFE0F/g, ""); // "❤" and "❤️" are the same reaction
-    const allowed = store.ALLOWED_REACTIONS;
-    const match = allowed.find((e) => e.replace(/\uFE0F/g, "") === emoji);
-    if (!match) return sys(`usage: /react <emoji>  (${allowed.join(" ")})`);
-    if (!partner) return err("you are not chatting with anyone. type /start to meet a stranger");
-    const ref = store.lastPartnerSeq();
-    if (ref === null) return err("nothing to react to yet: your partner has not said anything");
-    // Encrypted like a message: the server cannot tell the two apart.
-    sendSecure({ t: "react", ref, emoji: match }, "reaction", () =>
-      showReaction(store.messageId(ref, false), match, me)
-    );
-  },
-  // The safety code is made from both public keys. If the server (or anyone
-  // on the way) swapped a key, the two sides see different codes.
-  verify() {
-    const code = channel && channel.ready ? channel.safetyCode : null;
-    if (!code) {
-      return err(
-        partner
-          ? "the chat is still being secured. try /verify again in a moment"
-          : "you are not in a chat. /verify works while you are chatting"
-      );
-    }
-    sys(`safety code: ${code}`);
-    sys("your partner's /verify shows the same code, unless someone swapped the encryption keys on the way.");
-    sys("compare the codes OUTSIDE this chat (a call, another app). a code sent in this chat proves nothing:");
-    sys("someone in the middle could rewrite it. with no other way to reach them, you cannot fully rule that out.");
-    sys("if the codes differ, someone may be reading along: /leave and share nothing private.");
-  },
-  whoami() {
-    sys(partner ? `you are ${me}, chatting with ${partner}` : "you are not in a chat yet. type /start");
-  },
-  start() {
-    if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
-    sendCommand("session:start", () => sys("searching for a stranger..."));
-  },
-  next() {
-    if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
-    sendCommand("session:next");
-  },
-  leave() {
-    sendCommand("session:leave");
-  },
-  theme(args) {
-    const [name] = args;
-    if (!name) {
-      sys(`current theme: ${currentTheme()}`);
-      sys(`available: ${THEMES.join(", ")}`);
-      return;
-    }
-    const lower = name.toLowerCase();
-    setTheme(lower);
-    if (THEMES.includes(lower)) sys(`theme set to ${lower}`);
-  },
-};
-
-// /start and /leave go to the server; the answer arrives as an event.
+// ---------- Actions ----------
+// /start, /next and /leave go to the server; the answer arrives as an event.
 function sendCommand(event, onOk) {
-  if (!socket.connected) return err("not connected");
+  if (!socket.connected) return err("Not connected.");
   socket.emit(event, {}, (ack) => {
     if (!ack) return;
     if (ack.ok) return onOk?.();
     if (ack.error.code === "INVALID_STATE") {
       err(
         event === "session:start"
-          ? "you are already searching or chatting (/next to skip, /leave to stop)"
+          ? "You are already searching or chatting."
           : event === "session:next"
-            ? "you are not in a chat. type /start first"
-            : "nothing to leave"
+            ? "You are not in a chat. Choose Find a stranger first."
+            : "There is nothing to end."
       );
     } else if (ack.error.code === "RATE_LIMITED") {
-      err("slow down - too many searches, try again in a minute");
+      err("Slow down: too many searches. Try again in a minute.");
     } else {
-      err("that did not work - please try again");
+      err("That did not work. Please try again.");
     }
   });
 }
 
-function runCommand(line) {
-  const [rawName = "", ...args] = line.slice(1).split(/\s+/);
-  const name = rawName.toLowerCase();
-  // Object.hasOwn: blocks inherited keys like "/constructor" or "/toString"
-  if (Object.hasOwn(commands, name)) commands[name](args);
-  else err(`unknown command: /${name} (try /help)`);
+function startSearch() {
+  if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
+  sendCommand("session:start", () => {
+    searching = true;
+    render();
+  });
+}
+function nextStranger() {
+  if (!CAN_ENCRYPT) return err(NO_ENCRYPTION_TEXT);
+  sendCommand("session:next", () => {
+    searching = true;
+    render();
+  });
+}
+function endChat() {
+  sendCommand("session:leave", () => {
+    // Leaving while searching produces its own "ended" event from the server.
+    searching = false;
+    render();
+  });
 }
 
-// ---------- Input handling ----------
+// The safety code is made from both public keys. If the server (or anyone on
+// the way) swapped a key, the two sides see different codes.
+function showSafetyCode() {
+  const code = channel && channel.ready ? channel.safetyCode : null;
+  if (!code) return err("The chat is still being secured. Try the safety code again in a moment.");
+  els.verifyCode.textContent = code;
+  els.verifyDialog.showModal();
+}
+
+els.start.addEventListener("click", startSearch);
+els.next.addEventListener("click", nextStranger);
+els.leave.addEventListener("click", endChat);
+els.verify.addEventListener("click", showSafetyCode);
+
+// ---------- Typing indicator ----------
 // Tells the partner when I start and stop typing. Never any text, only
 // "typing" or "not typing". Sent at most every 2 seconds, and "stopped" goes
 // out 3 seconds after the last key press, or at once when I send.
@@ -643,8 +634,7 @@ function stopTyping() {
 }
 
 els.input.addEventListener("input", () => {
-  // Commands (/next, /react...) are not "typing to the partner".
-  if (!partner || els.input.value.trim() === "" || els.input.value.startsWith("/")) return stopTyping();
+  if (!partner || els.input.value.trim() === "") return stopTyping();
   const now = Date.now();
   if (!iAmTyping || now - lastTypingSentAt > 2000) {
     sendTyping(true);
@@ -655,6 +645,7 @@ els.input.addEventListener("input", () => {
   stopTypingTimer = setTimeout(stopTyping, 3000);
 });
 
+// ---------- Composer ----------
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const text = els.input.value.trim();
@@ -666,7 +657,6 @@ els.form.addEventListener("submit", (event) => {
   historyIndex = history.length;
   els.input.value = "";
 
-  if (text.startsWith("/")) return runCommand(text);
   // Encrypted here, in the browser. My own line appears once the server has
   // passed the envelope on, so what I see is what was really sent.
   const name = me;
@@ -675,6 +665,7 @@ els.form.addEventListener("submit", (event) => {
   );
 });
 
+// Up/down walks back through what was sent this session (in memory only).
 els.input.addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp" && historyIndex > 0) {
     historyIndex--;
@@ -687,21 +678,10 @@ els.input.addEventListener("keydown", (event) => {
   els.input.value = history[historyIndex] ?? "";
 });
 
-// Terminal feel: clicking empty space focuses the prompt
-// (skip when selecting text or clicking a control like a theme button)
-document.addEventListener("click", (event) => {
-  if (!els.gate.hidden) return;
-  if (event.target.closest("button, a, input, label")) return;
-  if (!window.getSelection()?.toString()) els.input.focus();
-});
-
-// ---------- Boot sequence ----------
-renderThemePicker();
-sys("REALTIME-CHAT v0.4 // tty1");
-sys("type /help for commands");
+// ---------- Boot ----------
+render();
 if (hasConsent()) {
-  sys("establishing websocket link...");
-  els.input.focus();
+  els.start.focus();
   socket.connect();
 } else {
   showGate();
