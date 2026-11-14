@@ -19,7 +19,7 @@ Allowed states: `READY` (not chatting) · `SEARCHING` · `CHATTING` · `ANY`.
 | `/next` | — | Server | CHATTING, SEARCHING | Ends the current chat (the partner sees "stranger left") and immediately searches again. Alias: `/skip` | M3 |
 | `/leave` | — | Server | CHATTING, SEARCHING | Ends the chat or search and returns to READY. Doesn't search again | M3 |
 | `/react` | `<emoji>` | Server (encrypted) | CHATTING | Reacts to the stranger's **latest** message. Allowed: `👍 ❤️ 😂 😮 😢 🙏` (or the shortcodes `+1 heart laugh wow sad thanks`) | M3 |
-| `/verify` | — | Local | CHATTING | Shows the session's **safety code**. Explains how to compare it (see E2EE doc) | M4 |
+| `/verify` | — | Local | CHATTING | Shows the session's **safety code**. Explains how to compare it (see E2EE doc) | M4 ✅ |
 | `/interests` | `[add\|remove] <tag…>` / `clear` / `list` | Local (sent on `/start`) | READY | Manage up to 5 interests from the allowed list. No args: shows current + available | M5 |
 | `/country` | `local\|world` | Local (sent on `/start`) | READY | `local` = match only within your country, `world` = anyone | M5 |
 | `/report` | `<reason>` | Server | CHATTING | Reports the stranger, ends the chat, prevents rematching. Reasons: `spam`, `harassment`, `sexual`, `minor`, `hate`, `other` | M6 |

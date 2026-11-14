@@ -33,8 +33,8 @@ A tiny URL (`/health`) that answers `{"status":"ok"}` when the server is alive. 
 | F-17 | Session-only history (kept in browser memory, wiped when the session ends) | ✅ M3 | US-09 |
 | F-18 | Typing indicator | ✅ M3 | US-07 |
 | F-19 | Emoji reactions to messages (fixed set of 6) | ✅ M3 | US-08 |
-| F-20 | End-to-end encryption (ECDH P-256 → HKDF → AES-GCM-256) | M4 | US-12 |
-| F-21 | Safety code + `/verify` | M4 | US-13 |
+| F-20 | End-to-end encryption (ECDH P-256 → HKDF → AES-GCM-256) | M4 | US-12 | ✅ code complete
+| F-21 | Safety code + `/verify` | M4 | US-13 | ✅ code complete
 | F-22 | Interest matching (predefined list, max 5) | M5 | US-14 |
 | F-23 | Country filter: "my country" or "worldwide" | M5 | US-15 |
 | F-24 | Fallback to a random stranger after a 10 s wait | M5 | US-16 |

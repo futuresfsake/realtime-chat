@@ -29,15 +29,15 @@ describe("session history (browser memory)", () => {
     store.clear();
     expect(store.size()).toBe(0);
     expect(store.lastPartnerSeq()).toBeNull();
-    expect(store.addReaction(1, "👍", "x")).toBeNull();
+    expect(store.addReaction("them:1", "👍", "x")).toBeNull();
   });
 
   it("keeps at most 500 messages, dropping the oldest", () => {
     const store = load().create();
     for (let i = 1; i <= 505; i++) store.addMessage(msg(i), false);
     expect(store.size()).toBe(500);
-    expect(store.addReaction(5, "👍", "x")).toBeNull(); // dropped
-    expect(store.addReaction(6, "👍", "x")).not.toBeNull(); // oldest kept
+    expect(store.addReaction("them:5", "👍", "x")).toBeNull(); // dropped
+    expect(store.addReaction("them:6", "👍", "x")).not.toBeNull(); // oldest kept
   });
 
   it("two stores do not share anything", () => {
@@ -53,30 +53,30 @@ describe("reactions in the store", () => {
   it("stacks different reactions on one message", () => {
     const store = load().create();
     store.addMessage(msg(1), false);
-    expect(store.addReaction(1, "😂", "a")).toEqual([{ from: "a", emoji: "😂" }]);
-    expect(store.addReaction(1, "👍", "b")).toHaveLength(2);
+    expect(store.addReaction("them:1", "😂", "a")).toEqual([{ from: "a", emoji: "😂" }]);
+    expect(store.addReaction("them:1", "👍", "b")).toHaveLength(2);
   });
 
   it("ignores a repeat of the same reaction by the same person", () => {
     const store = load().create();
     store.addMessage(msg(1), false);
-    store.addReaction(1, "😂", "a");
-    expect(store.addReaction(1, "😂", "a")).toBeNull();
-    expect(store.addReaction(1, "😂", "b")).toHaveLength(2);
+    store.addReaction("them:1", "😂", "a");
+    expect(store.addReaction("them:1", "😂", "a")).toBeNull();
+    expect(store.addReaction("them:1", "😂", "b")).toHaveLength(2);
   });
 
   it("ignores reactions to unknown messages and to emojis that are not allowed", () => {
     const store = load().create();
     store.addMessage(msg(1), false);
-    expect(store.addReaction(99, "😂", "a")).toBeNull();
-    expect(store.addReaction(1, "🔥", "a")).toBeNull();
+    expect(store.addReaction("them:99", "😂", "a")).toBeNull();
+    expect(store.addReaction("them:1", "🔥", "a")).toBeNull();
   });
 
   it("caps the reactions on one message", () => {
     const store = load().create();
     store.addMessage(msg(1), false);
-    for (let i = 0; i < 12; i++) store.addReaction(1, "👍", `p${i}`);
-    expect(store.addReaction(1, "👍", "one-too-many")).toBeNull();
+    for (let i = 0; i < 12; i++) store.addReaction("them:1", "👍", `p${i}`);
+    expect(store.addReaction("them:1", "👍", "one-too-many")).toBeNull();
   });
 
   it("lastPartnerSeq is the partner's latest message, not the user's own", () => {
@@ -116,5 +116,16 @@ describe("nothing about messages is stored on the server or in browser storage",
     expect(relay).not.toMatch(/\.(push|set|add|unshift)\([^)]*\b(text|msg|message)\b/);
     const sessions = read("src/sessions/sessionManager.ts");
     expect(sessions).not.toMatch(/\btext\b/); // the session manager never sees message text
+  });
+});
+
+describe("message ids (each side numbers its own messages)", () => {
+  it("keeps my message 2 and their message 2 apart", () => {
+    const store = load().create();
+    expect(store.addMessage(msg(2), true)).toBe("me:2");
+    expect(store.addMessage(msg(2), false)).toBe("them:2");
+    expect(store.addReaction("me:2", "👍", "x")).toHaveLength(1);
+    expect(store.addReaction("them:2", "👍", "x")).toHaveLength(1);
+    expect(store.addReaction("them:3", "👍", "x")).toBeNull();
   });
 });

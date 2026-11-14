@@ -6,12 +6,15 @@ import { loadConfig } from "../../src/config.js";
 import type { Config } from "../../src/config.js";
 import { FakeClock } from "../../src/lib/clock.js";
 import { createLogger } from "../../src/observability/logger.js";
-import { PROTOCOL_VERSION, RULES_VERSION } from "../../src/types/events.js";
+import { ALLOWED_REACTIONS, PROTOCOL_VERSION, RULES_VERSION } from "../../src/types/events.js";
+import { loadE2ee } from "../helpers/e2ee.js";
+import type { Channel, Envelope, Plain } from "../helpers/e2ee.js";
 
 export const ORIGIN = "https://chat.test";
 
 export interface TestServer {
   url: string;
+  io: ReturnType<typeof buildServer>["io"]; // for tests that watch what crosses the server
   clock: FakeClock;
   logs: string[];
   sockets: Socket[];
@@ -57,12 +60,13 @@ export async function startServer(
     built = buildServer({ config, logger, clock });
     port = await listen(built.httpServer);
   }
-  const { shutdown } = built;
+  const { shutdown, io } = built;
   const url = `http://127.0.0.1:${port}`;
   const sockets: Socket[] = [];
 
   return {
     url,
+    io,
     clock,
     logs,
     sockets,
@@ -115,8 +119,99 @@ export async function connect(server: TestServer, options: ConnectOptions = {}):
   });
 }
 
-export function send(socket: Socket, payload: unknown): Promise<any> {
-  return socket.timeout(2000).emitWithAck("chat:send", payload);
+// ---------- End-to-end encryption, as the page does it ----------
+// The browser's own crypto code (public/js/crypto.js), loaded once. Test
+// clients encrypt and decrypt with it, so the server is tested against the
+// real thing and never sees a readable message from these tests either.
+export const e2ee = loadE2ee();
+
+// Each test client's keys for its current chat, like the page's `channel`.
+const channels = new WeakMap<Socket, Channel>();
+
+export function channelOf(socket: Socket): Channel {
+  const channel = channels.get(socket);
+  if (!channel) throw new Error("this test client has no keys: it never finished a key exchange");
+  return channel;
+}
+
+// A client that reconnects as a new socket object keeps the keys of its chat.
+export function keepChannel(from: Socket, to: Socket): void {
+  channels.set(to, channelOf(from));
+}
+
+export interface Matched {
+  sessionId: string;
+  myName: string;
+  partnerName: string;
+  role: string;
+}
+
+// Both clients make fresh keys, swap the public halves through the server and
+// derive the message keys. Resolves when both can send.
+export async function exchangeKeys(a: Socket, b: Socket, infoA: Matched, infoB: Matched): Promise<void> {
+  const channelA = e2ee.createChannel({ sessionId: infoA.sessionId, role: infoA.role, allowedReactions: ALLOWED_REACTIONS });
+  const channelB = e2ee.createChannel({ sessionId: infoB.sessionId, role: infoB.role, allowedReactions: ALLOWED_REACTIONS });
+  channels.set(a, channelA);
+  channels.set(b, channelB);
+  const keyForA = next<{ publicKey: string }>(a, "e2e:key");
+  const keyForB = next<{ publicKey: string }>(b, "e2e:key");
+  const ackA = await sendKey(a, { publicKey: await channelA.publicKey() });
+  const ackB = await sendKey(b, { publicKey: await channelB.publicKey() });
+  if (!ackA.ok || !ackB.ok) throw new Error(`key exchange refused: ${JSON.stringify([ackA, ackB])}`);
+  await channelA.receiveKey((await keyForA).publicKey);
+  await channelB.receiveKey((await keyForB).publicKey);
+}
+
+export function sendKey(socket: Socket, payload: unknown): Promise<any> {
+  return socket.timeout(2000).emitWithAck("e2e:key", payload);
+}
+
+// A well-formed envelope with nothing real inside: for asking the server
+// "would you relay this?" from a client that has no keys.
+export const NOISE_ENVELOPE: Envelope = { seq: 1, ct: "A".repeat(107) };
+
+// Sends any payload as an envelope, exactly as given.
+export function sendRaw(socket: Socket, payload: unknown): Promise<any> {
+  return socket.timeout(2000).emitWithAck("e2e:envelope", payload);
+}
+
+// Encrypts a message the way the page does and hands the envelope to the
+// server. Resolves with the server's ack. A client without keys (not in a
+// chat) sends noise instead, to see how the server answers.
+export async function send(socket: Socket, text: string): Promise<any> {
+  const channel = channels.get(socket);
+  return sendRaw(socket, channel?.ready ? await channel.seal({ t: "msg", text }) : NOISE_ENVELOPE);
+}
+
+export async function react(socket: Socket, ref: number, emoji: string): Promise<any> {
+  return sendRaw(socket, await channelOf(socket).seal({ t: "react", ref, emoji }));
+}
+
+// The next message or reaction from the partner, decrypted with this
+// client's keys. Rejects if it does not decrypt.
+export async function nextPlain(socket: Socket): Promise<Plain> {
+  const envelope = await next<Envelope>(socket, "e2e:envelope");
+  return channelOf(socket).open(envelope);
+}
+
+// The text of the next message from the partner.
+export async function nextText(socket: Socket): Promise<string> {
+  const plain = await nextPlain(socket);
+  if (plain.t !== "msg") throw new Error(`expected a message, got a ${plain.t}`);
+  return plain.text;
+}
+
+// Collects the text of every message this client receives from now on.
+export function collectTexts(socket: Socket): string[] {
+  const texts: string[] = [];
+  socket.on("e2e:envelope", (envelope: Envelope) => {
+    void channelOf(socket)
+      .open(envelope)
+      .then((plain) => {
+        if (plain.t === "msg") texts.push(plain.text);
+      });
+  });
+  return texts;
 }
 
 export function command(socket: Socket, event: "session:start" | "session:next" | "session:leave", payload: unknown = {}): Promise<any> {
@@ -154,17 +249,19 @@ export function recoveryAuth(socket: Socket): { pid: string; offset: string } {
   return { pid: internals._pid, offset: internals._lastOffset };
 }
 
-// Connects two clients and pairs them. Returns both sockets and the session id.
+// Connects two clients, pairs them and (unless `secure: false`) completes the
+// key exchange, so they can talk. Returns both sockets and what each was told.
 export async function pair(
   server: TestServer,
-  options: { a?: ConnectOptions; b?: ConnectOptions } = {},
-): Promise<{ a: Socket; b: Socket; sessionId: string }> {
+  options: { a?: ConnectOptions; b?: ConnectOptions; secure?: boolean } = {},
+): Promise<{ a: Socket; b: Socket; sessionId: string; infoA: Matched; infoB: Matched }> {
   const a = await connect(server, options.a);
   const b = await connect(server, options.b);
-  const matchedA = next(a, "session:matched");
-  const matchedB = next(b, "session:matched");
+  const matchedA = next<Matched>(a, "session:matched");
+  const matchedB = next<Matched>(b, "session:matched");
   await command(a, "session:start");
   await command(b, "session:start");
-  const [infoA] = await Promise.all([matchedA, matchedB]);
-  return { a, b, sessionId: infoA.sessionId };
+  const [infoA, infoB] = await Promise.all([matchedA, matchedB]);
+  if (options.secure !== false) await exchangeKeys(a, b, infoA, infoB);
+  return { a, b, sessionId: infoA.sessionId, infoA, infoB };
 }

@@ -85,7 +85,7 @@ As a **chatter** on a mobile network, I want brief disconnects not to end my cha
 
 ## Epic B: Privacy (M4)
 
-### US-12 Messages are end-to-end encrypted 🔜
+### US-12 Messages are end-to-end encrypted ✅
 As a **chatter**, I want only my stranger to be able to read my messages, so that not even the operators can see them.
 - Every message and reaction is encrypted in my browser before sending.
 - The server only receives and forwards ciphertext. Server logs contain no message content.
@@ -93,7 +93,7 @@ As a **chatter**, I want only my stranger to be able to read my messages, so tha
 - If key exchange fails or the browser lacks WebCrypto, the chat ends with a clear error. It **never falls back to unencrypted**.
 - **Features:** F-20
 
-### US-13 Verify nobody is in the middle 🔜
+### US-13 Verify nobody is in the middle ✅
 As a **privacy-conscious chatter**, I want to compare a safety code with my stranger, so that I can confirm nobody swapped our keys.
 - `/verify` shows a code like `48213 99307 17742 03621`, identical on both sides when keys weren't tampered with.
 - The help text explains the code is only meaningful if compared over a **different** channel.
@@ -231,7 +231,7 @@ As a **chatter**, I want the system to handle edge cases gracefully (double `/ne
 - Given maximum-length (500 char) and boundary-violating (501 char) messages, the correct one is accepted and the other rejected.
 - **Features:** part of F-13
 
-### US-37 Key exchange timeout (M4) 🔜
+### US-37 Key exchange timeout (M4) ✅
 As a **chatter**, I want the key exchange to have a timeout, so that I don't wait indefinitely if my partner's browser can't complete the handshake.
 - If both public keys are not exchanged within 10 seconds of session match, the session ends with `CRYPTO_TIMEOUT`.
 - Both clients see a clear error message explaining the failure.

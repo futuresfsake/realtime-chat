@@ -1,37 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
-  ChatSendSchema,
   ConsentSchema,
+  E2eEnvelopeSchema,
+  E2eKeySchema,
   HandshakeAuthSchema,
-  ReactionSchema,
   TypingSchema,
 } from "../../../src/validation/schemas.js";
 
-describe("ChatSendSchema", () => {
-  it("accepts a normal message and trims it", () => {
-    expect(ChatSendSchema.parse({ text: " hello " })).toEqual({ text: "hello" });
-  });
+const KEY = "B".repeat(87);
+const CT = "A".repeat(107);
 
-  it("accepts exactly 500 characters and rejects 501", () => {
-    expect(ChatSendSchema.safeParse({ text: "a".repeat(500) }).success).toBe(true);
-    expect(ChatSendSchema.safeParse({ text: "a".repeat(501) }).success).toBe(false);
+describe("E2eKeySchema", () => {
+  it("accepts an 87-character base64url string", () => {
+    expect(E2eKeySchema.safeParse({ publicKey: KEY }).success).toBe(true);
+    expect(E2eKeySchema.safeParse({ publicKey: "-_".repeat(43) + "a" }).success).toBe(true);
   });
-
-  it("rejects empty and whitespace-only text", () => {
-    expect(ChatSendSchema.safeParse({ text: "" }).success).toBe(false);
-    expect(ChatSendSchema.safeParse({ text: "   " }).success).toBe(false);
+  it.each([86, 88, 0])("rejects %i characters", (n) => {
+    expect(E2eKeySchema.safeParse({ publicKey: "B".repeat(n) }).success).toBe(false);
   });
-
-  it.each([42, null, undefined, ["hi"], { nested: "hi" }])("rejects non-string text %#", (text) => {
-    expect(ChatSendSchema.safeParse({ text }).success).toBe(false);
+  it.each(["+", "/", "=", " ", "\n", "é"])("rejects the character %j", (c) => {
+    expect(E2eKeySchema.safeParse({ publicKey: "B".repeat(86) + c }).success).toBe(false);
   });
-
-  it("rejects unknown fields", () => {
-    expect(ChatSendSchema.safeParse({ text: "hi", evil: true }).success).toBe(false);
+  it.each([42, null, undefined, [KEY], {}])("rejects a key that is %j", (publicKey) => {
+    expect(E2eKeySchema.safeParse({ publicKey }).success).toBe(false);
   });
+  it("rejects unknown and missing fields", () => {
+    expect(E2eKeySchema.safeParse({ publicKey: KEY, evil: 1 }).success).toBe(false);
+    expect(E2eKeySchema.safeParse({}).success).toBe(false);
+  });
+});
 
-  it.each(["hi", 42, null, undefined, [], {}])("rejects a payload that is not { text } %#", (payload) => {
-    expect(ChatSendSchema.safeParse(payload).success).toBe(false);
+describe("E2eEnvelopeSchema", () => {
+  it("accepts the smallest and the largest envelope", () => {
+    expect(E2eEnvelopeSchema.safeParse({ seq: 1, ct: CT }).success).toBe(true);
+    expect(E2eEnvelopeSchema.safeParse({ seq: 4294967295, ct: "A".repeat(3000) }).success).toBe(true);
+  });
+  it.each([0, -1, 1.5, 4294967296, "1", null, undefined, Number.NaN])("rejects seq %s", (seq) => {
+    expect(E2eEnvelopeSchema.safeParse({ seq, ct: CT }).success).toBe(false);
+  });
+  it("rejects ciphertext that is too short, too long or not base64url", () => {
+    for (const ct of ["", "A".repeat(106), "A".repeat(3001), CT + "=", CT + "+", "é".repeat(107)]) {
+      expect(E2eEnvelopeSchema.safeParse({ seq: 1, ct }).success).toBe(false);
+    }
+  });
+  it("rejects anything that carries readable fields", () => {
+    expect(E2eEnvelopeSchema.safeParse({ seq: 1, ct: CT, text: "hi" }).success).toBe(false);
+    expect(E2eEnvelopeSchema.safeParse({ seq: 1, ct: CT, sessionId: "x" }).success).toBe(false);
+    expect(E2eEnvelopeSchema.safeParse({ text: "hi" }).success).toBe(false);
+    expect(E2eEnvelopeSchema.safeParse("hi").success).toBe(false);
   });
 });
 
@@ -60,28 +76,6 @@ describe("HandshakeAuthSchema", () => {
   it("rejects unknown fields and oversized tokens", () => {
     expect(HandshakeAuthSchema.safeParse({ ...valid, extra: 1 }).success).toBe(false);
     expect(HandshakeAuthSchema.safeParse({ ...valid, token: "x".repeat(513) }).success).toBe(false);
-  });
-});
-
-describe("ReactionSchema", () => {
-  it.each(["👍", "❤️", "😂", "😮", "😢", "🙏"])("accepts %s", (emoji) => {
-    expect(ReactionSchema.safeParse({ ref: 1, emoji }).success).toBe(true);
-  });
-
-  it("rejects an emoji that is not allowed", () => {
-    expect(ReactionSchema.safeParse({ ref: 1, emoji: "🔥" }).success).toBe(false);
-    expect(ReactionSchema.safeParse({ ref: 1, emoji: "<script>" }).success).toBe(false);
-    expect(ReactionSchema.safeParse({ ref: 1, emoji: "👍👍" }).success).toBe(false);
-  });
-
-  it.each([0, -1, 1.5, "1", null, undefined, 2_000_000])("rejects ref %s", (ref) => {
-    expect(ReactionSchema.safeParse({ ref, emoji: "😂" }).success).toBe(false);
-  });
-
-  it("rejects extra fields and missing fields", () => {
-    expect(ReactionSchema.safeParse({ ref: 1, emoji: "😂", evil: true }).success).toBe(false);
-    expect(ReactionSchema.safeParse({ emoji: "😂" }).success).toBe(false);
-    expect(ReactionSchema.safeParse({ ref: 1 }).success).toBe(false);
   });
 });
 

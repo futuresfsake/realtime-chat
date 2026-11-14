@@ -16,10 +16,10 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Bans + no-rematch working with daily salt rotation (T-16, S-06)
 
 ## Encryption
-- [ ] No plaintext path from client to server (code review + integration spy test) (T-07, T-25)
-- [ ] Per-direction keys, counter IVs, seq + AAD checks unit-tested (T-10, T-11)
-- [ ] Padding to 64 bytes (T-12)
-- [ ] `/verify` safety codes match; MITM simulation differs (T-08)
+- [x] No plaintext path from client to server (code review + integration spy test) (T-07, T-25)
+- [x] Per-direction keys, counter IVs, seq + AAD checks unit-tested (T-10, T-11)
+- [x] Padding to 64 bytes (T-12)
+- [x] `/verify` safety codes match; MITM simulation differs (T-08)
 - [ ] No keys or plaintext in any log statement (grep in CI)
 
 ## Privacy (RA 10173 - Data Privacy Act)
@@ -74,7 +74,7 @@ All boxes must be checked before the link is shared publicly. Each line referenc
 - [ ] Outdated clients receive `system:refresh` notification before disconnect
 - [ ] Connection-rate limiting: max 5 new connections per IP per 10 seconds
 - [ ] Proof-of-work challenge required before first session (US-39)
-- [ ] Key exchange timeout: 10s, then session ends with CRYPTO_TIMEOUT (US-37)
+- [x] Key exchange timeout: 10s, then session ends with CRYPTO_TIMEOUT (US-37)
 
 ## Monitoring & observability (IT Manager review)
 - [ ] Structured JSON logging with correlation IDs, no PII (US-33)

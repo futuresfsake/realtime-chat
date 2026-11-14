@@ -3,6 +3,8 @@
 > **Promise:** only the two people in a chat can read their messages. Not other users, not the hosting provider, **not us**.
 > **Honest limit:** in a web app the server also delivers the code that does the encrypting. Section 7 explains what that means.
 
+> **Status: implemented in M4** (`public/js/crypto.js`, relay in `src/gateway/registerHandlers.ts`). Where the code differs from the text below: the file is a plain script exposing `E2EE` (no ES modules); the server enforces one key per side and refuses envelopes until both keys crossed; a 10 s key-exchange timeout ends the chat with `crypto_timeout`; the largest padded message is 2,176 bytes so every envelope fits in 3,000 characters; messages and reactions are numbered per direction by the sender, so a reaction points at `me:N` / `them:N` on the receiving screen. Not yet reviewed by an outside cryptographer.
+
 ## 1. TLS vs. E2EE
 | | TLS (HTTPS/WSS) | E2EE (this doc) |
 |---|---|---|
@@ -133,7 +135,7 @@ sequenceDiagram
 Every time the page loads, **our server sends `crypto.js`**. A malicious or compromised server could send a modified version that leaks keys. No web-only E2EE fully solves this (it's a known limitation of browser-based E2EE in general).
 
 **Mitigations:**
-- Strict **CSP**: only our own scripts run; no inline scripts except the hashed theme script; no third-party CDNs
+- Strict **CSP**: only our own scripts run; no inline scripts; no third-party CDNs
 - The Socket.IO client is served from our own server (no external CDN)
 - **Open source**: anyone can read `crypto.js`; releases publish SHA-256 hashes of `public/js/*`
 - Deploys only through reviewed PRs + green CI (no manual uploads)

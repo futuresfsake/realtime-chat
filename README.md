@@ -6,7 +6,31 @@ No accounts. No stored messages. Free to use, safe by design.
 > **Mission:** connect people across the world through safe, private, anonymous conversations, on a platform that stays **free**, runs **reliably** and **protects its users**.
 > 📚 Full documentation: [**docs/**](docs/README.md) · 🗺️ Plan: [**milestones**](docs/01-product/milestones.md)
 
-> ⚠️ **Status: M3 code complete (1:1 sessions), first deploy pending.** Today the app pairs you with **one stranger** at a time behind an 18+ gate, **without** end-to-end encryption yet. The encrypted, interest-matched product is being built milestone by milestone; next is **M4: end-to-end encryption**.
+> **This is a portfolio project.** I built it to show full-stack work: a TypeScript backend (Express, Socket.IO, zod), browser-side end-to-end encryption with WebCrypto, and a hand-designed interface. It is not a launched product and it is not run as a service for the public.
+
+> ⚠️ **Status: M4 code complete.** The app pairs you with **one stranger** at a time behind an 18+ gate, and messages are **end-to-end encrypted** in the browser. Matchmaking by interest, reporting, moderation and the legal review are still ahead, so it is not ready for public use. Next is **M5: matchmaking**.
+
+---
+
+## Screens
+
+| Gate | Ready | Searching |
+|---|---|---|
+| ![Age and rules gate](docs/assets/gate.png) | ![Idle screen](docs/assets/idle.png) | ![Searching screen](docs/assets/searching.png) |
+
+| Chat | Safety code | Phone width |
+|---|---|---|
+| ![Encrypted chat](docs/assets/chat.png) | ![Safety code dialog](docs/assets/safety-code.png) | ![Chat on a phone](docs/assets/chat-mobile.png) |
+
+_The screenshots show the real interface with a sample conversation: a chat needs two people, so the messages were staged for the picture._
+
+## Try it
+
+Run it locally: `npm ci && npm run dev`, then open `http://localhost:3000` in **two browser tabs** (a chat needs two people), accept the 18+ gate in each, and choose **Find a stranger** in both.
+
+- Both tabs show **End-to-end encrypted**; **Safety code** shows the same code in both.
+- In DevTools → Network → WS the frames carry only ciphertext (`e2e:envelope`), never your words.
+- Live demo: _none yet_. If one is added it runs on free hosting, so the first load can take up to a minute, and it has no moderation: do not share anything personal.
 
 ---
 
@@ -28,8 +52,8 @@ No accounts. No stored messages. Free to use, safe by design.
 - **M3, survives bad networks:** a dropped connection is held for 30 s and the chat carries on, missed messages included; after that the chat ends for both
 - **M3, nothing kept:** the chat exists only in your browser's memory and is wiped when it ends (the server keeps relayed messages in memory for about 100 s so a dropped client can catch up, never on disk)
 - Real-time messaging over Socket.IO
-- Terminal-style UI with 4 themes (`phosphor`, `amber`, `ice`, `paper`), saved per browser
-- Slash commands `/help` `/start` `/next` `/leave` `/react` `/clear` `/whoami` `/theme`, and ↑/↓ input history
+- Standard chat interface: conversation panel, message list with reactions, composer, and buttons for Find a stranger, Next, End chat and Safety code. Fonts are self-hosted (Instrument Sans, JetBrains Mono; both OFL)
+- Plain-language status for every state (connecting, searching, securing, chatting, offline); keyboard usable; works at 360 px
 - Connection status + auto-reconnect; `/health` endpoint; graceful shutdown
 - XSS-safe rendering (`textContent`)
 - **M2 hardening:** strict zod validation of every event; token-bucket rate limits (5-message burst); 4 KB payload cap; Origin allowlist; short-lived connection token; 5 sockets per IP; security headers + CSP with no inline scripts; 18+ and rules gate enforced by the server; structured JSON logs with no IPs or content; deep `/health`; protocol version `rc/v1`
@@ -68,7 +92,7 @@ realtime-chat/
 │   └── types/events.ts     # Event contracts, protocol + rules versions
 ├── public/                 # Frontend (static files)
 │   ├── index.html · styles.css · client.js · favicon.svg
-│   └── js/themes.js · js/sessionStore.js   # theme; in-memory chat history + reactions
+│   └── fonts/ · js/crypto.js · js/sessionStore.js   # self-hosted fonts; E2EE; in-memory chat history
 ├── tests/                  # unit/ and integration/ (real server on a random port)
 ├── docs/                   # Specs, design, security, operations, process, compliance → docs/README.md
 ├── .github/                # CI workflow, CODEOWNERS, Dependabot, PR + issue templates
@@ -122,7 +146,7 @@ Environment variables: [docs/06-operations/deployment.md](docs/06-operations/dep
 | M1 Walking skeleton | Two tabs chat; terminal UI + themes | — | ✅ |
 | **M2 Hardening + CI/CD + first deploy** | zod, rate limits, headers/CSP, Origin check, connection auth, structured logging, deep health check, protocol versioning, CI, Render CD | 4–5 d | 🚧 code complete; deploy pending |
 | **M3 1:1 anonymous sessions** | Random names, pairs of two, `/next` `/leave`, status, typing, reactions, edge case resilience | 4–5 d | 🚧 code complete; deploy pending |
-| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🔜 **next** |
+| M4 End-to-end encryption | ECDH + AES-GCM in the browser; `/verify` safety code; key exchange timeout | 4–5 d | 🚧 code complete; deploy pending |
 | M5 Matchmaking | Interests, my country / worldwide, fallback | 3 d | 🔜 |
 | M6 Trust & safety | 18+ gate, rules, `/report`, temp bans, content filters, PoW bot prevention, legal drafts | 4–5 d | 🔜 |
 | M7 Quality, monitoring & moderation | SLIs/SLOs, metrics, alerting, a11y, incident response, moderator tools, load test | 3–4 d | 🔜 |

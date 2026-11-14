@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { HandlerError, withHandler } from "../../../src/gateway/handler.js";
-import { ChatSendSchema } from "../../../src/validation/schemas.js";
+import { z } from "zod";
+
+// withHandler works with any schema; this one stands in for a real event.
+const ChatSendSchema = z.strictObject({ text: z.string().trim().min(1).max(500) });
 
 const allow = { consume: () => true, retryAfterMs: () => 0 };
 const deny = { consume: () => false, retryAfterMs: () => 1500 };

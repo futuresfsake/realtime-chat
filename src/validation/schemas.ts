@@ -1,21 +1,26 @@
 import { z } from "zod";
-import { ALLOWED_REACTIONS } from "../types/events.js";
 
 // Every client -> server payload has a strict schema: wrong types, missing
 // fields and unknown fields are all rejected.
 
-export const ChatSendSchema = z.strictObject({
-  text: z.string().trim().min(1).max(500),
-  // Optional: the server already knows your session. If you send one it must
-  // be yours, otherwise the message is refused (forged-id protection).
-  sessionId: z.uuid().optional(),
+// A public key for the key exchange: an uncompressed P-256 point is 65 bytes,
+// which is always exactly 87 base64url characters. Whether it is a real point
+// on the curve is checked by the partner's browser, not here.
+export const E2eKeySchema = z.strictObject({
+  publicKey: z.string().regex(/^[A-Za-z0-9_-]{87}$/),
 });
 
-// A reaction to one message of the current session. The server checks the
-// emoji but not that `ref` exists: it keeps no list of messages.
-export const ReactionSchema = z.strictObject({
-  ref: z.number().int().positive().max(1_000_000),
-  emoji: z.enum(ALLOWED_REACTIONS),
+// An encrypted message or reaction. The server checks the shape and the size
+// and nothing else: it cannot read `ct`. 107 characters is the smallest
+// possible envelope (one 64-byte block plus the 16-byte tag); 3,000 holds the
+// longest allowed message with room to spare.
+export const E2eEnvelopeSchema = z.strictObject({
+  seq: z.number().int().min(1).max(0xffffffff),
+  ct: z
+    .string()
+    .min(107)
+    .max(3000)
+    .regex(/^[A-Za-z0-9_-]+$/),
 });
 
 // "I started / stopped typing". Carries no text.
@@ -42,5 +47,4 @@ export const HandshakeAuthSchema = z.strictObject({
   offset: z.string().min(1).max(64).optional(),
 });
 
-export type ChatSend = z.infer<typeof ChatSendSchema>;
 export type HandshakeAuth = z.infer<typeof HandshakeAuthSchema>;

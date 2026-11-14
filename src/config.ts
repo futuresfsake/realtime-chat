@@ -52,7 +52,6 @@ export interface Config {
   logLevel: "error" | "warn" | "info" | "debug";
   maxSocketsPerIp: number;
   // Fixed limits (not configurable from the environment)
-  maxMessageLength: number;
   maxPayloadBytes: number;
   messageBurstCapacity: number;
   messageRefillPerSec: number;
@@ -64,6 +63,7 @@ export interface Config {
   reconnectGraceMs: number;
   onlineBroadcastMs: number;
   recoveryWindowMs: number;
+  keyExchangeTimeoutMs: number;
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -99,7 +99,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     maintenanceMode: parsed.MAINTENANCE_MODE,
     logLevel: parsed.LOG_LEVEL,
     maxSocketsPerIp: parsed.MAX_SOCKETS_PER_IP,
-    maxMessageLength: 500,
     maxPayloadBytes: 4096,
     messageBurstCapacity: 5,
     messageRefillPerSec: 0.5,
@@ -118,5 +117,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     // remembered, so this must cover the grace period PLUS the longest gap
     // between two events (one online broadcast), plus a little slack.
     recoveryWindowMs: RECONNECT_GRACE_MS + ONLINE_BROADCAST_MS + 5_000,
+    // Both public keys must be exchanged this soon after a match, or the chat
+    // is ended for both: nobody waits forever on a half-secured chat (US-37).
+    keyExchangeTimeoutMs: 10_000,
   };
 }

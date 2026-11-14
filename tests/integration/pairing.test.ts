@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { command, connect, next, pair, send, startServer } from "./helpers.js";
+import { command, connect, next, nextText, pair, send, startServer } from "./helpers.js";
 import type { TestServer } from "./helpers.js";
 
 let server: TestServer;
@@ -40,6 +40,8 @@ describe("1:1 pairing", () => {
     expect(infoA.myName).not.toBe(infoA.partnerName);
     expect(infoA.partnerName).toBe(infoB.myName);
     expect(infoB.partnerName).toBe(infoA.myName);
+    // One of each, so both sides put the two keys in the same order.
+    expect([infoA.role, infoB.role].sort()).toEqual(["initiator", "responder"]);
   });
 
   it("delivers A's message to B only, never to a waiting C", async () => {
@@ -48,11 +50,13 @@ describe("1:1 pairing", () => {
     const c = await connect(server);
     await command(c, "session:start");
 
-    const toB = next<Record<string, any>>(b, "chat:message");
-    const cHears = arrivesWithin(c, "chat:message");
-    expect(await send(a, { text: "psst" })).toEqual({ ok: true });
-    expect((await toB).text).toBe("psst");
+    const toB = nextText(b);
+    const cHears = arrivesWithin(c, "e2e:envelope");
+    const echoed = arrivesWithin(a, "e2e:envelope");
+    expect(await send(a, "psst")).toEqual({ ok: true });
+    expect(await toB).toBe("psst");
     expect(await cHears).toBe(false);
+    expect(await echoed).toBe(false); // nor back to A: an envelope has exactly one destination
   });
 
   it("leaves C searching, not paired with A or B", async () => {
@@ -76,12 +80,12 @@ describe("1:1 pairing", () => {
     expect(await matched).toBeDefined();
   });
 
-  it("refuses chat:send with NOT_IN_SESSION before being paired", async () => {
+  it("refuses an envelope with NOT_IN_SESSION before being paired", async () => {
     server = await startServer();
     const a = await connect(server);
-    expect(await send(a, { text: "hello?" })).toEqual({ ok: false, error: { code: "NOT_IN_SESSION" } });
+    expect(await send(a, "hello?")).toEqual({ ok: false, error: { code: "NOT_IN_SESSION" } });
     await command(a, "session:start");
-    expect(await send(a, { text: "still waiting" })).toEqual({ ok: false, error: { code: "NOT_IN_SESSION" } });
+    expect(await send(a, "still waiting")).toEqual({ ok: false, error: { code: "NOT_IN_SESSION" } });
   });
 
   it("refuses /start while searching or chatting with INVALID_STATE", async () => {

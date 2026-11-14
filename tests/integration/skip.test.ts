@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { command, connect, next, pair, send, startServer } from "./helpers.js";
-import type { TestServer } from "./helpers.js";
+import { command, connect, exchangeKeys, next, nextText, pair, send, startServer } from "./helpers.js";
+import type { Matched, TestServer } from "./helpers.js";
 
 let server: TestServer;
 afterEach(async () => {
@@ -33,7 +33,7 @@ describe("/next", () => {
     expect((await endedForA).reason).toBe("skipped");
 
     // B is no longer in a chat, A is searching (so /start is refused).
-    expect(await send(b, { text: "hi" })).toEqual({ ok: false, error: { code: "NOT_IN_SESSION" } });
+    expect(await send(b, "hi")).toEqual({ ok: false, error: { code: "NOT_IN_SESSION" } });
     expect(await command(a, "session:start")).toEqual({ ok: false, error: { code: "INVALID_STATE" } });
   });
 
@@ -43,8 +43,8 @@ describe("/next", () => {
     const c = await connect(server);
     await command(c, "session:start");
 
-    const matchedA = next<Record<string, string>>(a, "session:matched");
-    const matchedC = next<Record<string, string>>(c, "session:matched");
+    const matchedA = next<Matched>(a, "session:matched");
+    const matchedC = next<Matched>(c, "session:matched");
     await command(a, "session:next");
     const [infoA, infoC] = await Promise.all([matchedA, matchedC]);
 
@@ -52,9 +52,12 @@ describe("/next", () => {
     expect(infoA.sessionId).not.toBe(sessionId);
     expect(infoA.partnerName).toBe(infoC.myName);
 
-    // The old partner hears nothing from the new chat.
-    const bHears = arrivesWithin(b, "chat:message");
-    await send(a, { text: "new chat" });
+    // A new chat means new keys. The old partner hears nothing from it.
+    await exchangeKeys(a, c, infoA, infoC);
+    const bHears = arrivesWithin(b, "e2e:envelope");
+    const toC = nextText(c);
+    expect(await send(a, "new chat")).toEqual({ ok: true });
+    expect(await toC).toBe("new chat");
     expect(await bHears).toBe(false);
   });
 

@@ -120,22 +120,53 @@ describe("SessionManager", () => {
     });
   });
 
-  describe("nextSeq", () => {
-    it("counts 1, 2, 3 per session and starts again at 1 in a new session", () => {
+  describe("key exchange", () => {
+    it("is complete only after both sides sent a key", () => {
       const { sm, s } = paired();
-      expect(sm.nextSeq("a")).toBe(1);
-      expect(sm.nextSeq("b")).toBe(2);
-      expect(sm.nextSeq("a")).toBe(3);
+      expect(sm.isSecured("a")).toBe(false);
+      expect(sm.recordKey("a")).toEqual({ ok: true, sessionId: s.id, partner: "b", complete: false });
+      expect(sm.isSecured("a")).toBe(false);
+      expect(sm.recordKey("b")).toEqual({ ok: true, sessionId: s.id, partner: "a", complete: true });
+      expect(sm.isSecured("a")).toBe(true);
+      expect(sm.isSecured("b")).toBe(true);
+    });
+    it("accepts one key per side: a second one is refused and does not complete the exchange", () => {
+      const { sm } = paired();
+      sm.recordKey("a");
+      expect(sm.recordKey("a")).toEqual({ ok: false, code: "INVALID_STATE" });
+      expect(sm.isSecured("a")).toBe(false);
+    });
+    it("refuses a key outside a session", () => {
+      const sm = setup();
+      expect(sm.recordKey("c")).toEqual({ ok: false, code: "NOT_IN_SESSION" });
+      expect(sm.recordKey("zzz")).toEqual({ ok: false, code: "NOT_IN_SESSION" });
+      expect(sm.isSecured("c")).toBe(false);
+    });
+    it("starts clean in a new session between the same two clients", () => {
+      const { sm, s } = paired();
+      sm.recordKey("a");
+      sm.recordKey("b");
       sm.endSession(s.id);
       sm.startSearching("a");
       sm.startSearching("b");
       sm.createSession("a", "b");
-      expect(sm.nextSeq("b")).toBe(1);
+      expect(sm.isSecured("a")).toBe(false);
+      expect(sm.recordKey("a").ok).toBe(true);
     });
-    it("is null outside a session", () => {
-      const sm = setup();
-      expect(sm.nextSeq("a")).toBeNull();
-      expect(sm.nextSeq("zzz")).toBeNull();
+    it("endIfNotSecured ends a half-keyed session, and leaves a secured or finished one alone", () => {
+      const { sm, s } = paired();
+      sm.recordKey("a");
+      expect(sm.endIfNotSecured(s.id)?.id).toBe(s.id);
+      expect(sm.getClientState("a")).toBe("ENDED");
+      expect(sm.endIfNotSecured(s.id)).toBeNull(); // already over
+
+      sm.startSearching("a");
+      sm.startSearching("b");
+      const second = sm.createSession("a", "b");
+      sm.recordKey("a");
+      sm.recordKey("b");
+      expect(sm.endIfNotSecured(second.id)).toBeNull();
+      expect(sm.getClientState("a")).toBe("CHATTING");
     });
   });
 
